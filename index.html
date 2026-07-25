@@ -1,58 +1,2909 @@
-# F&B Design Studio — Tahap 1 (Kerangka Next.js)
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>F&B Design Studio</title>
+<link rel="icon" href="data:,">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 
-Ini kerangka dasar hasil Tahap 1 migrasi dari Gemini Canvas ke Next.js/Vercel.
-**Belum berisi tab Brand/Menu/Promo/Konten 30 Hari/9 Feed** — itu akan
-dipindahkan di Tahap 2-6.
+<!-- Import map: memetakan "firebase/app", "firebase/auth", "firebase/firestore"
+     ke CDN Firebase asli, supaya kode di bawah bisa pakai "import {...} from
+     'firebase/app'" persis seperti versi Node.js biasa, tanpa perlu npm/build. -->
+<script type="importmap">
+{
+  "imports": {
+    "firebase/app": "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js"
+  }
+}
+</script>
 
-## Yang sudah ada di Tahap 1 ini
+<style>
+  html, body, #root { height: 100%; margin: 0; padding: 0; background: #08080a; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="module">
 
-- ✅ Login (Email/Password + Google Sign-In)
-- ✅ 2 halaman pendaftaran terpisah: `/daftar/single` dan `/daftar/reseller`
-  (dipetakan ke 2 produk berbeda di Scalev)
-- ✅ Sistem "plan" (single/reseller/reseller_client) tersimpan di profil pengguna
-- ✅ Panel Admin Reseller (`/reseller`) — link undangan, daftar klien, white-label
-- ✅ Halaman terima undangan klien reseller (`/undangan/{resellerId}`)
-- ✅ Aturan keamanan Firestore (`firestore.rules`) — isolasi data antar pengguna
+import { initializeApp } from 'firebase/app';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { getFirestore, doc, onSnapshot, setDoc, getDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore';
+const { useState, useEffect, useRef, createContext, useContext, memo, forwardRef, useImperativeHandle } = React;
 
-## Cara menjalankan di komputer Anda (development)
+// ============================================================
+// FIREBASE — versi mandiri (Vercel), BUKAN lagi Canvas
+//
+// GANTI 6 NILAI DI BAWAH INI dengan config Firebase project Anda
+// sendiri (Firebase Console > Project Settings > General > Your
+// apps > SDK setup and configuration). Nilai-nilai ini AMAN untuk
+// ditulis langsung di sini (bukan rahasia) — keamanan data
+// sebenarnya dijaga oleh Firestore Security Rules, bukan dengan
+// menyembunyikan config ini.
+// ============================================================
+const firebaseConfig = {
+  apiKey: "GANTI_DENGAN_API_KEY_ANDA",
+  authDomain: "GANTI_DENGAN_AUTH_DOMAIN_ANDA",
+  projectId: "GANTI_DENGAN_PROJECT_ID_ANDA",
+  storageBucket: "GANTI_DENGAN_STORAGE_BUCKET_ANDA",
+  messagingSenderId: "GANTI_DENGAN_SENDER_ID_ANDA",
+  appId: "GANTI_DENGAN_APP_ID_ANDA"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = 'fnb-design-studio'; // bebas diisi apa saja, dipakai untuk struktur path Firestore
 
-1. Install dependencies:
-   ```
-   npm install
-   ```
-2. Buat project Firebase baru di https://console.firebase.google.com (kalau
-   belum punya) — aktifkan **Authentication** (Email/Password + Google) dan
-   **Firestore Database**.
-3. Salin `.env.local.example` jadi `.env.local`, isi dengan config Firebase
-   Anda (Project Settings > General > Your apps).
-4. Terapkan aturan keamanan: buka Firebase Console > Firestore > Rules,
-   salin isi `firestore.rules` ke sana, klik Publish.
-5. Jalankan:
-   ```
-   npm run dev
-   ```
-   Buka `http://localhost:3000`.
+// Struktur dokumen data bisnis TETAP SAMA seperti sebelumnya:
+// artifacts/{appId}/users/{uid}/appData/state berisi { brand, menu,
+// contentPlan }. Bedanya, sekarang {uid} berasal dari akun yang
+// BENAR-BENAR login (Email/Password atau Google), bukan token
+// otomatis dari Canvas — jadi setiap pengguna punya data sendiri
+// yang privat, dan nyambung di perangkat manapun mereka login.
 
-## Cara deploy ke Vercel
+const defaultAppData = {
+  brand: {
+    name: 'Brand Saya',
+    tagline: '',
+    description: '',
+    primaryColor: '#ff0000',
+    secondaryColor: '#000000',
+    accentColor: '#ffcc00',
+    fontHeading: 'Playfair Display',
+    fontBody: 'Inter',
+    logoUrl: '',
+    logoPosition: 'bottom-right'
+  },
+  menu: [],
+  contentPlan: []
+};
+const fontOptions = [{
+  heading: 'Playfair Display',
+  body: 'Inter'
+}, {
+  heading: 'Montserrat',
+  body: 'Plus Jakarta Sans'
+}, {
+  heading: 'Syne',
+  body: 'Roboto'
+}, {
+  heading: 'Cinzel',
+  body: 'Lora'
+}, {
+  heading: 'Fredoka',
+  body: 'Quicksand'
+}, {
+  heading: 'Merriweather',
+  body: 'Nunito'
+}];
+const loadGoogleFonts = () => {
+  const fonts = ['Playfair+Display', 'Inter', 'Montserrat', 'Plus+Jakarta+Sans', 'Syne', 'Roboto', 'Cinzel', 'Lora', 'Fredoka', 'Quicksand', 'Merriweather', 'Nunito', 'Space+Grotesk', 'JetBrains+Mono'];
+  const link = document.createElement('link');
+  link.href = `https://fonts.googleapis.com/css2?family=${fonts.join(':wght@400;700&family=')}&display=swap`;
+  link.rel = 'stylesheet';
+  document.head.appendChild(link);
+};
+const BrandContext = createContext(defaultAppData.brand);
+const hudStyles = `
+  @keyframes hudScan { 0% { transform: translateY(-100%); opacity: 0; } 15% { opacity: 0.1; } 85% { opacity: 0.1; } 100% { transform: translateY(2000%); opacity: 0; } }
+  @keyframes hudPulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+  .hud-panel { position: relative; overflow: hidden; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
+  .hud-panel:hover { border-color: #2a2a36; }
+  .hud-corner { position: absolute; width: 14px; height: 14px; border-color: #4A0C16; transition: border-color 0.4s ease, box-shadow 0.4s ease; pointer-events: none; z-index: 2; }
+  .hud-panel:hover .hud-corner { border-color: #E8102B; box-shadow: 0 0 10px rgba(232,16,43,0.5); }
+  .hud-corner-br { animation: hudPulse 2.6s ease-in-out infinite; }
+  .hud-scanline { position: absolute; left: 0; width: 100%; height: 1px; background: linear-gradient(90deg, transparent, #E8102B, transparent); animation: hudScan 5s linear infinite; pointer-events: none; z-index: 1; opacity: 0; }
+  .hud-panel:hover .hud-scanline { opacity: 0.8; }
+  .nav-underline { transition: transform 0.25s ease; }
+`;
 
-1. Push folder ini ke repository GitHub Anda.
-2. Buka https://vercel.com, klik "Add New Project", pilih repo tadi.
-3. Di pengaturan project Vercel, masuk ke **Settings > Environment Variables**,
-   masukkan semua variabel yang ada di `.env.local.example` (dengan nilai asli
-   Anda) — INI PENTING, jangan sampai terlewat, aplikasi tidak akan jalan
-   tanpa ini.
-4. Klik Deploy.
+// Batas aman panjang teks untuk dimasukkan ke URL ChatGPT. Kalau
+// prompt lebih panjang dari ini, browser/server ChatGPT bisa menolak
+// (error 431 "Request Header Fields Too Large"). Solusinya: salin ke
+// clipboard dan buka ChatGPT kosong, minta pengguna tempel manual —
+// daripada gagal total seperti membuka halaman error.
+// Batas aman PANJANG URL SETELAH DI-ENCODE (bukan panjang teks mentah)
+// — diukur dari prompt normal tab Promo (~2700 karakter encoded, itu
+// aman/normal), dikasih ruang lebih supaya tidak salah tangkap prompt
+// wajar sebagai "kepanjangan". Kalau memang melebihi ini, teks dipotong
+// otomatis (bukan clipboard/alert — itu sering diblokir di sandbox
+// Canvas) supaya tetap ada yang otomatis terisi, walau ujungnya terpotong.
+const MAX_ENCODED_URL_LENGTH = 4500;
+const openChatGPTWithPrompt = fullPrompt => {
+  let text = fullPrompt;
+  let encoded = encodeURIComponent(text);
+  while (encoded.length > MAX_ENCODED_URL_LENGTH && text.length > 200) {
+    text = text.slice(0, text.length - 200);
+    encoded = encodeURIComponent(text);
+  }
+  const url = `https://chatgpt.com/?q=${encoded}`;
+  window.open(url, '_blank');
+  return url; // dikembalikan supaya pemanggil bisa tampilkan link cadangan manual
+};
 
-## Menyambungkan ke Scalev
+// GENERATE AI — diarahkan ke ChatGPT (gratis, tanpa API key, tanpa billing).
+// Membuka tab baru dengan prompt otomatis terisi; pengguna generate pakai
+// akun ChatGPT gratis mereka sendiri, lalu upload manual hasilnya.
+const openChatGPTGenerate = promptText => {
+  const fullPrompt = `Buatkan gambar: ${promptText}, high quality, appetizing food photography atmosphere`;
+  return openChatGPTWithPrompt(fullPrompt);
+};
 
-Di Scalev, untuk tiap produk yang dijual, atur "link pengiriman otomatis"-nya:
+// Sama seperti di atas, tapi TANPA balutan "buatkan gambar" — untuk
+// permintaan teks biasa (misal rencana konten 30 hari), atau saat
+// prompt yang dikirim sudah lengkap apa adanya (tidak perlu dibungkus lagi).
+const openChatGPTText = promptText => {
+  return openChatGPTWithPrompt(promptText);
+};
 
-- Produk **Paket Single** → `https://[domain-anda].vercel.app/daftar/single`
-- Produk **Paket Reseller** → `https://[domain-anda].vercel.app/daftar/reseller`
+// Kaidah desain grafis default untuk iklan FB/IG — otomatis disertakan
+// di prompt, tapi tetap teks biasa yang bisa dihapus/diedit pengguna.
+const DESIGN_GUIDELINE_PROMPT = "gunakan kaidah desain grafis yang kontras dan kuat dan membuat orang berhenti scroll dan membaca hingga tuntas. image akan digunakan sebagai materi iklan di FB dan IG. buat susunan warna mencolok kontras dengan timeline facebook dan Instagram, namun tetap mempertahankan kaidah psikologi warna dan teori warna serasi dan kaidah kekuatan desain grafis, dan color pallete. pastikan margin aman 10%-15%";
 
-## Selanjutnya (Tahap 2-6)
+// 4 lapis boilerplate otomatis supaya prompt sekaya hasil riset manual —
+// tanpa pengguna perlu isi kolom tambahan apapun. Dibangun dari data
+// brand yang sudah ada (warna & font), plus arahan generik food photography
+// yang berlaku untuk hampir semua produk F&B.
+const buildEnrichedPromptExtras = brand => {
+  const visualEffects = "Tambahkan efek visual profesional yang sesuai dengan jenis produknya (misalnya uap hangat untuk makanan/minuman panas, embun/es untuk minuman dingin, tekstur renyah/lembut/creamy sesuai karakter produk), shadow lembut di bawah produk supaya terlihat menonjol dari background, background sedikit blur (depth of field) agar fokus tetap ke produk, kilau/highlight halus di permukaan produk untuk kesan segar.";
+  const layoutComposition = "Komposisi area: 55-65% area untuk foto close-up produk sebagai fokus utama, 15-20% area untuk badge promo/diskon (kalau relevan), 10-15% area untuk headline besar di bagian atas, sisanya untuk ruang logo dan CTA di bagian bawah.";
+  const colorPalette = `Palet warna: ${brand.primaryColor} untuk menarik perhatian dan memberi kesan mendesak, ${brand.secondaryColor} untuk kontras kuat, ${brand.accentColor} untuk menonjolkan elemen promo/CTA, ditambah putih untuk menjaga keterbacaan teks.`;
+  const typography = `Tipografi: headline pakai gaya font tebal dan besar bergaya "${brand.fontHeading}" (memenuhi sekitar 25-30% area atas), teks isi pakai gaya font bersih dan mudah dibaca bergaya "${brand.fontBody}", CTA pakai font ekstra tebal dengan warna kontras.`;
+  return `${visualEffects} ${layoutComposition} ${colorPalette} ${typography}`;
+};
 
-Tab-tab fitur (Brand, Menu, Promo, Konten 30 Hari, 9 Feed Konsisten) akan
-dipindahkan satu per satu dari kode Canvas, disambungkan ke struktur
-Firestore yang sama (`artifacts/{appId}/users/{uid}/appData/state`) supaya
-logikanya tetap konsisten dan teruji.
+// Deskripsi format/rasio yang otomatis disisipkan ke prompt sesuai
+// tombol format yang dipilih pengguna (Feed/Story/YouTube/GoFood).
+const FORMAT_DESCRIPTIONS = {
+  feed: "format persegi (1:1) untuk feed Instagram/Facebook",
+  story: "format vertikal (9:16) untuk Instagram/Facebook Story",
+  youtube: "format landscape (16:9) untuk thumbnail YouTube",
+  gofood: "format landscape untuk banner GoFood/GrabFood"
+};
+
+// Posisi logo & tagline — dipilih sekali di tab Brand, berlaku
+// konsisten untuk semua promo. Dipakai untuk instruksi prompt AI
+// (sisakan ruang kosong) DAN untuk posisi gambar logo/tagline
+// yang ditempel kanvas kami di atas hasil AI.
+const LOGO_POSITIONS = {
+  'top-left': {
+    label: 'Kiri Atas',
+    promptPhrase: 'pojok kiri-atas'
+  },
+  'top-right': {
+    label: 'Kanan Atas',
+    promptPhrase: 'pojok kanan-atas'
+  },
+  'bottom-left': {
+    label: 'Kiri Bawah',
+    promptPhrase: 'pojok kiri-bawah'
+  },
+  'bottom-right': {
+    label: 'Kanan Bawah',
+    promptPhrase: 'pojok kanan-bawah'
+  }
+};
+
+// 4 pilihan gaya desain untuk halaman menu — mempengaruhi prompt
+// background AI (suasana/tekstur/mood), sementara grid menu tetap
+// digambar presisi oleh kanvas kita sendiri (warna & font brand).
+const MENU_STYLE_PRESETS = {
+  modern: {
+    label: 'Modern Minimalis',
+    layoutType: 'grid',
+    cardRadius: 12,
+    pageBg: '#141414',
+    cardBg: '#FFFFFF',
+    textMain: '#1A1A1A',
+    textSub: '#777777',
+    dividerColor: '#333333',
+    promptHint: 'gaya modern minimalis, banyak ruang kosong (negative space), warna monokrom lembut dengan satu warna aksen, tekstur halus flat, pencahayaan bersih dan terang'
+  },
+  classic: {
+    label: 'Klasik & Elegan',
+    layoutType: 'list',
+    pageBg: '#1C1712',
+    textMain: '#F3E6C9',
+    textSub: '#C7B08A',
+    dividerColor: '#C9A227',
+    promptHint: 'gaya klasik elegan bernuansa vintage, ornamen garis halus, warna hangat gelap seperti coklat tua dan emas, pencahayaan dramatis lembut, kesan mewah restoran kelas atas'
+  },
+  playful: {
+    label: 'Playful & Ceria',
+    layoutType: 'grid',
+    cardRadius: 28,
+    pageBg: '#3D2B6B',
+    cardBg: '#FFF3E2',
+    textMain: '#3D2B6B',
+    textSub: '#A6895C',
+    dividerColor: '#FF8FB1',
+    promptHint: 'gaya playful ceria, warna-warni cerah, bentuk membulat lembut, kesan fun dan energik, pencahayaan terang merata'
+  },
+  rustic: {
+    label: 'Rustic & Hangat',
+    layoutType: 'list',
+    pageBg: '#EFE1C6',
+    textMain: '#3B2A1A',
+    textSub: '#7A5C3E',
+    dividerColor: '#8B5E34',
+    promptHint: 'gaya rustic hangat, tekstur kayu atau kertas kraft, warna earthy tone seperti coklat tanah dan krem, pencahayaan hangat keemasan, kesan homey'
+  }
+};
+
+// ============================================================
+// KONTEN 30 HARI — pilihan tema, pembangun prompt permintaan
+// rencana 30 hari (teks biasa ke ChatGPT), dan parser hasil paste
+// balik dari ChatGPT (dipecah pakai "###", field dibaca via label).
+// ============================================================
+const CONTENT_THEMES = ['Promo & Diskon', 'Balik Layar (BTS) Dapur', 'Testimoni Pelanggan', 'Tips & Edukasi', 'Produk Spotlight', 'Interaksi & Kuis', 'Momen Musiman/Hari Besar'];
+
+// ============================================================
+// 9 FEED KONSISTEN — khusus Instagram, format 1:1. 9 peran tetap
+// dalam 1 campaign, tiap peran dibangun jadi 1 prompt sendiri
+// (bukan lewat parsing teks ChatGPT seperti Konten 30 Hari, karena
+// perannya sudah pasti/tetap, jadi bisa dibangun langsung di kode).
+// ============================================================
+const FEED_ROLES = [{
+  id: 1,
+  label: 'Hero',
+  hint: 'foto utama produk paling menarik perhatian, close-up estetik, jadi pembuka campaign'
+}, {
+  id: 2,
+  label: 'Fitur 1',
+  hint: 'menonjolkan salah satu keunggulan/fitur produk, sudut pandang pertama'
+}, {
+  id: 3,
+  label: 'Fitur 2',
+  hint: 'menonjolkan keunggulan/fitur produk, sudut pandang kedua, beda angle dari Fitur 1'
+}, {
+  id: 4,
+  label: 'Harga',
+  hint: 'menampilkan info harga dengan jelas, gaya bersih dan rapi'
+}, {
+  id: 5,
+  label: 'Promo',
+  hint: 'menampilkan promo/diskon dengan gaya lebih mencolok dan mendesak'
+}, {
+  id: 6,
+  label: 'Testimoni 1',
+  hint: 'menampilkan kutipan testimoni pelanggan, gaya quote card'
+}, {
+  id: 7,
+  label: 'Testimoni 2',
+  hint: 'menampilkan kutipan testimoni pelanggan lain, gaya visual berbeda dari Testimoni 1'
+}, {
+  id: 8,
+  label: 'CTA 1',
+  hint: 'ajakan order/beli, tombol CTA menonjol'
+}, {
+  id: 9,
+  label: 'CTA 2',
+  hint: 'ajakan order penutup campaign, gaya berbeda dari CTA 1, kesan closing/urgency'
+}];
+const buildFeedSlotPrompt = (brand, brief, role) => {
+  const brandHint = `nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}, font bergaya "${brand.fontHeading}"`;
+  let contentHint = '';
+  if (role.label.startsWith('Fitur') && brief.fitur) contentHint = `, tonjolkan keunggulan: ${brief.fitur}`;
+  if (role.label === 'Harga' && brief.hargaPromo) contentHint = `, sertakan teks harga dengan jelas: "${brief.hargaPromo}"`;
+  if (role.label === 'Promo' && brief.hargaPromo) contentHint = `, sertakan teks promo/diskon mencolok: "${brief.hargaPromo}"`;
+  if (role.label.startsWith('Testimoni') && brief.testimoni) contentHint = `, sertakan kutipan testimoni di gambar: "${brief.testimoni}"`;
+  if (role.label.startsWith('CTA') && brief.cta) contentHint = `, sertakan teks CTA di gambar: "${brief.cta}"`;
+  return `Foto promosi Instagram untuk produk: ${brief.productName || 'produk ini'}, ${role.hint}${contentHint}, ${brandHint}, format persegi (1:1) untuk feed Instagram, high quality`;
+};
+const buildContentPlanPrompt = (brand, themes) => {
+  const themeList = themes.length > 0 ? themes.join(', ') : 'bebas sesuai kreativitas, variatif';
+  return `Buatkan rencana konten media sosial untuk 30 hari, untuk brand F&B bernama "${brand.name}"${brand.tagline ? ' (' + brand.tagline + ')' : ''}. Tema yang diinginkan: ${themeList}. Variasikan tema-tema itu secara merata dan tidak monoton sepanjang 30 hari.
+
+Penting soal variasi teks di gambar — supaya tidak monoton, campurkan dua gaya berikut secara bergantian:
+- Untuk tema seperti Tips & Edukasi, Testimoni Pelanggan, atau Interaksi & Kuis: sertakan instruksi teks yang jelas di "Prompt Gambar" (misal kutipan testimoni, pertanyaan kuis, atau poin tips).
+- Untuk tema seperti Produk Spotlight, Balik Layar (BTS), atau Momen Musiman: buat "Prompt Gambar" berupa foto bersih tanpa teks tambahan, murni visual produk/suasana.
+
+Untuk SETIAP hari, tulis PERSIS dengan format berikut (jangan ubah label atau urutannya):
+
+HARI [nomor]
+Tema: [nama tema hari ini]
+Konsep: [konsep singkat 1 kalimat]
+Ide Konten: [penjelasan ide, 1-2 kalimat]
+Konsep Foto/Desain: [deskripsi visual singkat]
+Prompt Gambar: [prompt siap pakai untuk generate gambar AI, deskriptif, dalam Bahasa Indonesia]
+###
+
+Ulangi format persis ini untuk seluruh 30 hari, tiap hari diakhiri tanda "###".`;
+};
+const parseContentPlan = text => {
+  // Pecah berdasarkan pola "HARI <angka>" itu SENDIRI (bukan tanda
+  // "###") — karena AI kadang lupa menambahkan "###" di tiap hari,
+  // tapi hampir selalu tetap menulis "HARI 1", "HARI 2", dst sebagai
+  // bagian dari kontennya. Jauh lebih tahan terhadap format yang
+  // sedikit meleset dari instruksi.
+  const blocks = text.split(/(?=HARI\s+\d+\s*\n)/i).map(b => b.trim()).filter(Boolean);
+  const days = [];
+  blocks.forEach(block => {
+    if (!/^HARI\s+\d+/i.test(block)) return; // lewati bagian sebelum HARI 1 (instruksi awal yang ikut ter-paste)
+    const temaMatch = block.match(/Tema:\s*(.+)/i);
+    const konsepMatch = block.match(/Konsep:\s*(.+)/i);
+    const ideMatch = block.match(/Ide Konten:\s*(.+)/i);
+    const fotoMatch = block.match(/Konsep Foto\s*\/?\s*Desain:\s*(.+)/i);
+    // Prompt Gambar berhenti SEBELUM "HARI <angka>" berikutnya muncul
+    // lagi — jaring pengaman supaya tidak "menelan" isi hari-hari
+    // sesudahnya kalau kebetulan masih tergabung dalam 1 blok.
+    const promptMatch = block.match(/Prompt Gambar:\s*([\s\S]+?)(?=\n\s*HARI\s+\d+|$)/i);
+    days.push({
+      day: days.length + 1,
+      // selalu urut sesuai posisi asli, bukan angka yang ditulis ChatGPT — supaya tidak pernah dobel
+      tema: temaMatch ? temaMatch[1].trim() : '',
+      konsep: konsepMatch ? konsepMatch[1].trim() : '',
+      ide: ideMatch ? ideMatch[1].trim() : '',
+      konsepFoto: fotoMatch ? fotoMatch[1].trim() : '',
+      promptGambar: promptMatch ? promptMatch[1].trim() : ''
+    });
+  });
+  return days;
+};
+
+// Kata kunci yang menandakan konten menyinggung tempat/orang ASLI
+// (bukan cuma foto produk) — kalau salah satu ketemu di Tema/Konsep
+// Foto hari itu, munculkan pengingat untuk lampirkan foto asli ke
+// ChatGPT, supaya AI tidak mengarang tempat/orang sendiri.
+const REAL_PLACE_KEYWORDS = ['dapur', 'karyawan', 'koki', 'chef', 'staff', 'pegawai', 'interior', 'tampak depan', 'suasana toko', 'outlet', 'kasir', 'pelayan', 'barista', 'seragam', 'tim'];
+const needsRealPhotoReminder = day => {
+  if (!day) return false;
+  const text = `${day.tema} ${day.konsepFoto}`.toLowerCase();
+  return REAL_PLACE_KEYWORDS.some(kw => text.includes(kw));
+};
+
+// Pilihan rasio untuk hasil akhir (kanvas + download) — tidak
+// mempengaruhi prompt generate ke ChatGPT sama sekali.
+const CONTENT_RATIOS = {
+  '1:1': {
+    label: 'Persegi (1:1)',
+    w: 1080,
+    h: 1080
+  },
+  '9:16': {
+    label: 'Vertikal (9:16)',
+    w: 1080,
+    h: 1920
+  }
+};
+const getTextLayout = (canvasHeight, areaTop, lineWeights) => {
+  const bottomMargin = canvasHeight * 0.06;
+  const topPadding = canvasHeight * 0.05;
+  const areaHeight = canvasHeight - areaTop;
+  const usableHeight = areaHeight - bottomMargin - topPadding;
+  const totalWeight = lineWeights.reduce((a, b) => a + b, 0);
+  const unitHeight = usableHeight / totalWeight;
+  let cursorTop = areaTop + topPadding;
+  const positions = [];
+  for (let i = 0; i < lineWeights.length; i++) {
+    const rowHeight = unitHeight * lineWeights[i];
+    const fontSize = Math.max(14, rowHeight * 0.5);
+    const baselineY = cursorTop + fontSize * 0.85;
+    positions.push({
+      y: baselineY,
+      fontSize
+    });
+    cursorTop += rowHeight;
+  }
+  return positions;
+};
+const drawWrappedText = (ctx, text, x, y, maxWidth, lineHeight, fontSize, font) => {
+  ctx.font = `${fontSize}px "${font}"`;
+  const paragraphs = text.split('\n');
+  let currentY = y;
+  for (const paragraph of paragraphs) {
+    const words = paragraph.split(' ');
+    let line = '';
+    if (words.length === 1 && words[0] === '') {
+      currentY += lineHeight;
+      continue;
+    }
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + ' ';
+      if (ctx.measureText(testLine).width > maxWidth && n > 0) {
+        ctx.fillText(line, x, currentY);
+        line = words[n] + ' ';
+        currentY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    ctx.fillText(line, x, currentY);
+    currentY += lineHeight;
+  }
+  return currentY;
+};
+const getSmartCropCenter = img => {
+  const sampleSize = 40;
+  const c = document.createElement('canvas');
+  c.width = sampleSize;
+  c.height = sampleSize * (img.height / img.width);
+  const ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  let imgData;
+  try {
+    imgData = ctx.getImageData(0, 0, c.width, c.height).data;
+  } catch (e) {
+    return {
+      x: 0.5,
+      y: 0.5
+    };
+  }
+  const w = c.width,
+    h = c.height;
+  const gray = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    const r = imgData[i * 4],
+      g = imgData[i * 4 + 1],
+      b = imgData[i * 4 + 2];
+    gray[i] = 0.299 * r + 0.587 * g + 0.114 * b;
+  }
+  let totalWeight = 0,
+    sumX = 0,
+    sumY = 0;
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const idx = y * w + x;
+      const gx = gray[idx + 1] - gray[idx - 1];
+      const gy = gray[idx + w] - gray[idx - w];
+      const edge = Math.sqrt(gx * gx + gy * gy);
+      sumX += x * edge;
+      sumY += y * edge;
+      totalWeight += edge;
+    }
+  }
+  if (totalWeight < 1) return {
+    x: 0.5,
+    y: 0.5
+  };
+  return {
+    x: sumX / totalWeight / w,
+    y: sumY / totalWeight / h
+  };
+};
+const drawCoverImage = (ctx, img, x, y, w, h, focusPoint = {
+  x: 0.5,
+  y: 0.5
+}) => {
+  const imgRatio = img.width / img.height;
+  const targetRatio = w / h;
+  let sWidth, sHeight, sx, sy;
+  if (imgRatio > targetRatio) {
+    sWidth = img.height * targetRatio;
+    sHeight = img.height;
+    sx = (img.width - sWidth) * focusPoint.x;
+    sy = 0;
+  } else {
+    sWidth = img.width;
+    sHeight = img.width / targetRatio;
+    sx = 0;
+    sy = (img.height - sHeight) * focusPoint.y;
+  }
+  sx = Math.max(0, Math.min(sx, img.width - sWidth));
+  sy = Math.max(0, Math.min(sy, img.height - sHeight));
+  ctx.drawImage(img, sx, sy, sWidth, sHeight, x, y, w, h);
+};
+
+// Menggambar foto UTUH tanpa crop sama sekali — cuma diskalakan supaya
+// muat di dalam batas maksimal lebar & tinggi (rasio asli tetap terjaga).
+// Kalau bentuknya beda dari kotaknya, boleh menyisakan ruang kosong di
+// samping — tapi tidak akan pernah memotong bagian foto.
+const computeContainSize = (img, maxW, maxH) => {
+  const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+  return {
+    w: img.width * scale,
+    h: img.height * scale
+  };
+};
+const drawContainImage = (ctx, img, x, y, maxW, maxH) => {
+  const {
+    w,
+    h
+  } = computeContainSize(img, maxW, maxH);
+  const dx = x + (maxW - w) / 2;
+  ctx.drawImage(img, dx, y, w, h);
+  return h;
+};
+
+// Menggambar gambar (logo) dengan outline yang MENGIKUTI BENTUK ASLI-nya
+// (efek stiker) — bukan kotak pembatas. Caranya: bikin siluet warna solid
+// dari alpha channel gambar, gambar siluet itu berulang di sekeliling
+// posisi asli (banyak sudut), baru gambar logo aslinya di tengah paling atas.
+const drawImageWithOutline = (ctx, img, x, y, w, h, outlineColor, outlineWidth) => {
+  const silhouette = document.createElement('canvas');
+  silhouette.width = w;
+  silhouette.height = h;
+  const sCtx = silhouette.getContext('2d');
+  sCtx.drawImage(img, 0, 0, w, h);
+  sCtx.globalCompositeOperation = 'source-in';
+  sCtx.fillStyle = outlineColor;
+  sCtx.fillRect(0, 0, w, h);
+  const steps = 20;
+  for (let i = 0; i < steps; i++) {
+    const angle = i / steps * Math.PI * 2;
+    const dx = Math.cos(angle) * outlineWidth;
+    const dy = Math.sin(angle) * outlineWidth;
+    ctx.drawImage(silhouette, x + dx, y + dy, w, h);
+  }
+  ctx.drawImage(img, x, y, w, h);
+};
+function MainDashboard({
+  user,
+  profile,
+  onLogout
+}) {
+  const [activeTab, setActiveTab] = useState('brands');
+  const [appData, setAppData] = useState(defaultAppData);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [dbError, setDbError] = useState(null);
+  useEffect(() => {
+    loadGoogleFonts();
+  }, []);
+  useEffect(() => {
+    setIsAuthReady(true);
+  }, []);
+  const docRef = () => doc(db, 'artifacts', appId, 'users', user.uid, 'appData', 'state');
+
+  // Baca sekali di awal sesi, lalu dengarkan perubahan (pola dari contoh teman Anda)
+  useEffect(() => {
+    if (!isAuthReady || !user) return;
+    return onSnapshot(docRef(), d => {
+      if (d.exists()) {
+        const data = d.data();
+        setAppData({
+          brand: {
+            ...defaultAppData.brand,
+            ...(data.brand || {})
+          },
+          menu: Array.isArray(data.menu) ? data.menu : [],
+          contentPlan: Array.isArray(data.contentPlan) ? data.contentPlan : []
+        });
+      } else {
+        // Dokumen belum ada — buat dengan data default
+        setDoc(docRef(), defaultAppData).catch(e => setDbError(`Gagal membuat data awal: ${e.message}`));
+      }
+    }, err => setDbError(`Gagal baca data: ${err.message}`));
+  }, [isAuthReady, user]);
+
+  // Tulis ulang (merge) tiap kali appData berubah karena aksi pengguna
+  const saveAppData = updates => {
+    if (!user) return;
+    const next = {
+      ...appData,
+      ...updates
+    };
+    setAppData(next);
+    setDoc(docRef(), next, {
+      merge: true
+    }).catch(e => setDbError(`Gagal menyimpan: ${e.message}`));
+  };
+  return /*#__PURE__*/React.createElement(BrandContext.Provider, {
+    value: appData.brand
+  }, /*#__PURE__*/React.createElement("style", null, hudStyles), /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen bg-gradient-to-b from-[#0c0c10] to-[#08080a] text-gray-200 flex flex-col font-['Inter'] pt-14 overflow-x-hidden"
+  }, dbError && /*#__PURE__*/React.createElement("div", {
+    className: "bg-red-900 text-red-200 p-2 text-center text-xs font-mono"
+  }, dbError), /*#__PURE__*/React.createElement("header", {
+    className: "bg-gradient-to-b from-[#16161d] to-[#0f0f14] border-b border-[#232330] p-4 flex justify-between items-center shadow-lg shadow-black/30"
+  }, /*#__PURE__*/React.createElement("h1", {
+    className: "text-xl font-bold font-['Space_Grotesk'] bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent tracking-tight"
+  }, "F&B Design Studio"), /*#__PURE__*/React.createElement("nav", {
+    className: "flex gap-2 sm:gap-4 overflow-x-auto items-center"
+  }, ['brands', 'menu', 'promo', 'konten', 'feed9'].map(t => /*#__PURE__*/React.createElement("button", {
+    key: t,
+    onClick: () => setActiveTab(t),
+    className: `relative px-3 sm:px-4 py-1.5 rounded-lg transition-all whitespace-nowrap text-sm font-medium ${activeTab === t ? 'text-white bg-[#1a1a22]' : 'text-gray-500 hover:text-gray-300'}`
+  }, t === 'konten' ? 'KONTEN 30 HARI' : t === 'feed9' ? '9 FEED KONSISTEN' : t.toUpperCase(), /*#__PURE__*/React.createElement("div", {
+    className: `nav-underline absolute bottom-0 left-0 w-full h-0.5 bg-[#E8102B] ${activeTab === t ? 'scale-x-100' : 'scale-x-0'}`
+  }))), profile?.plan === 'reseller' && /*#__PURE__*/React.createElement("a", {
+    href: "/reseller",
+    className: "text-xs text-amber-500 hover:underline ml-2 whitespace-nowrap"
+  }, "Panel Reseller"), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-gray-600 ml-2 whitespace-nowrap hidden sm:inline"
+  }, user.email), /*#__PURE__*/React.createElement("button", {
+    onClick: onLogout,
+    className: "text-xs text-gray-500 hover:text-white ml-2 whitespace-nowrap"
+  }, "Keluar"))), /*#__PURE__*/React.createElement("main", {
+    className: "flex-grow p-6"
+  }, activeTab === 'brands' && /*#__PURE__*/React.createElement(BrandSettings, {
+    brand: appData.brand,
+    saveAppData: saveAppData
+  }), activeTab === 'menu' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(MenuManager, {
+    menu: appData.menu,
+    saveAppData: saveAppData
+  }), /*#__PURE__*/React.createElement(MenuPageGenerator, {
+    menu: appData.menu
+  })), activeTab === 'promo' && /*#__PURE__*/React.createElement(PromoGenerator, {
+    menu: appData.menu
+  }), activeTab === 'konten' && /*#__PURE__*/React.createElement(ContentPlanGenerator, {
+    contentPlan: appData.contentPlan || [],
+    saveAppData: saveAppData
+  }), activeTab === 'feed9' && /*#__PURE__*/React.createElement(FeedCampaignGenerator, null))));
+}
+const CanvasEditor = memo(() => {
+  const canvasRef = useRef(null);
+  const brand = useContext(BrandContext);
+  const loadImage = src => new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.src = src;
+  });
+  useEffect(() => {
+    const draw = async () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#F5F5F5';
+      ctx.fillRect(0, 0, 800, 1000);
+      await document.fonts.load(`bold 60px "${brand.fontHeading}"`);
+      await document.fonts.load(`30px "${brand.fontBody}"`);
+      await document.fonts.load(`20px "${brand.fontBody}"`);
+      if (brand.logoUrl) {
+        try {
+          const logoImg = await loadImage(brand.logoUrl);
+          const logoRatio = logoImg.width / logoImg.height;
+          let lw = 133,
+            lh = 133;
+          if (logoRatio > 1) {
+            lh = 133 / logoRatio;
+          } else {
+            lw = 133 * logoRatio;
+          }
+          const outlineWidth = Math.max(1.5, Math.min(lw, lh) * 0.015);
+          drawImageWithOutline(ctx, logoImg, 50, 200, lw, lh, 'rgba(255,255,255,0.9)', outlineWidth);
+        } catch (e) {}
+      }
+      ctx.fillStyle = brand.primaryColor;
+      ctx.font = `bold 60px "${brand.fontHeading}"`;
+      ctx.fillText(brand.name, 50, 100);
+      ctx.font = `30px "${brand.fontBody}"`;
+      ctx.fillStyle = brand.secondaryColor;
+      ctx.fillText(brand.tagline, 50, 160);
+      ctx.fillStyle = brand.accentColor;
+      drawWrappedText(ctx, brand.description, 50, 500, 700, 30, 20, brand.fontBody);
+    };
+    draw();
+  }, [brand]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-4 w-full max-w-[800px] mx-auto overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 left-0 border-t-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 right-0 border-t-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner bottom-0 left-0 border-b-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner hud-corner-br bottom-0 right-0 border-b-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-scanline"
+  }), /*#__PURE__*/React.createElement("canvas", {
+    ref: canvasRef,
+    width: 800,
+    height: 1000,
+    className: "w-full h-auto border shadow-lg bg-white block"
+  }));
+});
+const BrandSettings = memo(({
+  brand,
+  saveAppData
+}) => {
+  const [local, setLocal] = useState({
+    name: brand.name,
+    tagline: brand.tagline,
+    description: brand.description
+  });
+  const [localColors, setLocalColors] = useState({
+    primaryColor: brand.primaryColor,
+    secondaryColor: brand.secondaryColor,
+    accentColor: brand.accentColor
+  });
+  const colorSaveTimer = useRef(null);
+  useEffect(() => {
+    setLocal({
+      name: brand.name,
+      tagline: brand.tagline,
+      description: brand.description
+    });
+  }, [brand.name, brand.tagline, brand.description]);
+  useEffect(() => {
+    setLocalColors({
+      primaryColor: brand.primaryColor,
+      secondaryColor: brand.secondaryColor,
+      accentColor: brand.accentColor
+    });
+  }, [brand.primaryColor, brand.secondaryColor, brand.accentColor]);
+  const updateBrand = updates => {
+    saveAppData({
+      brand: {
+        ...brand,
+        ...updates
+      }
+    });
+  };
+  // Warna diupdate ke tampilan SEKETIKA (localColors), tapi baru benar-benar
+  // disimpan ke Firestore 400ms setelah pengguna BERHENTI menggeser warna —
+  // supaya tidak mengirim puluhan permintaan simpan per detik saat drag
+  // color picker (penyebab error "write stream exhausted" di Firestore).
+  const updateColorDebounced = updates => {
+    setLocalColors(prev => ({
+      ...prev,
+      ...updates
+    }));
+    if (colorSaveTimer.current) clearTimeout(colorSaveTimer.current);
+    colorSaveTimer.current = setTimeout(() => {
+      updateBrand(updates);
+    }, 400);
+  };
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-lg mx-auto space-y-4 font-['JetBrains_Mono']"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 left-0 border-t-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 right-0 border-t-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner bottom-0 left-0 border-b-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner hud-corner-br bottom-0 right-0 border-b-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-scanline"
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Nama Brand"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Nama Brand",
+    value: local.name,
+    onChange: e => setLocal({
+      ...local,
+      name: e.target.value
+    }),
+    onBlur: () => updateBrand({
+      name: local.name
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Tagline"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Tagline",
+    value: local.tagline,
+    onChange: e => setLocal({
+      ...local,
+      tagline: e.target.value
+    }),
+    onBlur: () => updateBrand({
+      tagline: local.tagline
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Deskripsi"), /*#__PURE__*/React.createElement("textarea", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Deskripsi",
+    value: local.description,
+    onChange: e => setLocal({
+      ...local,
+      description: e.target.value
+    }),
+    onBlur: () => updateBrand({
+      description: local.description
+    })
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between gap-3 text-sm text-gray-400"
+  }, /*#__PURE__*/React.createElement("label", null, "Warna Utama"), /*#__PURE__*/React.createElement("input", {
+    type: "color",
+    value: localColors.primaryColor,
+    onChange: e => updateColorDebounced({
+      primaryColor: e.target.value
+    })
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between gap-3 text-sm text-gray-400"
+  }, /*#__PURE__*/React.createElement("label", null, "Warna Kedua"), /*#__PURE__*/React.createElement("input", {
+    type: "color",
+    value: localColors.secondaryColor,
+    onChange: e => updateColorDebounced({
+      secondaryColor: e.target.value
+    })
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between gap-3 text-sm text-gray-400"
+  }, /*#__PURE__*/React.createElement("label", null, "Warna Aksen"), /*#__PURE__*/React.createElement("input", {
+    type: "color",
+    value: localColors.accentColor,
+    onChange: e => updateColorDebounced({
+      accentColor: e.target.value
+    })
+  })), /*#__PURE__*/React.createElement("select", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    value: fontOptions.findIndex(o => o.heading === brand.fontHeading),
+    onChange: e => {
+      const f = fontOptions[e.target.value];
+      updateBrand({
+        fontHeading: f.heading,
+        fontBody: f.body
+      });
+    }
+  }, fontOptions.map((o, idx) => /*#__PURE__*/React.createElement("option", {
+    key: idx,
+    value: idx
+  }, o.heading, " + ", o.body))), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Logo"), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    onChange: e => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = new Image();
+        img.onload = async () => {
+          const maxDim = 600;
+          let w = img.width,
+            h = img.height;
+          if (w > h) {
+            if (w > maxDim) {
+              h *= maxDim / w;
+              w = maxDim;
+            }
+          } else {
+            if (h > maxDim) {
+              w *= maxDim / h;
+              h = maxDim;
+            }
+          }
+          const c = document.createElement('canvas');
+          c.width = w;
+          c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          await updateBrand({
+            logoUrl: c.toDataURL('image/png')
+          });
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(e.target.files[0]);
+    },
+    className: "text-sm file:bg-[#E8102B] file:text-white file:border-none file:px-4 file:py-2"
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Posisi Logo & Tagline (di semua promo)"), /*#__PURE__*/React.createElement("select", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    value: brand.logoPosition || 'bottom-right',
+    onChange: e => updateBrand({
+      logoPosition: e.target.value
+    })
+  }, Object.entries(LOGO_POSITIONS).map(([key, val]) => /*#__PURE__*/React.createElement("option", {
+    key: key,
+    value: key
+  }, val.label)))), /*#__PURE__*/React.createElement("div", {
+    className: "mt-8 max-w-[800px] mx-auto"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-center text-xs text-gray-500 uppercase mb-3"
+  }, "Preview Brand Identity"), /*#__PURE__*/React.createElement(CanvasEditor, null)));
+});
+const MenuManager = memo(({
+  menu,
+  saveAppData
+}) => {
+  const [newItem, setNewItem] = useState({
+    name: '',
+    price: '',
+    category: 'Coffee',
+    photoUrl: '',
+    description: '',
+    featured: false
+  });
+  const [error, setError] = useState('');
+  const [capacityWarning, setCapacityWarning] = useState('');
+  const handlePhoto = e => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 600;
+        let w = img.width,
+          h = img.height;
+        const ratio = img.width / img.height;
+        // Perkiraan kasar kapasitas 1 halaman A4 (gaya Grid) berdasarkan
+        // rasio foto — cuma perkiraan, bukan hitungan pasti.
+        const approxCapacity = ratio >= 1.5 ? 6 : ratio <= 1.15 ? 4 : 5;
+        if (menu.length + 1 > approxCapacity) {
+          setCapacityWarning(`Menu Anda sudah ${menu.length + 1} item — untuk foto rasio seperti ini, perkiraan muatan 1 halaman A4 (gaya Grid) sekitar ${approxCapacity} item. Item selebihnya tetap tersimpan, tapi halaman menu mungkin terasa padat.`);
+        } else {
+          setCapacityWarning('');
+        }
+        if (w > h) {
+          if (w > maxDim) {
+            h *= maxDim / w;
+            w = maxDim;
+          }
+        } else {
+          if (h > maxDim) {
+            w *= maxDim / h;
+            h = maxDim;
+          }
+        }
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        setNewItem({
+          ...newItem,
+          photoUrl: c.toDataURL('image/jpeg', 0.7)
+        });
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(e.target.files[0]);
+  };
+  const saveItem = () => {
+    if (!newItem.name || !newItem.price || isNaN(Number(newItem.price)) || Number(newItem.price) <= 0) {
+      setError('Data tidak valid');
+      return;
+    }
+    const item = {
+      ...newItem,
+      price: Number(newItem.price),
+      id: `menu_${Date.now()}`
+    };
+    saveAppData({
+      menu: [...menu, item]
+    });
+    setNewItem({
+      name: '',
+      price: '',
+      category: 'Coffee',
+      photoUrl: '',
+      description: '',
+      featured: false
+    });
+    setError('');
+    setCapacityWarning('');
+  };
+  const removeItem = id => saveAppData({
+    menu: menu.filter(i => i.id !== id)
+  });
+  return /*#__PURE__*/React.createElement("div", {
+    className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-2xl mx-auto space-y-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 left-0 border-t-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 right-0 border-t-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner bottom-0 left-0 border-b-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner hud-corner-br bottom-0 right-0 border-b-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-scanline"
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Nama Menu"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Nama Menu",
+    value: newItem.name,
+    onChange: e => setNewItem({
+      ...newItem,
+      name: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Deskripsi (maks 40 karakter)"), /*#__PURE__*/React.createElement("input", {
+    maxLength: 40,
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Contoh: Es kopi susu creamy",
+    value: newItem.description,
+    onChange: e => setNewItem({
+      ...newItem,
+      description: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Harga"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Harga",
+    value: newItem.price,
+    onChange: e => setNewItem({
+      ...newItem,
+      price: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Kategori"), /*#__PURE__*/React.createElement("select", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    value: newItem.category,
+    onChange: e => setNewItem({
+      ...newItem,
+      category: e.target.value
+    })
+  }, /*#__PURE__*/React.createElement("option", null, "Coffee"), /*#__PURE__*/React.createElement("option", null, "Non-Coffee"), /*#__PURE__*/React.createElement("option", null, "Food"), /*#__PURE__*/React.createElement("option", null, "Dessert")), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Foto"), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    onChange: handlePhoto,
+    className: "text-gray-400 text-sm"
+  }), capacityWarning && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-yellow-500"
+  }, "⚠ ", capacityWarning), /*#__PURE__*/React.createElement("label", {
+    className: "flex items-center gap-2 text-sm text-gray-400"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: newItem.featured,
+    onChange: e => setNewItem({
+      ...newItem,
+      featured: e.target.checked
+    })
+  }), "Menu Unggulan (tampil lebih besar di Halaman Menu, maks. 6 item ditampilkan)"), /*#__PURE__*/React.createElement("button", {
+    onClick: saveItem,
+    className: "w-full bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white px-4 py-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold"
+  }, "Tambah Menu"), error && /*#__PURE__*/React.createElement("p", {
+    className: "text-red-500 text-sm"
+  }, error), /*#__PURE__*/React.createElement("ul", {
+    className: "space-y-2 mt-4"
+  }, menu.map(i => /*#__PURE__*/React.createElement("li", {
+    key: i.id,
+    className: "flex gap-4 border-b border-[#222226] pb-2 items-center text-gray-300"
+  }, i.photoUrl && /*#__PURE__*/React.createElement("img", {
+    src: i.photoUrl,
+    className: "w-12 h-12 object-cover rounded-sm",
+    alt: ""
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-white font-bold"
+  }, i.featured && '★ ', i.name), i.description && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400"
+  }, i.description), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-['JetBrains_Mono']"
+  }, "Rp ", i.price)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => removeItem(i.id),
+    className: "ml-auto text-[#E8102B] hover:text-red-400"
+  }, "Hapus")))));
+});
+
+// ============================================================
+// GENERATE HALAMAN MENU — pola sama seperti tab Promo (background
+// dari AI, elemen presisi dari kanvas kita), tapi arahnya dibalik:
+// di sini SEMUA data (nama, deskripsi, harga banyak item sekaligus)
+// digambar oleh kanvas kita sendiri — bukan diserahkan ke AI —
+// supaya harga & nama menu dijamin akurat 100%. AI cuma bertugas
+// membuat foto suasana/latar kosong sesuai gaya yang dipilih.
+// ============================================================
+const CATEGORY_ORDER = ['Coffee', 'Non-Coffee', 'Food', 'Dessert'];
+
+// Skala render halaman menu supaya hasil download tajam kalau dicetak
+// A4 (~300 DPI), sementara semua perhitungan layout di kode tetap
+// pakai angka "logis" berbasis lebar 1080px seperti biasa — ctx.scale
+// yang membesarkan hasil akhirnya, jadi tidak perlu ubah satu-satu
+// angka di seluruh fungsi render.
+const SCREEN_SCALE = 1;
+const PRINT_SCALE = 2.3;
+const MenuPageGenerator = memo(({
+  menu
+}) => {
+  const [selectedStyle, setSelectedStyle] = useState('modern');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [photoUrl, setPhotoUrl] = useState('');
+  const [quality, setQuality] = useState('screen'); // 'screen' (ringan) | 'print' (tajam untuk A4)
+  const [genError, setGenError] = useState('');
+  const [lastGenUrl, setLastGenUrl] = useState('');
+  const canvasRef = useRef();
+  const brand = useContext(BrandContext);
+  const filteredMenu = categoryFilter === 'all' ? menu : menu.filter(m => m.category === categoryFilter);
+  // Batas item per halaman A4, beda per gaya (Grid pakai foto persegi besar
+  // jadi kapasitasnya lebih sedikit; List baris lebih ramping jadi lebih
+  // banyak muat) — supaya halaman SELALU pas A4 tanpa foto/font dipaksa
+  // menyusut ekstrem atau halaman memanjang.
+  const currentLayoutType = MENU_STYLE_PRESETS[selectedStyle].layoutType;
+  const ITEM_CAP = currentLayoutType === 'grid' ? 4 : 8;
+  const displayedMenu = filteredMenu.slice(0, ITEM_CAP);
+  const isTruncated = filteredMenu.length > ITEM_CAP;
+  const handlePhoto = e => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1400;
+        let w = img.width,
+          h = img.height;
+        if (w > h) {
+          if (w > maxDim) {
+            h *= maxDim / w;
+            w = maxDim;
+          }
+        } else {
+          if (h > maxDim) {
+            w *= maxDim / h;
+            h = maxDim;
+          }
+        }
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        setPhotoUrl(c.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  const handleGenerateAI = () => {
+    if (filteredMenu.length === 0) {
+      setGenError("Belum ada menu untuk kategori ini");
+      return;
+    }
+    setGenError('');
+    const styleHint = MENU_STYLE_PRESETS[selectedStyle].promptHint;
+    const url = openChatGPTGenerate(`background suasana untuk halaman menu restoran/cafe ${brand.name}, ${styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, seluruh area kosong bersih tanpa teks/watermark/elemen desain apapun (akan ditambahkan daftar menu secara terpisah), format vertikal poster, high quality food/cafe atmosphere photography`);
+    setLastGenUrl(url);
+  };
+  const download = () => {
+    const data = canvasRef.current.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = data;
+    a.download = 'halaman-menu.png';
+    a.click();
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-2xl mx-auto space-y-4 mt-8"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 left-0 border-t-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 right-0 border-t-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner bottom-0 left-0 border-b-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner hud-corner-br bottom-0 right-0 border-b-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-scanline"
+  }), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400 font-bold uppercase"
+  }, "Generate Halaman Menu"), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Pilih Gaya Desain"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, Object.entries(MENU_STYLE_PRESETS).map(([key, val]) => /*#__PURE__*/React.createElement("button", {
+    key: key,
+    onClick: () => setSelectedStyle(key),
+    className: `p-3 rounded text-xs font-bold text-left ${selectedStyle === key ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, val.label))), MENU_STYLE_PRESETS[selectedStyle].layoutType === 'grid' && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500"
+  }, "Pakai rasio foto yang seragam untuk hasil rapi — 1:1 muat ±4 foto, 16:9 muat ±6 foto per halaman A4."), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Filter Kategori"), /*#__PURE__*/React.createElement("select", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    value: categoryFilter,
+    onChange: e => setCategoryFilter(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "all"
+  }, "Semua Kategori"), CATEGORY_ORDER.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  }, c))), /*#__PURE__*/React.createElement("button", {
+    onClick: handleGenerateAI,
+    className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
+  }, "Buat Background dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
+    href: lastGenUrl,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "block text-center text-xs text-purple-400 hover:text-purple-300 underline"
+  }, "Tab tidak otomatis terbuka? Klik di sini"), genError && /*#__PURE__*/React.createElement("p", {
+    className: "text-red-500 text-sm"
+  }, genError), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500"
+  }, "Tab ChatGPT akan terbuka dengan prompt sesuai gaya yang dipilih. Setelah gambar jadi, download lalu upload di bawah ini — daftar menu (nama, deskripsi, harga) akan ditempel presisi oleh kanvas kami, bukan oleh AI."), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Upload Background Hasil AI"), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    onChange: handlePhoto,
+    className: "text-gray-400 text-sm"
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Kualitas Hasil Download"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setQuality('screen'),
+    className: `p-2 rounded text-xs font-bold ${quality === 'screen' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, "Untuk Layar (Ringan)"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setQuality('print'),
+    className: `p-2 rounded text-xs font-bold ${quality === 'print' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, "Untuk Cetak A4 (Tajam)")), /*#__PURE__*/React.createElement("button", {
+    onClick: download,
+    className: "w-full bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold"
+  }, "Download Halaman Menu"), isTruncated && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-yellow-500 bg-[#0A0A0D] border border-yellow-700 rounded p-2"
+  }, "⚠ Menampilkan ", displayedMenu.length, " dari ", filteredMenu.length, " menu — gaya ", currentLayoutType === 'grid' ? 'Grid (Modern/Playful)' : 'List (Klasik/Rustic)', " maksimal ", ITEM_CAP, " item per halaman A4 supaya foto & teks tetap terbaca jelas. Gunakan filter kategori atau ganti ke gaya ", currentLayoutType === 'grid' ? 'List' : 'Grid', " untuk menu lebih banyak."), /*#__PURE__*/React.createElement(MenuPageCanvas, {
+    ref: canvasRef,
+    backgroundImage: photoUrl,
+    items: displayedMenu,
+    styleConfig: MENU_STYLE_PRESETS[selectedStyle],
+    renderScale: quality === 'print' ? PRINT_SCALE : SCREEN_SCALE
+  }));
+});
+
+// Menggambar persegi dengan sudut membulat + clip, dipakai untuk
+// kartu & foto pada layout Grid.
+const roundRectPath = (ctx, x, y, w, h, r) => {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+};
+const MenuPageCanvas = forwardRef(({
+  backgroundImage,
+  items,
+  styleConfig,
+  renderScale = SCREEN_SCALE
+}, ref) => {
+  const canvasRef = useRef(null);
+  const brand = useContext(BrandContext);
+  useImperativeHandle(ref, () => canvasRef.current);
+  useEffect(() => {
+    // Penjaga race-condition: kalau effect ini jalan lagi (misal
+    // pengguna ganti gaya sebelum render sebelumnya selesai), proses
+    // LAMA harus berhenti gambar, supaya tidak numpuk dengan hasil baru.
+    let cancelled = false;
+
+    // Menghitung tinggi header SEBENARNYA berdasarkan rasio logo asli,
+    // bukan angka tetap — supaya logo lebar (landscape) tidak
+    // menyisakan ruang kosong berlebih, dan logo tinggi (portrait)
+    // tidak kepotong.
+    const computeHeaderHeight = async brand => {
+      let h = 40;
+      if (brand.logoUrl) {
+        try {
+          const logoImg = new Image();
+          logoImg.src = brand.logoUrl;
+          await new Promise(r => logoImg.onload = r);
+          const lSize = 180;
+          const ratio = logoImg.width / logoImg.height;
+          const lh = ratio > 1 ? lSize / ratio : lSize;
+          h += lh + 10;
+        } catch (e) {
+          h += 100;
+        }
+      }
+      h += 50;
+      if (brand.tagline) h += 28;
+      h += 20;
+      return h;
+    };
+    const renderHeader = async (ctx, width, brand) => {
+      await document.fonts.load(`bold 56px "${brand.fontHeading}"`);
+      await document.fonts.load(`26px "${brand.fontBody}"`);
+      let headerY = 40;
+      if (brand.logoUrl) {
+        try {
+          const logoImg = new Image();
+          logoImg.src = brand.logoUrl;
+          await new Promise(r => logoImg.onload = r);
+          const lSize = 180;
+          const ratio = logoImg.width / logoImg.height;
+          let lw = lSize,
+            lh = lSize;
+          if (ratio > 1) lh = lSize / ratio;else lw = lSize * ratio;
+          const outlineWidth = Math.max(1.5, lSize * 0.02);
+          drawImageWithOutline(ctx, logoImg, width / 2 - lw / 2, headerY, lw, lh, 'rgba(255,255,255,0.9)', outlineWidth);
+          headerY += lh + 10;
+        } catch (e) {}
+      }
+      ctx.textAlign = 'center';
+      ctx.fillStyle = brand.primaryColor;
+      ctx.font = `bold 56px "${brand.fontHeading}"`;
+      ctx.fillText(brand.name, width / 2, headerY + 50);
+      headerY += 50;
+      if (brand.tagline) {
+        ctx.fillStyle = brand.secondaryColor;
+        ctx.font = `26px "${brand.fontBody}"`;
+        ctx.fillText(brand.tagline, width / 2, headerY + 28);
+      }
+      ctx.textAlign = 'left';
+    };
+
+    // Kanvas dipaksa tetap rasio A4 (210:297) — TIDAK lagi memanjang
+    // mengikuti jumlah menu. Kalau konten lebih tinggi dari muatan
+    // 1 halaman, seluruh isi diskalakan turun secara proporsional
+    // (tanpa distorsi) supaya tetap muat.
+    const A4_WIDTH = 1080;
+    const A4_HEIGHT = Math.round(A4_WIDTH * 297 / 210);
+
+    // Badge mencolok "★ FAVORIT" di pojok kanan-atas foto item yang
+    // ditandai "Menu Unggulan" — sengaja MENJOROK KELUAR dari batas
+    // foto (posisinya dipusatkan tepat di sudut), warna merah cerah
+    // tetap (tidak ikut warna gaya) supaya selalu mencolok apapun
+    // temanya, plus outline putih tebal biar makin menonjol.
+    const drawFeaturedBadge = (ctx, x, y, scale = 1, anchor = 'corner') => {
+      const text = '★ FAVORIT';
+      const fontSize = Math.round(28 * scale);
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      const textW = ctx.measureText(text).width;
+      const padX = 18 * scale,
+        h = 48 * scale;
+      const w = textW + padX * 2;
+      let bx, by;
+      if (anchor === 'inset-topright') {
+        bx = x - w;
+        by = y;
+      } // x,y = pojok kanan-atas badge, badge penuh DI DALAM foto
+      else if (anchor === 'left-middle') {
+        bx = x;
+        by = y - h / 2;
+      } // x,y = titik tengah-kiri badge, dipakai di samping teks
+      else {
+        bx = x - w * 0.6;
+        by = y - h * 0.6;
+      } // mode lama: menjorok di sudut
+      ctx.save();
+      ctx.fillStyle = '#FF2D2D';
+      roundRectPath(ctx, bx, by, w, h, h / 2);
+      ctx.fill();
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = Math.max(1.5, 3 * scale);
+      ctx.stroke();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, bx + w / 2, by + h / 2 + 1);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.restore();
+      return w;
+    };
+    const renderListLayout = async (canvas, ctx, width, grouped, cfg) => {
+      const headerH = await computeHeaderHeight(brand);
+      const catHeaderHBase = 70,
+        rowHBase = 120,
+        bottomPad = 60;
+      const totalRows = grouped.reduce((sum, g) => sum + g.list.length, 0);
+      const naturalBodyHeight = grouped.length * catHeaderHBase + totalRows * rowHBase;
+      if (cancelled) return;
+      canvas.width = A4_WIDTH * renderScale;
+      canvas.height = A4_HEIGHT * renderScale;
+      ctx.scale(renderScale, renderScale);
+      ctx.fillStyle = cfg.pageBg;
+      ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
+      if (backgroundImage) {
+        const img = new Image();
+        img.src = backgroundImage;
+        await new Promise(r => img.onload = r);
+        if (cancelled) return;
+        drawCoverImage(ctx, img, 0, 0, A4_WIDTH, A4_HEIGHT);
+        ctx.fillStyle = cfg.pageBg + 'C7';
+        ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT); // ~78% opacity overlay warna khas gaya
+      }
+      if (cancelled) return;
+      await renderHeader(ctx, A4_WIDTH, brand);
+      await document.fonts.load(`bold 34px "${brand.fontHeading}"`);
+      await document.fonts.load(`bold 30px "${brand.fontBody}"`);
+      await document.fonts.load(`22px "${brand.fontBody}"`);
+      if (cancelled) return;
+
+      // HANYA metrik VERTIKAL yang dipadatkan kalau kepanjangan — lebar
+      // (posisi harga di kanan, ukuran thumbnail) tidak pernah mengecil,
+      // supaya tidak ada sisa ruang kosong di kanan halaman.
+      const availableBody = A4_HEIGHT - headerH - bottomPad;
+      const vScale = naturalBodyHeight > availableBody ? Math.max(0.35, availableBody / naturalBodyHeight) : 1;
+      const catHeaderH = catHeaderHBase * vScale;
+      const rowH = rowHBase * vScale;
+      const thumbSize = Math.max(48, 88 * vScale);
+      const nameFontSize = Math.round(30 * Math.max(vScale, 0.65));
+      const descFontSize = Math.round(22 * Math.max(vScale, 0.65));
+      let y = headerH;
+      const marginX = 60;
+      for (const group of grouped) {
+        ctx.fillStyle = cfg.dividerColor;
+        ctx.font = `bold 34px "${brand.fontHeading}"`;
+        ctx.fillText(group.cat.toUpperCase(), marginX, y + 45);
+        ctx.strokeStyle = cfg.dividerColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(marginX, y + 58);
+        ctx.lineTo(width - marginX, y + 58);
+        ctx.stroke();
+        y += catHeaderH;
+        for (const item of group.list) {
+          if (item.photoUrl) {
+            try {
+              const thumbImg = new Image();
+              thumbImg.src = item.photoUrl;
+              await new Promise(r => thumbImg.onload = r);
+              if (cancelled) return;
+              drawCoverImage(ctx, thumbImg, marginX, y + 10, thumbSize, thumbSize);
+            } catch (e) {}
+          }
+          const textX = item.photoUrl ? marginX + thumbSize + 24 : marginX;
+          ctx.fillStyle = cfg.textMain;
+          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
+          ctx.fillText(item.name, textX, y + nameFontSize + 8);
+          if (item.featured) {
+            const nameW = ctx.measureText(item.name).width;
+            drawFeaturedBadge(ctx, textX + nameW + 14, y + nameFontSize / 2 + 2, 0.6, 'left-middle');
+          }
+          if (item.description) {
+            ctx.fillStyle = cfg.textSub;
+            ctx.font = `${descFontSize}px "${brand.fontBody}"`;
+            ctx.fillText(item.description, textX, y + nameFontSize + descFontSize + 12);
+          }
+          ctx.fillStyle = brand.primaryColor;
+          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
+          ctx.textAlign = 'right';
+          ctx.fillText(`Rp ${item.price.toLocaleString('id-ID')}`, width - marginX, y + nameFontSize + 8);
+          ctx.textAlign = 'left';
+          y += rowH;
+        }
+      }
+    };
+    const renderGridLayout = async (canvas, ctx, width, grouped, cfg) => {
+      const headerH = await computeHeaderHeight(brand);
+      const catHeaderHFull = 90,
+        gapFull = 24,
+        marginX = 40;
+      const cols = 2;
+      const cardWidth = (width - marginX * 2 - gapFull * (cols - 1)) / cols; // LEBAR selalu penuh, tidak pernah dikecilkan
+      const photoHeightFull = cardWidth; // basis 1:1 (persegi)
+      const textAreaHeightFull = 150;
+      const totalCardRows = grouped.reduce((sum, g) => sum + Math.ceil(g.list.length / cols), 0);
+      const availableBody = A4_HEIGHT - headerH - 60;
+
+      // Halaman SELALU A4 (tidak pernah memanjang) — jumlah item sudah
+      // dibatasi di MenuPageGenerator (maks 4 untuk Grid) supaya ini aman
+      // untuk kasus wajar (menu terkumpul di 1-2 kategori). Kalau kepanjangan:
+      // 1) Kecilkan dulu jarak/judul kategori/font — foto tetap persegi.
+      // 2) Kalau masih belum cukup, foto boleh menyusut, TAPI dibatasi
+      //    maksimal rasio ~1.3:1 (jauh dari 16:9) — ini jaring pengaman
+      //    terakhir untuk kasus jarang (menu tersebar di banyak kategori
+      //    sekaligus), bukan jalur utama.
+      const MIN_NSCALE = 0.55;
+      const MIN_PHOTO_SCALE = 0.77;
+      const CONST = totalCardRows * photoHeightFull;
+      const VARCOEF = grouped.length * catHeaderHFull + totalCardRows * (textAreaHeightFull + gapFull);
+      const naturalFull = CONST + VARCOEF;
+      let nScale = 1,
+        photoScale = 1;
+      if (naturalFull > availableBody) {
+        nScale = (availableBody - CONST) / VARCOEF;
+        if (nScale >= MIN_NSCALE) {
+          photoScale = 1; // Tahap 1 cukup — foto tetap persegi
+        } else {
+          nScale = MIN_NSCALE;
+          const usedByOthers = grouped.length * catHeaderHFull * nScale + totalCardRows * (textAreaHeightFull + gapFull) * nScale;
+          photoScale = Math.max(MIN_PHOTO_SCALE, (availableBody - usedByOthers) / (totalCardRows * photoHeightFull));
+        }
+      }
+      const pageHeight = A4_HEIGHT;
+      const catHeaderH = catHeaderHFull * nScale;
+      const gap = gapFull * nScale;
+      const photoHeight = photoHeightFull * photoScale;
+      const textAreaHeight = textAreaHeightFull * nScale;
+      const cardHeight = photoHeight + textAreaHeight;
+      const nameFontSize = Math.round(26 * Math.max(nScale, 0.7));
+      const descFontSize = Math.round(18 * Math.max(nScale, 0.7));
+      if (cancelled) return;
+      canvas.width = A4_WIDTH * renderScale;
+      canvas.height = pageHeight * renderScale;
+      ctx.scale(renderScale, renderScale);
+      ctx.fillStyle = cfg.pageBg;
+      ctx.fillRect(0, 0, A4_WIDTH, pageHeight);
+      if (backgroundImage) {
+        const img = new Image();
+        img.src = backgroundImage;
+        await new Promise(r => img.onload = r);
+        if (cancelled) return;
+        drawCoverImage(ctx, img, 0, 0, A4_WIDTH, pageHeight);
+        ctx.fillStyle = cfg.pageBg + '8C';
+        ctx.fillRect(0, 0, A4_WIDTH, pageHeight); // ~55% opacity overlay warna khas gaya
+      }
+      if (cancelled) return;
+      await renderHeader(ctx, A4_WIDTH, brand);
+      await document.fonts.load(`bold 30px "${brand.fontHeading}"`);
+      await document.fonts.load(`bold 26px "${brand.fontBody}"`);
+      await document.fonts.load(`18px "${brand.fontBody}"`);
+      if (cancelled) return;
+      let y = headerH;
+      const badgeQueue = []; // digambar terakhir, di atas SEMUA kartu (termasuk kartu tetangga)
+      for (const group of grouped) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = `bold 30px "${brand.fontHeading}"`;
+        ctx.fillText(group.cat.toUpperCase(), marginX, y + 30);
+        ctx.strokeStyle = cfg.dividerColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(marginX, y + 46);
+        ctx.lineTo(width - marginX, y + 46);
+        ctx.stroke();
+        y += catHeaderH;
+        for (let i = 0; i < group.list.length; i++) {
+          const item = group.list[i];
+          const col = i % cols;
+          const cx = marginX + col * (cardWidth + gapFull);
+          const cy = y;
+
+          // Kartu berwarna khas gaya, sudut membulat sesuai gaya
+          ctx.fillStyle = cfg.cardBg;
+          roundRectPath(ctx, cx, cy, cardWidth, cardHeight, cfg.cardRadius);
+          ctx.fill();
+
+          // Foto produk, rounded di atas kartu
+          if (item.photoUrl) {
+            try {
+              const thumbImg = new Image();
+              thumbImg.src = item.photoUrl;
+              await new Promise(r => thumbImg.onload = r);
+              if (cancelled) return;
+              ctx.save();
+              roundRectPath(ctx, cx, cy, cardWidth, photoHeight, cfg.cardRadius);
+              ctx.clip();
+              drawCoverImage(ctx, thumbImg, cx, cy, cardWidth, photoHeight);
+              ctx.restore();
+            } catch (e) {}
+          }
+          if (item.featured) badgeQueue.push([cx + cardWidth - 12, cy + 12, 0.85, 'inset-topright']);
+
+          // Aksen garis tipis khas gaya di bawah foto
+          ctx.strokeStyle = cfg.dividerColor;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(cx + 18, cy + photoHeight + 8);
+          ctx.lineTo(cx + cardWidth - 18, cy + photoHeight + 8);
+          ctx.stroke();
+
+          // Teks di bawah foto
+          const padX = 18;
+          ctx.fillStyle = cfg.textMain;
+          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
+          ctx.fillText(item.name, cx + padX, cy + photoHeight + nameFontSize + 8, cardWidth - padX * 2);
+          if (item.description) {
+            ctx.fillStyle = cfg.textSub;
+            ctx.font = `${descFontSize}px "${brand.fontBody}"`;
+            ctx.fillText(item.description, cx + padX, cy + photoHeight + nameFontSize + descFontSize + 14, cardWidth - padX * 2);
+          }
+          ctx.fillStyle = brand.primaryColor;
+          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
+          ctx.fillText(`Rp ${item.price.toLocaleString('id-ID')}`, cx + padX, cy + cardHeight - 15);
+          if (col === cols - 1 || i === group.list.length - 1) y += cardHeight + gap;
+        }
+      }
+      for (const [bx, by, bscale, banchor] of badgeQueue) drawFeaturedBadge(ctx, bx, by, bscale, banchor);
+    };
+    const render = async () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const width = 1080;
+      const grouped = CATEGORY_ORDER.map(cat => ({
+        cat,
+        list: items.filter(i => i.category === cat)
+      })).filter(g => g.list.length > 0);
+      if (cancelled) return;
+      if (styleConfig.layoutType === 'grid') await renderGridLayout(canvas, ctx, width, grouped, styleConfig);else await renderListLayout(canvas, ctx, width, grouped, styleConfig);
+    };
+    render();
+    return () => {
+      cancelled = true;
+    };
+  }, [brand, backgroundImage, items, styleConfig, renderScale]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] rounded-xl p-4 max-w-full overflow-x-auto mt-4 shadow-lg shadow-black/30"
+  }, /*#__PURE__*/React.createElement("canvas", {
+    ref: canvasRef,
+    className: "w-full h-auto bg-white"
+  }));
+});
+const PromoGenerator = memo(({
+  menu
+}) => {
+  const [photoUrl, setPhotoUrl] = useState('');
+  const [selectedMenuId, setSelectedMenuId] = useState('');
+  const [aiPromptHint, setAiPromptHint] = useState('');
+  const [format, setFormat] = useState('feed');
+  const [genError, setGenError] = useState('');
+  const [lastGenUrl, setLastGenUrl] = useState('');
+  const [adCopyDraft, setAdCopyDraft] = useState({
+    productName: '',
+    headline: '',
+    subheadline: '',
+    description: '',
+    cta: '',
+    badge: ''
+  });
+  const [adCopy, setAdCopy] = useState(null); // null = belum "dikirim"
+  const canvasRef = useRef();
+  const brand = useContext(BrandContext);
+  const dimsMap = {
+    feed: {
+      w: 1080,
+      h: 1080
+    },
+    story: {
+      w: 1080,
+      h: 1920
+    },
+    youtube: {
+      w: 1280,
+      h: 720
+    },
+    gofood: {
+      w: 1200,
+      h: 628
+    }
+  };
+  const dims = dimsMap[format];
+  const submitAdCopy = () => {
+    setAdCopy({
+      ...adCopyDraft
+    });
+  };
+  const clearAdCopy = () => {
+    setAdCopy(null);
+    setAdCopyDraft({
+      productName: '',
+      headline: '',
+      subheadline: '',
+      description: '',
+      cta: '',
+      badge: ''
+    });
+  };
+  const handlePhoto = e => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1200;
+        let w = img.width,
+          h = img.height;
+        if (w > h) {
+          if (w > maxDim) {
+            h *= maxDim / w;
+            w = maxDim;
+          }
+        } else {
+          if (h > maxDim) {
+            w *= maxDim / h;
+            h = maxDim;
+          }
+        }
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        setPhotoUrl(c.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  const handleSelectMenu = id => {
+    setSelectedMenuId(id);
+    const item = menu.find(m => m.id === id);
+    if (item) {
+      setAdCopyDraft(prev => ({
+        ...prev,
+        productName: prev.productName || item.name
+      }));
+      if (item.photoUrl) setPhotoUrl(item.photoUrl);
+    }
+  };
+  const handleGenerateAI = () => {
+    if (!adCopy || !adCopy.headline) {
+      setGenError("Isi Headline dulu, lalu klik \"Kirim Teks Iklan\"");
+      return;
+    }
+    setGenError('');
+    const brandHint = `nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}`;
+    const formatHint = FORMAT_DESCRIPTIONS[format];
+    const posKey = brand.logoPosition || 'bottom-right';
+    const posPhrase = LOGO_POSITIONS[posKey].promptPhrase;
+    const productSubject = adCopy.productName || adCopy.headline;
+    const parts = [];
+    parts.push(`Headline: "${adCopy.headline}" (font besar, paling menonjol, di bagian atas)`);
+    if (adCopy.subheadline) parts.push(`Sub-headline: "${adCopy.subheadline}" (di bawah headline, ukuran sedang)`);
+    if (adCopy.description) parts.push(`Deskripsi: "${adCopy.description}" (kecil, di bagian bawah)`);
+    if (adCopy.cta) parts.push(`Tombol CTA (Call to Action): "${adCopy.cta}" (bentuk seperti tombol, warna kontras, paling bawah)`);
+    if (adCopy.badge) parts.push(`Badge promo: "${adCopy.badge}" (bentuk label/badge bulat mencolok, posisi menonjol, warna kontras)`);
+    const textInstruction = `. Sertakan teks berikut di gambar, pastikan ejaan persis seperti ini: ${parts.join(', ')}`;
+    const logoSpaceInstruction = `. Sisakan ruang kosong bersih di ${posPhrase} gambar (jangan taruh elemen desain penting di area itu), karena logo brand akan ditambahkan secara terpisah di posisi tersebut`;
+    const enrichedExtras = buildEnrichedPromptExtras(brand);
+    const url = openChatGPTGenerate(`background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${aiPromptHint ? ', ' + aiPromptHint : ''}${textInstruction}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}`);
+    setLastGenUrl(url);
+  };
+  const download = () => {
+    const data = canvasRef.current.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = data;
+    a.download = 'promo.png';
+    a.click();
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-lg mx-auto space-y-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 left-0 border-t-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 right-0 border-t-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner bottom-0 left-0 border-b-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner hud-corner-br bottom-0 right-0 border-b-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-scanline"
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Pilih dari Menu (opsional)"), /*#__PURE__*/React.createElement("select", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    value: selectedMenuId,
+    onChange: e => handleSelectMenu(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "-- Tidak pilih --"), menu.map(m => /*#__PURE__*/React.createElement("option", {
+    key: m.id,
+    value: m.id
+  }, m.name))), /*#__PURE__*/React.createElement("div", {
+    className: "border-t border-[#222226] pt-4 space-y-3"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400 font-bold uppercase"
+  }, "Teks Iklan"), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Nama Produk (yang difoto AI)"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Contoh: Es Teh Manis",
+    value: adCopyDraft.productName,
+    onChange: e => setAdCopyDraft({
+      ...adCopyDraft,
+      productName: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Headline"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Contoh: Rasakan Sensasi Barunya!",
+    value: adCopyDraft.headline,
+    onChange: e => setAdCopyDraft({
+      ...adCopyDraft,
+      headline: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Sub-Headline"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Contoh: Khusus hari ini",
+    value: adCopyDraft.subheadline,
+    onChange: e => setAdCopyDraft({
+      ...adCopyDraft,
+      subheadline: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Deskripsi"), /*#__PURE__*/React.createElement("textarea", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Deskripsi singkat",
+    value: adCopyDraft.description,
+    onChange: e => setAdCopyDraft({
+      ...adCopyDraft,
+      description: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "CTA (Call to Action)"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Contoh: Order Sekarang",
+    value: adCopyDraft.cta,
+    onChange: e => setAdCopyDraft({
+      ...adCopyDraft,
+      cta: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Badge Promo (opsional)"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Contoh: DISKON 10%",
+    value: adCopyDraft.badge,
+    onChange: e => setAdCopyDraft({
+      ...adCopyDraft,
+      badge: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: submitAdCopy,
+    className: "w-full bg-gradient-to-r from-[#0A6E4E] to-[#0C8A63] hover:from-[#0C8A63] hover:to-[#0EA678] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#0A6E4E]/30 font-semibold"
+  }, "Kirim Teks Iklan"), adCopy && /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between text-xs text-green-400 bg-[#0A0A0D] border border-[#222226] rounded p-2"
+  }, /*#__PURE__*/React.createElement("span", null, "Teks iklan sudah siap dipakai."), /*#__PURE__*/React.createElement("button", {
+    onClick: clearAdCopy,
+    className: "text-red-400 hover:text-red-300 ml-2"
+  }, "Hapus"))), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Arahan AI (opsional)"), /*#__PURE__*/React.createElement("textarea", {
+    className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded text-sm",
+    maxLength: 500,
+    rows: 3,
+    value: aiPromptHint,
+    onChange: e => setAiPromptHint(e.target.value),
+    placeholder: "Arahan AI (opsional)"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, ['feed', 'story', 'youtube', 'gofood'].map(f => /*#__PURE__*/React.createElement("button", {
+    key: f,
+    onClick: () => setFormat(f),
+    className: `p-2 rounded uppercase text-xs font-bold ${format === f ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, f))), /*#__PURE__*/React.createElement("button", {
+    onClick: handleGenerateAI,
+    className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
+  }, "Buat Gambar dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
+    href: lastGenUrl,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "block text-center text-xs text-purple-400 hover:text-purple-300 underline"
+  }, "Tab tidak otomatis terbuka? Klik di sini"), genError && /*#__PURE__*/React.createElement("p", {
+    className: "text-red-500 text-sm"
+  }, genError), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500"
+  }, "Tab ChatGPT akan terbuka dengan prompt lengkap (sudah termasuk teks iklan & posisi ruang kosong logo). Setelah gambar jadi, download lalu upload di bawah ini — logo & tagline brand akan otomatis ditempel di posisi yang sudah diatur di tab Brand."), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Upload Hasil Gambar AI"), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    onChange: handlePhoto,
+    className: "text-gray-400 text-sm"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: download,
+    className: "w-full bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold"
+  }, "Download Promo Final"), /*#__PURE__*/React.createElement(CompositionCanvas, {
+    ref: canvasRef,
+    productImage: photoUrl,
+    width: dims.w,
+    height: dims.h
+  }));
+});
+const CompositionCanvas = forwardRef(({
+  productImage,
+  width,
+  height,
+  showLogo = true
+}, ref) => {
+  const canvasRef = useRef(null);
+  const brand = useContext(BrandContext);
+  useImperativeHandle(ref, () => canvasRef.current);
+  useEffect(() => {
+    // Penjaga race-condition: kalau props berubah lagi (misal pindah
+    // hari/ganti rasio) sebelum render sebelumnya selesai, proses LAMA
+    // harus berhenti gambar, supaya tidak numpuk dengan hasil baru.
+    let cancelled = false;
+    const render = async () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#F5F5F5';
+      ctx.fillRect(0, 0, width, height);
+      if (productImage) {
+        const img = new Image();
+        img.src = productImage;
+        await new Promise(r => img.onload = r);
+        if (cancelled) return;
+        const focusPoint = getSmartCropCenter(img);
+        drawCoverImage(ctx, img, 0, 0, width, height, focusPoint);
+      }
+      if (cancelled) return;
+      if (showLogo) {
+        // Logo + tagline brand — jaring pengaman presisi, ditempel
+        // langsung di atas hasil gambar AI, di pojok yang dipilih
+        // di tab Brand (prompt AI sudah diminta menyisakan ruang di situ).
+        const posKey = brand.logoPosition || 'bottom-right';
+        const isTop = posKey.startsWith('top');
+        const isLeft = posKey.endsWith('left');
+        const pad = Math.round(Math.min(width, height) * 0.04);
+        let cursorY = isTop ? pad : height - pad;
+        if (brand.logoUrl) {
+          try {
+            const logoImg = new Image();
+            logoImg.src = brand.logoUrl;
+            await new Promise(r => logoImg.onload = r);
+            if (cancelled) return;
+            const badgeMax = Math.round(Math.min(width, height) * 0.187);
+            let lw = badgeMax,
+              lh = badgeMax;
+            const ratio = logoImg.width / logoImg.height;
+            if (ratio > 1) lh = badgeMax / ratio;else lw = badgeMax * ratio;
+            const boxX = isLeft ? pad : width - pad - lw;
+            const boxY = isTop ? cursorY : cursorY - lh;
+            // Tanpa kotak/alas — logo (PNG transparan) langsung ditempel,
+            // dengan outline tipis netral yang MENGIKUTI BENTUK ASLI logo
+            // (efek stiker), bukan kotak pembatas.
+            const outlineWidth = Math.max(1.5, badgeMax * 0.015);
+            drawImageWithOutline(ctx, logoImg, boxX, boxY, lw, lh, 'rgba(255,255,255,0.9)', outlineWidth);
+            cursorY = isTop ? boxY + lh + 10 : boxY - 10;
+          } catch (e) {}
+        }
+        if (cancelled) return;
+        if (brand.tagline) {
+          const fontSize = Math.max(14, Math.round(Math.min(width, height) * 0.028));
+          await document.fonts.load(`${fontSize}px "${brand.fontBody}"`);
+          if (cancelled) return;
+          ctx.font = `${fontSize}px "${brand.fontBody}"`;
+          ctx.textAlign = isLeft ? 'left' : 'right';
+          const taglineX = isLeft ? pad : width - pad;
+          const taglineY = isTop ? cursorY + fontSize : cursorY;
+          // Tanpa kotak/alas — teks langsung di atas foto, dikasih outline
+          // tipis netral (bukan solid) supaya tetap kebaca di latar manapun.
+          ctx.lineWidth = Math.max(2, fontSize * 0.08);
+          ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+          ctx.strokeText(brand.tagline, taglineX, taglineY);
+          ctx.fillStyle = brand.secondaryColor;
+          ctx.fillText(brand.tagline, taglineX, taglineY);
+          ctx.textAlign = 'left';
+        }
+      }
+    };
+    render();
+    return () => {
+      cancelled = true;
+    };
+  }, [brand, productImage, width, height, showLogo]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] rounded-xl p-4 max-w-full overflow-x-auto mt-4 shadow-lg shadow-black/30"
+  }, /*#__PURE__*/React.createElement("canvas", {
+    ref: canvasRef,
+    width: width,
+    height: height,
+    className: "max-w-full h-auto bg-white"
+  }));
+});
+
+// ============================================================
+// KONTEN 30 HARI — pilih tema, generate rencana teks lewat ChatGPT,
+// tempel balik hasilnya untuk di-parsing jadi 30 kartu hari. Tiap
+// kartu bisa generate gambar (prompt khusus hari itu), upload hasil,
+// dan otomatis dapat logo (pakai ulang CompositionCanvas yang sama
+// dengan tab Promo). Foto per-hari SENGAJA tidak disimpan permanen
+// (cuma sesi ini) supaya dokumen Firestore tidak kelebihan ukuran
+// kalau menyimpan puluhan foto sekaligus — cuma teks rencananya
+// yang disimpan permanen.
+const ContentPlanGenerator = memo(({
+  contentPlan,
+  saveAppData
+}) => {
+  const [selectedThemes, setSelectedThemes] = useState([]);
+  const [pasteText, setPasteText] = useState('');
+  const [dayPhotos, setDayPhotos] = useState({});
+  const [genError, setGenError] = useState('');
+  const [lastGenUrl, setLastGenUrl] = useState('');
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [ratio, setRatio] = useState('1:1');
+  const [includeLogo, setIncludeLogo] = useState(true);
+  const brand = useContext(BrandContext);
+  const canvasRef = useRef();
+  useEffect(() => {
+    if (contentPlan.length > 0 && (selectedDay === null || !contentPlan.some(d => d.day === selectedDay))) {
+      setSelectedDay(contentPlan[0].day);
+    }
+  }, [contentPlan]);
+  const toggleTheme = t => {
+    setSelectedThemes(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
+  };
+  const handleGeneratePlan = () => {
+    const url = openChatGPTText(buildContentPlanPrompt(brand, selectedThemes));
+    setLastGenUrl(url);
+  };
+  const handleParse = () => {
+    if (!pasteText.trim()) {
+      setGenError('Tempel dulu hasil jawaban dari ChatGPT.');
+      return;
+    }
+    const days = parseContentPlan(pasteText);
+    if (days.length === 0) {
+      setGenError('Tidak berhasil membaca formatnya. Pastikan Anda paste seluruh jawaban ChatGPT apa adanya.');
+      return;
+    }
+    saveAppData({
+      contentPlan: days
+    });
+    setSelectedDay(days[0].day);
+    setGenError('');
+  };
+  const handleClearPlan = () => {
+    saveAppData({
+      contentPlan: []
+    });
+    setPasteText('');
+    setDayPhotos({});
+    setSelectedDay(null);
+  };
+  const handleDayPhoto = (day, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1200;
+        let w = img.width,
+          h = img.height;
+        if (w > h) {
+          if (w > maxDim) {
+            h *= maxDim / w;
+            w = maxDim;
+          }
+        } else {
+          if (h > maxDim) {
+            w *= maxDim / h;
+            h = maxDim;
+          }
+        }
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        setDayPhotos(prev => ({
+          ...prev,
+          [day]: c.toDataURL('image/jpeg', 0.85)
+        }));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  const handleDownload = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !selectedDay) return;
+    const data = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = data;
+    a.download = `konten-hari-${selectedDay}.png`;
+    a.click();
+  };
+  const activeDay = contentPlan.find(d => d.day === selectedDay);
+  const dims = CONTENT_RATIOS[ratio];
+  return /*#__PURE__*/React.createElement("div", {
+    className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-2xl mx-auto space-y-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 left-0 border-t-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 right-0 border-t-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner bottom-0 left-0 border-b-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner hud-corner-br bottom-0 right-0 border-b-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-scanline"
+  }), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400 font-bold uppercase"
+  }, "Eksplorasi Ide Konten 30 Hari"), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Pilih Tema (boleh lebih dari satu)"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, CONTENT_THEMES.map(t => /*#__PURE__*/React.createElement("button", {
+    key: t,
+    onClick: () => toggleTheme(t),
+    className: `p-2 rounded text-xs font-bold text-left ${selectedThemes.includes(t) ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, t))), /*#__PURE__*/React.createElement("button", {
+    onClick: handleGeneratePlan,
+    className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
+  }, "Buat Rencana 30 Hari dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
+    href: lastGenUrl,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "block text-center text-xs text-purple-400 hover:text-purple-300 underline"
+  }, "Tab tidak otomatis terbuka? Klik di sini"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500"
+  }, "Setelah ChatGPT selesai menjawab, copy SELURUH jawabannya (dari \"HARI 1\" sampai akhir), lalu tempel di kolom bawah ini."), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Tempel Jawaban ChatGPT di Sini"), /*#__PURE__*/React.createElement("textarea", {
+    className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded text-sm",
+    rows: 6,
+    value: pasteText,
+    onChange: e => setPasteText(e.target.value),
+    placeholder: "Tempel seluruh jawaban ChatGPT di sini..."
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: handleParse,
+    className: "w-full bg-gradient-to-r from-[#0A6E4E] to-[#0C8A63] hover:from-[#0C8A63] hover:to-[#0EA678] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#0A6E4E]/30 font-semibold"
+  }, "Proses Jadi 30 Kartu"), genError && /*#__PURE__*/React.createElement("p", {
+    className: "text-red-500 text-sm"
+  }, genError), contentPlan.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between text-xs text-green-400 bg-[#0A0A0D] border border-[#222226] rounded p-2"
+  }, /*#__PURE__*/React.createElement("span", null, contentPlan.length, " hari berhasil dibaca. Foto tiap hari cuma tersimpan untuk sesi ini (tidak permanen)."), /*#__PURE__*/React.createElement("button", {
+    onClick: handleClearPlan,
+    className: "text-red-400 hover:text-red-300 ml-2 whitespace-nowrap"
+  }, "Hapus Rencana")), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Pilih Hari"), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-1"
+  }, contentPlan.map((d, idx) => /*#__PURE__*/React.createElement("button", {
+    key: `day-${idx}-${d.day}`,
+    onClick: () => setSelectedDay(d.day),
+    className: `w-9 h-9 rounded text-xs font-bold ${selectedDay === d.day ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, d.day))), activeDay && /*#__PURE__*/React.createElement("div", {
+    className: "border border-[#222226] rounded p-4 space-y-3 mt-2"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-bold text-white"
+  }, "Hari ", activeDay.day, " — ", activeDay.tema), activeDay.konsep && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500"
+  }, "Konsep: "), activeDay.konsep), activeDay.ide && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500"
+  }, "Ide Konten: "), activeDay.ide), activeDay.konsepFoto && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400 italic"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500 not-italic"
+  }, "Konsep Foto: "), activeDay.konsepFoto), needsRealPhotoReminder(activeDay) && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-yellow-500 bg-[#0A0A0D] border border-yellow-700 rounded p-2"
+  }, "⚠ Konten ini menyinggung tempat/orang asli (dapur, karyawan, koki, tampak depan, dll) — lampirkan foto asli resto/tim Anda ke chat ChatGPT, supaya AI tidak mengarang tempat/orang sendiri."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setLastGenUrl(openChatGPTGenerate(activeDay.promptGambar)),
+    className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg text-sm transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
+  }, "Buat Gambar dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
+    href: lastGenUrl,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "block text-center text-xs text-purple-400 hover:text-purple-300 underline"
+  }, "Tab tidak otomatis terbuka? Klik di sini"), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Upload Hasil Gambar"), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    onChange: e => handleDayPhoto(activeDay.day, e),
+    className: "text-gray-400 text-sm"
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Rasio Hasil Akhir"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, Object.entries(CONTENT_RATIOS).map(([key, val]) => /*#__PURE__*/React.createElement("button", {
+    key: key,
+    onClick: () => setRatio(key),
+    className: `p-2 rounded text-xs font-bold ${ratio === key ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, val.label))), /*#__PURE__*/React.createElement("label", {
+    className: "flex items-center gap-2 text-sm text-gray-400"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: includeLogo,
+    onChange: e => setIncludeLogo(e.target.checked)
+  }), "Sertakan Logo Brand"), /*#__PURE__*/React.createElement(CompositionCanvas, {
+    ref: canvasRef,
+    productImage: dayPhotos[activeDay.day] || '',
+    width: dims.w,
+    height: dims.h,
+    showLogo: includeLogo
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: handleDownload,
+    className: "w-full bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold"
+  }, "Download Hari ", activeDay.day))));
+});
+
+// ============================================================
+// 9 FEED KONSISTEN — brief produk sekali isi, 9 slot peran tetap
+// (Hero/Fitur/Harga/Promo/Testimoni/CTA). Strip thumbnail 3x3 di
+// atas (ringan, cuma pratinjau) + 1 area kerja aktif di bawah
+// (generate/upload/kanvas/download), mirip pola Konten 30 Hari —
+// supaya tetap ringan tapi tetap bisa lihat efek grid Instagram
+// sekaligus. Sesi ini saja, tidak disimpan permanen ke Firestore.
+// ============================================================
+const FeedCampaignGenerator = memo(() => {
+  const [brief, setBrief] = useState({
+    productName: '',
+    fitur: '',
+    hargaPromo: '',
+    testimoni: '',
+    cta: ''
+  });
+  const [slotPhotos, setSlotPhotos] = useState({});
+  const [selectedSlot, setSelectedSlot] = useState(1);
+  const [includeLogo, setIncludeLogo] = useState(true);
+  const [lastGenUrl, setLastGenUrl] = useState('');
+  const [genError, setGenError] = useState('');
+  const brand = useContext(BrandContext);
+  const canvasRef = useRef();
+  const activeRole = FEED_ROLES.find(r => r.id === selectedSlot);
+  const handleGenerateSlot = () => {
+    if (!brief.productName) {
+      setGenError('Isi Nama Produk dulu.');
+      return;
+    }
+    setGenError('');
+    const url = openChatGPTGenerate(buildFeedSlotPrompt(brand, brief, activeRole));
+    setLastGenUrl(url);
+  };
+  const handleSlotPhoto = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1200;
+        let w = img.width,
+          h = img.height;
+        if (w > h) {
+          if (w > maxDim) {
+            h *= maxDim / w;
+            w = maxDim;
+          }
+        } else {
+          if (h > maxDim) {
+            w *= maxDim / h;
+            h = maxDim;
+          }
+        }
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        setSlotPhotos(prev => ({
+          ...prev,
+          [selectedSlot]: c.toDataURL('image/jpeg', 0.85)
+        }));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  const handleDownload = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const data = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = data;
+    a.download = `feed-${selectedSlot}-${activeRole.label.replace(/\s+/g, '-').toLowerCase()}.png`;
+    a.click();
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-2xl mx-auto space-y-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 left-0 border-t-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 right-0 border-t-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner bottom-0 left-0 border-b-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner hud-corner-br bottom-0 right-0 border-b-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-scanline"
+  }), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400 font-bold uppercase"
+  }, "9 Feed Konsisten (Instagram)"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500"
+  }, "1 campaign, 9 feed 1:1 dengan peran berbeda (Hero, Fitur, Harga, Promo, Testimoni, CTA) — warna & font tetap serasi mengikuti brand Anda."), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Nama Produk"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Contoh: Es Kopi Susu",
+    value: brief.productName,
+    onChange: e => setBrief({
+      ...brief,
+      productName: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Keunggulan/Fitur"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Contoh: Pakai kopi arabika asli, tanpa pengawet",
+    value: brief.fitur,
+    onChange: e => setBrief({
+      ...brief,
+      fitur: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Harga/Promo"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Contoh: Rp 15.000, Diskon 20%",
+    value: brief.hargaPromo,
+    onChange: e => setBrief({
+      ...brief,
+      hargaPromo: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Testimoni Pelanggan"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Contoh: Kopinya enak banget, jadi langganan!",
+    value: brief.testimoni,
+    onChange: e => setBrief({
+      ...brief,
+      testimoni: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "CTA"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Contoh: Order Sekarang",
+    value: brief.cta,
+    onChange: e => setBrief({
+      ...brief,
+      cta: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Pratinjau Campaign (klik untuk pilih slot)"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-3 gap-1"
+  }, FEED_ROLES.map(role => /*#__PURE__*/React.createElement("button", {
+    key: role.id,
+    onClick: () => setSelectedSlot(role.id),
+    className: `aspect-square rounded overflow-hidden border-2 ${selectedSlot === role.id ? 'border-[#E8102B]' : 'border-[#222226]'} relative`
+  }, slotPhotos[role.id] ? /*#__PURE__*/React.createElement("img", {
+    src: slotPhotos[role.id],
+    className: "w-full h-full object-cover",
+    alt: ""
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "w-full h-full bg-[#0A0A0D] flex items-center justify-center text-[10px] text-gray-500 p-1 text-center"
+  }, role.label)))), /*#__PURE__*/React.createElement("div", {
+    className: "border border-[#222226] rounded p-4 space-y-2 mt-2"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-bold text-white"
+  }, "Slot ", activeRole.id, " — ", activeRole.label), /*#__PURE__*/React.createElement("button", {
+    onClick: handleGenerateSlot,
+    className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg text-sm transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
+  }, "Buat Gambar dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
+    href: lastGenUrl,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "block text-center text-xs text-purple-400 hover:text-purple-300 underline"
+  }, "Tab tidak otomatis terbuka? Klik di sini"), genError && /*#__PURE__*/React.createElement("p", {
+    className: "text-red-500 text-sm"
+  }, genError), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Upload Hasil Gambar"), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    onChange: handleSlotPhoto,
+    className: "text-gray-400 text-sm"
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "flex items-center gap-2 text-sm text-gray-400"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: includeLogo,
+    onChange: e => setIncludeLogo(e.target.checked)
+  }), "Sertakan Logo Brand"), /*#__PURE__*/React.createElement(CompositionCanvas, {
+    ref: canvasRef,
+    productImage: slotPhotos[selectedSlot] || '',
+    width: 1080,
+    height: 1080,
+    showLogo: includeLogo
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: handleDownload,
+    className: "w-full bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold"
+  }, "Download Slot ", activeRole.id)));
+});
+const TestCompose = ({
+  menu
+}) => {
+  const items = menu;
+  const [selected, setSelected] = useState(null);
+  const [aiPromptHint, setAiPromptHint] = useState('');
+  const [format, setFormat] = useState('feed');
+  const [aiPhotoUrl, setAiPhotoUrl] = useState('');
+  const [genError, setGenError] = useState('');
+  const canvasRef = useRef();
+  const brand = useContext(BrandContext);
+  const dimsMap = {
+    feed: {
+      w: 1080,
+      h: 1080
+    },
+    story: {
+      w: 1080,
+      h: 1920
+    },
+    youtube: {
+      w: 1280,
+      h: 720
+    },
+    gofood: {
+      w: 1200,
+      h: 628
+    }
+  };
+  const dims = dimsMap[format];
+  const handleGenerateAI = () => {
+    if (!selected) {
+      setGenError("Pilih menu");
+      return;
+    }
+    setGenError('');
+    openChatGPTGenerate(`background untuk menu: ${selected.name} (${selected.category}), ${FORMAT_DESCRIPTIONS[format]}${aiPromptHint ? ', ' + aiPromptHint : ''}`);
+  };
+  const handleAiPhotoUpload = e => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 600;
+        let w = img.width,
+          h = img.height;
+        if (w > h) {
+          if (w > maxDim) {
+            h *= maxDim / w;
+            w = maxDim;
+          }
+        } else {
+          if (h > maxDim) {
+            w *= maxDim / h;
+            h = maxDim;
+          }
+        }
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        setAiPhotoUrl(c.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(e.target.files[0]);
+  };
+  const download = () => {
+    const data = canvasRef.current.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = data;
+    a.download = 'menu.png';
+    a.click();
+  };
+  const hScale = dims.w > dims.h ? 0.5 : format === 'story' ? 0.65 : 0.62;
+  const layout = getTextLayout(dims.h, dims.h * hScale, [1.1, 0.6, 0.75]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-4xl mx-auto"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 left-0 border-t-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 right-0 border-t-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner bottom-0 left-0 border-b-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner hud-corner-br bottom-0 right-0 border-b-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-scanline"
+  }), /*#__PURE__*/React.createElement("select", {
+    className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded mb-4",
+    onChange: e => {
+      setSelected(items.find(i => i.id === e.target.value));
+      setAiPhotoUrl('');
+    }
+  }, /*#__PURE__*/React.createElement("option", null, "Pilih Menu..."), items.map(i => /*#__PURE__*/React.createElement("option", {
+    key: i.id,
+    value: i.id
+  }, i.name))), selected && /*#__PURE__*/React.createElement("div", {
+    className: "mb-2"
+  }, /*#__PURE__*/React.createElement("textarea", {
+    className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded text-sm",
+    maxLength: 500,
+    rows: 3,
+    value: aiPromptHint,
+    onChange: e => setAiPromptHint(e.target.value),
+    placeholder: "Arahan AI (opsional)"
+  })), selected && /*#__PURE__*/React.createElement("button", {
+    onClick: handleGenerateAI,
+    className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-3 rounded-lg mb-2 transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
+  }, "Buat Latar dengan ChatGPT (Gratis)"), selected && /*#__PURE__*/React.createElement("div", {
+    className: "mb-4"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500 mb-2"
+  }, "Tab ChatGPT akan terbuka dengan prompt otomatis. Setelah gambar jadi, download lalu upload di sini:"), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    onChange: handleAiPhotoUpload,
+    className: "text-gray-400 text-sm"
+  })), genError && /*#__PURE__*/React.createElement("p", {
+    className: "text-red-500 text-sm mb-4"
+  }, genError), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2 mb-4"
+  }, ['feed', 'story', 'youtube', 'gofood'].map(f => /*#__PURE__*/React.createElement("button", {
+    key: f,
+    onClick: () => setFormat(f),
+    className: `p-2 rounded uppercase text-xs font-bold ${format === f ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, f))), selected && /*#__PURE__*/React.createElement(CompositionCanvas, {
+    ref: canvasRef,
+    productImage: aiPhotoUrl || selected.photoUrl,
+    width: dims.w,
+    height: dims.h,
+    textElements: [{
+      text: selected.name,
+      x: 50,
+      y: layout[0].y,
+      fontSize: layout[0].fontSize,
+      font: brand.fontHeading
+    }, {
+      text: selected.category,
+      x: 50,
+      y: layout[1].y,
+      fontSize: layout[1].fontSize,
+      font: brand.fontBody
+    }, {
+      text: 'Rp ' + selected.price,
+      x: 50,
+      y: layout[2].y,
+      fontSize: layout[2].fontSize,
+      font: brand.fontBody
+    }]
+  }), selected && /*#__PURE__*/React.createElement("button", {
+    onClick: download,
+    className: "w-full bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-3 rounded-lg mt-4 transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold"
+  }, "Download Menu"));
+};
+
+// ============================================================
+// AUTH — Login, Daftar, Panel Reseller, dan Router utama
+//
+// Ini menggantikan bekas "App() { ... signInAnonymously ... }"
+// di Canvas — sekarang pengguna BENAR-BENAR login (Email/Password
+// atau Google), setiap akun datanya privat sepenuhnya.
+// ============================================================
+
+const LoginPage = ({
+  onLoggedIn
+}) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const handleEmailLogin = async e => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      onLoggedIn(cred.user);
+    } catch (err) {
+      setError('Email atau kata sandi salah, atau akun belum terdaftar.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleGoogleLogin = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const cred = await signInWithPopup(auth, provider);
+      onLoggedIn(cred.user);
+    } catch (err) {
+      setError('Gagal masuk dengan Google. Coba lagi.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen flex items-center justify-center bg-[#0c0c10] px-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-full max-w-sm bg-[#15151b] border border-[#242430] rounded-2xl p-8 space-y-4"
+  }, /*#__PURE__*/React.createElement("h1", {
+    className: "text-xl font-semibold text-white text-center"
+  }, "Masuk ke Akun Anda"), /*#__PURE__*/React.createElement("form", {
+    onSubmit: handleEmailLogin,
+    className: "space-y-3"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "email",
+    required: true,
+    placeholder: "Email",
+    value: email,
+    onChange: e => setEmail(e.target.value),
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg outline-none"
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "password",
+    required: true,
+    placeholder: "Kata Sandi",
+    value: password,
+    onChange: e => setPassword(e.target.value),
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg outline-none"
+  }), error && /*#__PURE__*/React.createElement("p", {
+    className: "text-red-400 text-sm"
+  }, error), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    disabled: loading,
+    className: "w-full bg-amber-600 hover:bg-amber-500 text-white p-3 rounded-lg font-medium transition-colors disabled:opacity-50"
+  }, loading ? 'Memproses...' : 'Masuk')), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 text-gray-500 text-xs"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 h-px bg-[#242430]"
+  }), " atau ", /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 h-px bg-[#242430]"
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: handleGoogleLogin,
+    disabled: loading,
+    className: "w-full bg-white hover:bg-gray-100 text-gray-800 p-3 rounded-lg font-medium transition-colors"
+  }, "Masuk dengan Google"), /*#__PURE__*/React.createElement("p", {
+    className: "text-center text-sm text-gray-500"
+  }, "Belum punya akun? Hubungi tempat Anda membeli aplikasi ini untuk mendapatkan link pendaftaran.")));
+};
+
+// Membuat profil (users/{uid}) + (kalau klien reseller) catatan
+// ringan di resellers/{resellerId}/clients/{uid} — SEKADAR nama,
+// BUKAN akses ke data bisnis.
+async function createUserProfile(firebaseUser, plan, resellerId) {
+  await setDoc(doc(db, 'users', firebaseUser.uid), {
+    email: firebaseUser.email,
+    plan,
+    resellerId: resellerId || null,
+    createdAt: serverTimestamp()
+  });
+  if (plan === 'reseller_client' && resellerId) {
+    await setDoc(doc(db, 'resellers', resellerId, 'clients', firebaseUser.uid), {
+      email: firebaseUser.email,
+      createdAt: serverTimestamp()
+    });
+  }
+}
+const RegisterForm = ({
+  plan,
+  resellerId,
+  planLabel,
+  onRegistered
+}) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const handleEmailRegister = async e => {
+    e.preventDefault();
+    setError('');
+    if (password.length < 6) {
+      setError('Kata sandi minimal 6 karakter.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await createUserProfile(cred.user, plan, resellerId);
+      onRegistered(cred.user);
+    } catch (err) {
+      setError(err.code === 'auth/email-already-in-use' ? 'Email ini sudah terdaftar — coba masuk (login) saja.' : 'Gagal mendaftar. Coba lagi.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleGoogleRegister = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const cred = await signInWithPopup(auth, provider);
+      const existing = await getDoc(doc(db, 'users', cred.user.uid));
+      if (!existing.exists()) await createUserProfile(cred.user, plan, resellerId);
+      onRegistered(cred.user);
+    } catch (err) {
+      setError('Gagal daftar dengan Google. Coba lagi.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen flex items-center justify-center bg-[#0c0c10] px-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-full max-w-sm bg-[#15151b] border border-[#242430] rounded-2xl p-8 space-y-4"
+  }, /*#__PURE__*/React.createElement("h1", {
+    className: "text-xl font-semibold text-white text-center"
+  }, "Daftar ", planLabel), /*#__PURE__*/React.createElement("form", {
+    onSubmit: handleEmailRegister,
+    className: "space-y-3"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "email",
+    required: true,
+    placeholder: "Email",
+    value: email,
+    onChange: e => setEmail(e.target.value),
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg outline-none"
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "password",
+    required: true,
+    placeholder: "Buat Kata Sandi (min. 6 karakter)",
+    value: password,
+    onChange: e => setPassword(e.target.value),
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg outline-none"
+  }), error && /*#__PURE__*/React.createElement("p", {
+    className: "text-red-400 text-sm"
+  }, error), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    disabled: loading,
+    className: "w-full bg-amber-600 hover:bg-amber-500 text-white p-3 rounded-lg font-medium transition-colors disabled:opacity-50"
+  }, loading ? 'Memproses...' : 'Buat Akun')), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 text-gray-500 text-xs"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 h-px bg-[#242430]"
+  }), " atau ", /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 h-px bg-[#242430]"
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: handleGoogleRegister,
+    disabled: loading,
+    className: "w-full bg-white hover:bg-gray-100 text-gray-800 p-3 rounded-lg font-medium transition-colors"
+  }, "Daftar dengan Google"), /*#__PURE__*/React.createElement("p", {
+    className: "text-center text-sm text-gray-500"
+  }, "Sudah punya akun? ", /*#__PURE__*/React.createElement("a", {
+    href: "/login",
+    className: "text-amber-500 hover:underline"
+  }, "Masuk di sini"))));
+};
+const ResellerPanel = ({
+  user,
+  profile
+}) => {
+  const [clients, setClients] = useState([]);
+  const [brandName, setBrandName] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    const loadData = async () => {
+      const clientsSnap = await getDocs(collection(db, 'resellers', user.uid, 'clients'));
+      setClients(clientsSnap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      })));
+      const brandSnap = await getDoc(doc(db, 'resellers', user.uid));
+      if (brandSnap.exists()) {
+        setBrandName(brandSnap.data().brandName || '');
+        setLogoUrl(brandSnap.data().logoUrl || '');
+      }
+    };
+    loadData();
+  }, [user]);
+  const saveBrand = async () => {
+    await setDoc(doc(db, 'resellers', user.uid), {
+      brandName,
+      logoUrl
+    }, {
+      merge: true
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+  const inviteLink = `${window.location.origin}/undangan/${user.uid}`;
+  if (profile?.plan !== 'reseller') {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "min-h-screen flex items-center justify-center bg-[#0c0c10] text-gray-400"
+    }, "Halaman ini cuma untuk akun paket Reseller. ", /*#__PURE__*/React.createElement("a", {
+      href: "/",
+      className: "text-amber-500 ml-2 hover:underline"
+    }, "Kembali"));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen bg-[#0c0c10] p-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "max-w-2xl mx-auto space-y-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("h1", {
+    className: "text-2xl font-semibold text-white"
+  }, "Panel Reseller"), /*#__PURE__*/React.createElement("a", {
+    href: "/",
+    className: "text-sm text-gray-400 hover:text-white"
+  }, "← Kembali ke Dashboard")), /*#__PURE__*/React.createElement("div", {
+    className: "bg-[#15151b] border border-[#242430] rounded-2xl p-6 space-y-3"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-white font-medium"
+  }, "Link Undangan Klien"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-400"
+  }, "Bagikan link ini ke calon klien Anda sebanyak apapun — mereka atur akun sendiri, otomatis tercatat sebagai klien Anda."), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("input", {
+    readOnly: true,
+    value: inviteLink,
+    className: "flex-1 p-3 bg-[#0D0D12] border border-[#242430] text-gray-300 rounded-lg text-sm"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => navigator.clipboard.writeText(inviteLink),
+    className: "px-4 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-sm font-medium"
+  }, "Salin"))), /*#__PURE__*/React.createElement("div", {
+    className: "bg-[#15151b] border border-[#242430] rounded-2xl p-6 space-y-3"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-white font-medium"
+  }, "Brand Anda (White-Label)"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-400"
+  }, "Nama & logo ini akan tampil ke klien-klien Anda, menggantikan nama aplikasi asli."), /*#__PURE__*/React.createElement("input", {
+    value: brandName,
+    onChange: e => setBrandName(e.target.value),
+    placeholder: "Nama Brand Anda",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg"
+  }), /*#__PURE__*/React.createElement("input", {
+    value: logoUrl,
+    onChange: e => setLogoUrl(e.target.value),
+    placeholder: "URL Logo (opsional)",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: saveBrand,
+    className: "bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-medium"
+  }, saved ? 'Tersimpan ✓' : 'Simpan')), /*#__PURE__*/React.createElement("div", {
+    className: "bg-[#15151b] border border-[#242430] rounded-2xl p-6 space-y-3"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-white font-medium"
+  }, "Klien Anda (", clients.length, ")"), clients.length === 0 ? /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-500"
+  }, "Belum ada klien yang bergabung. Bagikan link undangan di atas.") : /*#__PURE__*/React.createElement("ul", {
+    className: "space-y-2"
+  }, clients.map(c => /*#__PURE__*/React.createElement("li", {
+    key: c.id,
+    className: "text-sm text-gray-300 border-b border-[#242430] pb-2"
+  }, c.email))))));
+};
+
+// ROUTER UTAMA — baca window.location.pathname (tidak pakai
+// react-router, cukup pengecekan string biasa) untuk menentukan
+// halaman mana yang ditampilkan. vercel.json (terpisah) yang
+// memastikan semua alamat ini tetap memuat index.html yang sama.
+export default function AppRoot() {
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const path = window.location.pathname;
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async firebaseUser => {
+      setUser(firebaseUser);
+      if (firebaseUser) {
+        const snap = await getDoc(doc(db, 'users', firebaseUser.uid));
+        setProfile(snap.exists() ? snap.data() : null);
+      } else {
+        setProfile(null);
+      }
+      setAuthChecked(true);
+    });
+    return () => unsubscribe();
+  }, []);
+  const goHome = () => {
+    window.location.href = '/';
+  };
+  const handleLogout = async () => {
+    await signOut(auth);
+    goHome();
+  };
+  if (!authChecked) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "min-h-screen flex items-center justify-center bg-[#0c0c10] text-gray-500"
+    }, "Memuat...");
+  }
+
+  // Halaman pendaftaran & login SELALU bisa diakses, tidak perlu login dulu
+  if (path === '/login') return /*#__PURE__*/React.createElement(LoginPage, {
+    onLoggedIn: goHome
+  });
+  if (path === '/daftar/single') return /*#__PURE__*/React.createElement(RegisterForm, {
+    plan: "single",
+    planLabel: "Paket Single",
+    onRegistered: goHome
+  });
+  if (path === '/daftar/reseller') return /*#__PURE__*/React.createElement(RegisterForm, {
+    plan: "reseller",
+    planLabel: "Paket Reseller",
+    onRegistered: goHome
+  });
+  if (path.startsWith('/undangan/')) {
+    const resellerId = path.split('/undangan/')[1];
+    return /*#__PURE__*/React.createElement(RegisterForm, {
+      plan: "reseller_client",
+      resellerId: resellerId,
+      planLabel: "Klien Baru",
+      onRegistered: goHome
+    });
+  }
+
+  // Halaman di bawah ini WAJIB login dulu
+  if (!user) {
+    window.location.href = '/login';
+    return null;
+  }
+  if (path === '/reseller') return /*#__PURE__*/React.createElement(ResellerPanel, {
+    user: user,
+    profile: profile
+  });
+  return /*#__PURE__*/React.createElement(MainDashboard, {
+    user: user,
+    profile: profile,
+    onLogout: handleLogout
+  });
+}
+
+const rootEl = document.getElementById('root');
+ReactDOM.createRoot(rootEl).render(React.createElement(AppRoot));
+
+</script>
+</body>
+</html>
