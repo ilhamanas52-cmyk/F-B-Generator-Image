@@ -73,7 +73,7 @@ const defaultAppData = {
     primaryColor: '#ff0000',
     secondaryColor: '#000000',
     accentColor: '#ffcc00',
-    fontHeading: 'Playfair Display',
+    fontHeading: 'Fraunces',
     fontBody: 'Inter',
     logoUrl: '',
     logoPosition: 'bottom-right'
@@ -81,27 +81,30 @@ const defaultAppData = {
   menu: [],
   contentPlan: []
 };
+// 6 pasangan font khusus F&B (berdasar riset tren tipografi 2026 —
+// serif "juicy"/bouncy, bold/brutalist signage, playful, tulisan
+// tangan tebal, heritage serif, dan modern bersih).
 const fontOptions = [{
-  heading: 'Playfair Display',
+  heading: 'Fraunces',
   body: 'Inter'
 }, {
-  heading: 'Montserrat',
-  body: 'Plus Jakarta Sans'
+  heading: 'Archivo Black',
+  body: 'Inter'
 }, {
-  heading: 'Syne',
-  body: 'Roboto'
+  heading: 'Poppins',
+  body: 'Nunito'
 }, {
-  heading: 'Cinzel',
-  body: 'Lora'
-}, {
-  heading: 'Fredoka',
-  body: 'Quicksand'
+  heading: 'Permanent Marker',
+  body: 'Open Sans'
 }, {
   heading: 'Merriweather',
-  body: 'Nunito'
+  body: 'EB Garamond'
+}, {
+  heading: 'Montserrat',
+  body: 'Lato'
 }];
 const loadGoogleFonts = () => {
-  const fonts = ['Playfair+Display', 'Inter', 'Montserrat', 'Plus+Jakarta+Sans', 'Syne', 'Roboto', 'Cinzel', 'Lora', 'Fredoka', 'Quicksand', 'Merriweather', 'Nunito', 'Space+Grotesk', 'JetBrains+Mono'];
+  const fonts = ['Fraunces', 'Inter', 'Archivo+Black', 'Poppins', 'Nunito', 'Permanent+Marker', 'Open+Sans', 'Merriweather', 'EB+Garamond', 'Montserrat', 'Lato', 'Space+Grotesk', 'JetBrains+Mono'];
   const link = document.createElement('link');
   link.href = `https://fonts.googleapis.com/css2?family=${fonts.join(':wght@400;700&family=')}&display=swap`;
   link.rel = 'stylesheet';
@@ -844,7 +847,10 @@ const BrandSettings = memo(({
     }
   }, fontOptions.map((o, idx) => /*#__PURE__*/React.createElement("option", {
     key: idx,
-    value: idx
+    value: idx,
+    style: {
+      fontFamily: `"${o.heading}", "${o.body}", sans-serif`
+    }
   }, o.heading, " + ", o.body))), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Logo"), /*#__PURE__*/React.createElement("input", {
