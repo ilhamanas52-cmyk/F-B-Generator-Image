@@ -307,10 +307,17 @@ const LOGO_POSITIONS = {
 // 4 pilihan gaya desain untuk halaman menu — mempengaruhi prompt
 // background AI (suasana/tekstur/mood), sementara grid menu tetap
 // digambar presisi oleh kanvas kita sendiri (warna & font brand).
+// Setiap gaya sekarang punya STRUKTUR TATA LETAK sendiri yang benar-benar
+// beda (bukan cuma beda warna dipetakan ke 2 kerangka yang sama seperti
+// sebelumnya). layoutKey menentukan fungsi render mana yang dipakai
+// (lihat render() di MenuPageCanvas) dan itemCap menentukan batas item
+// per halaman A4 sesuai kepadatan masing-masing struktur.
 const MENU_STYLE_PRESETS = {
   modern: {
     label: 'Modern Minimalis',
-    layoutType: 'grid',
+    layoutKey: 'gridBold',
+    // A) Grid Bold — grid 2 kolom + badge harga bulat besar menonjol
+    itemCap: 4,
     cardRadius: 12,
     pageBg: '#141414',
     cardBg: '#FFFFFF',
@@ -321,7 +328,9 @@ const MENU_STYLE_PRESETS = {
   },
   classic: {
     label: 'Klasik & Elegan',
-    layoutType: 'list',
+    layoutKey: 'dinerList',
+    // B) Diner Besar/List — 1 kolom, foto medium, badge harga pil overlap foto
+    itemCap: 6,
     pageBg: '#1C1712',
     textMain: '#F3E6C9',
     textSub: '#C7B08A',
@@ -330,8 +339,9 @@ const MENU_STYLE_PRESETS = {
   },
   playful: {
     label: 'Playful & Ceria',
-    layoutType: 'grid',
-    cardRadius: 28,
+    layoutKey: 'bubbleStrip',
+    // C) Bubble Strip/List — foto bulat kecil berjajar, tanpa kartu
+    itemCap: 10,
     pageBg: '#3D2B6B',
     cardBg: '#FFF3E2',
     textMain: '#3D2B6B',
@@ -341,7 +351,10 @@ const MENU_STYLE_PRESETS = {
   },
   rustic: {
     label: 'Rustic & Hangat',
-    layoutType: 'list',
+    layoutKey: 'editorial',
+    // D) Typographic Editorial — 2 kolom teks mengalir, TANPA foto,
+    // harga inline di akhir baris, heading kategori besar + aksen tulisan tangan
+    itemCap: 18,
     pageBg: '#EFE1C6',
     textMain: '#3B2A1A',
     textSub: '#7A5C3E',
@@ -1254,12 +1267,13 @@ const MenuPageGenerator = memo(({
   const brand = useContext(BrandContext);
   const lightingLastRef = useRef(-1);
   const filteredMenu = categoryFilter === 'all' ? menu : menu.filter(m => m.category === categoryFilter);
-  // Batas item per halaman A4, beda per gaya (Grid pakai foto persegi besar
-  // jadi kapasitasnya lebih sedikit; List baris lebih ramping jadi lebih
-  // banyak muat) — supaya halaman SELALU pas A4 tanpa foto/font dipaksa
-  // menyusut ekstrem atau halaman memanjang.
-  const currentLayoutType = MENU_STYLE_PRESETS[selectedStyle].layoutType;
-  const ITEM_CAP = currentLayoutType === 'grid' ? 4 : 8;
+  // Batas item per halaman A4, beda per gaya sesuai kepadatan STRUKTUR
+  // masing-masing (Grid Bold pakai foto persegi besar jadi kapasitasnya
+  // paling sedikit; Editorial tanpa foto sama sekali jadi bisa muat
+  // paling banyak) — supaya halaman SELALU pas A4 tanpa foto/font
+  // dipaksa menyusut ekstrem atau halaman memanjang.
+  const currentLayoutKey = MENU_STYLE_PRESETS[selectedStyle].layoutKey;
+  const ITEM_CAP = MENU_STYLE_PRESETS[selectedStyle].itemCap;
   const displayedMenu = filteredMenu.slice(0, ITEM_CAP);
   const isTruncated = filteredMenu.length > ITEM_CAP;
   const handlePhoto = e => {
@@ -1332,9 +1346,9 @@ const MenuPageGenerator = memo(({
     key: key,
     onClick: () => setSelectedStyle(key),
     className: `p-3 rounded text-xs font-bold text-left ${selectedStyle === key ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
-  }, val.label))), MENU_STYLE_PRESETS[selectedStyle].layoutType === 'grid' && /*#__PURE__*/React.createElement("p", {
+  }, val.label))), currentLayoutKey === 'gridBold' && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-500"
-  }, "Pakai rasio foto yang seragam untuk hasil rapi — 1:1 muat ±4 foto, 16:9 muat ±6 foto per halaman A4."), /*#__PURE__*/React.createElement("label", {
+  }, "Gaya Grid Bold pakai foto persegi seragam untuk hasil rapi — maksimal ±4 foto per halaman A4."), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Filter Kategori"), /*#__PURE__*/React.createElement("select", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
@@ -1378,7 +1392,7 @@ const MenuPageGenerator = memo(({
     className: "w-full bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold"
   }, "Download Halaman Menu"), isTruncated && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-yellow-500 bg-[#0A0A0D] border border-yellow-700 rounded p-2"
-  }, "⚠ Menampilkan ", displayedMenu.length, " dari ", filteredMenu.length, " menu — gaya ", currentLayoutType === 'grid' ? 'Grid (Modern/Playful)' : 'List (Klasik/Rustic)', " maksimal ", ITEM_CAP, " item per halaman A4 supaya foto & teks tetap terbaca jelas. Gunakan filter kategori atau ganti ke gaya ", currentLayoutType === 'grid' ? 'List' : 'Grid', " untuk menu lebih banyak."), /*#__PURE__*/React.createElement(MenuPageCanvas, {
+  }, "⚠ Menampilkan ", displayedMenu.length, " dari ", filteredMenu.length, " menu — gaya ", MENU_STYLE_PRESETS[selectedStyle].label, " maksimal ", ITEM_CAP, " item per halaman A4 supaya tetap terbaca jelas. Gunakan filter kategori atau ganti gaya untuk menu lebih banyak."), /*#__PURE__*/React.createElement(MenuPageCanvas, {
     ref: canvasRef,
     backgroundImage: photoUrl,
     items: displayedMenu,
@@ -1518,91 +1532,59 @@ const MenuPageCanvas = forwardRef(({
       ctx.restore();
       return w;
     };
-    const renderListLayout = async (canvas, ctx, width, grouped, cfg) => {
-      const headerH = await computeHeaderHeight(brand);
-      const catHeaderHBase = 70,
-        rowHBase = 120,
-        bottomPad = 60;
-      const totalRows = grouped.reduce((sum, g) => sum + g.list.length, 0);
-      const naturalBodyHeight = grouped.length * catHeaderHBase + totalRows * rowHBase;
-      if (cancelled) return;
-      canvas.width = A4_WIDTH * renderScale;
-      canvas.height = A4_HEIGHT * renderScale;
-      ctx.scale(renderScale, renderScale);
-      ctx.fillStyle = cfg.pageBg;
-      ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
-      if (backgroundImage) {
-        const img = new Image();
-        img.src = backgroundImage;
-        await new Promise(r => img.onload = r);
-        if (cancelled) return;
-        drawCoverImage(ctx, img, 0, 0, A4_WIDTH, A4_HEIGHT);
-        ctx.fillStyle = cfg.pageBg + 'C7';
-        ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT); // ~78% opacity overlay warna khas gaya
+    // Badge harga bulat/pil — dipakai gaya A (Grid Bold, bentuk bulat) dan
+    // B (Diner List, bentuk pil) untuk menampilkan harga sebagai badge
+    // menonjol di atas foto, BUKAN teks polos seperti gaya C/D.
+    // centerX/centerY = titik pusat badge (boleh menjorok separuh keluar
+    // foto untuk kesan "menonjol" sesuai brief desain).
+    const drawPriceBadge = (ctx, priceText, centerX, centerY, {
+      scale = 1,
+      shape = 'pill',
+      bg = '#000000',
+      textColor = '#FFFFFF',
+      fontSize = 22
+    } = {}) => {
+      const fs = Math.round(fontSize * scale);
+      ctx.font = `bold ${fs}px sans-serif`;
+      const textW = ctx.measureText(priceText).width;
+      let w, h;
+      if (shape === 'circle') {
+        const diameter = Math.max(textW + 22 * scale, fs * 2.5);
+        w = h = diameter;
+      } else {
+        const padX = 16 * scale;
+        h = fs + 18 * scale;
+        w = textW + padX * 2;
       }
-      if (cancelled) return;
-      await renderHeader(ctx, A4_WIDTH, brand);
-      await document.fonts.load(`bold 34px "${brand.fontHeading}"`);
-      await document.fonts.load(`bold 30px "${brand.fontBody}"`);
-      await document.fonts.load(`22px "${brand.fontBody}"`);
-      if (cancelled) return;
-
-      // HANYA metrik VERTIKAL yang dipadatkan kalau kepanjangan — lebar
-      // (posisi harga di kanan, ukuran thumbnail) tidak pernah mengecil,
-      // supaya tidak ada sisa ruang kosong di kanan halaman.
-      const availableBody = A4_HEIGHT - headerH - bottomPad;
-      const vScale = naturalBodyHeight > availableBody ? Math.max(0.35, availableBody / naturalBodyHeight) : 1;
-      const catHeaderH = catHeaderHBase * vScale;
-      const rowH = rowHBase * vScale;
-      const thumbSize = Math.max(48, 88 * vScale);
-      const nameFontSize = Math.round(30 * Math.max(vScale, 0.65));
-      const descFontSize = Math.round(22 * Math.max(vScale, 0.65));
-      let y = headerH;
-      const marginX = 60;
-      for (const group of grouped) {
-        ctx.fillStyle = cfg.dividerColor;
-        ctx.font = `bold 34px "${brand.fontHeading}"`;
-        ctx.fillText(group.cat.toUpperCase(), marginX, y + 45);
-        ctx.strokeStyle = cfg.dividerColor;
-        ctx.lineWidth = 2;
+      const bx = centerX - w / 2,
+        by = centerY - h / 2;
+      ctx.save();
+      ctx.fillStyle = bg;
+      if (shape === 'circle') {
         ctx.beginPath();
-        ctx.moveTo(marginX, y + 58);
-        ctx.lineTo(width - marginX, y + 58);
-        ctx.stroke();
-        y += catHeaderH;
-        for (const item of group.list) {
-          if (item.photoUrl) {
-            try {
-              const thumbImg = new Image();
-              thumbImg.src = item.photoUrl;
-              await new Promise(r => thumbImg.onload = r);
-              if (cancelled) return;
-              drawCoverImage(ctx, thumbImg, marginX, y + 10, thumbSize, thumbSize);
-            } catch (e) {}
-          }
-          const textX = item.photoUrl ? marginX + thumbSize + 24 : marginX;
-          ctx.fillStyle = cfg.textMain;
-          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
-          ctx.fillText(item.name, textX, y + nameFontSize + 8);
-          if (item.featured) {
-            const nameW = ctx.measureText(item.name).width;
-            drawFeaturedBadge(ctx, textX + nameW + 14, y + nameFontSize / 2 + 2, 0.6, 'left-middle');
-          }
-          if (item.description) {
-            ctx.fillStyle = cfg.textSub;
-            ctx.font = `${descFontSize}px "${brand.fontBody}"`;
-            ctx.fillText(item.description, textX, y + nameFontSize + descFontSize + 12);
-          }
-          ctx.fillStyle = brand.primaryColor;
-          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
-          ctx.textAlign = 'right';
-          ctx.fillText(`Rp ${item.price.toLocaleString('id-ID')}`, width - marginX, y + nameFontSize + 8);
-          ctx.textAlign = 'left';
-          y += rowH;
-        }
+        ctx.arc(centerX, centerY, w / 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        roundRectPath(ctx, bx, by, w, h, h / 2);
+        ctx.fill();
       }
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = Math.max(1.5, 2.5 * scale);
+      ctx.stroke();
+      ctx.fillStyle = textColor;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(priceText, centerX, centerY + 1);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.restore();
     };
-    const renderGridLayout = async (canvas, ctx, width, grouped, cfg) => {
+
+    // ============================================================
+    // A) GRID BOLD (gaya Modern) — grid 2 kolom + badge harga BULAT
+    // besar menonjol di sudut foto (bukan teks polos di bawah kartu).
+    // ============================================================
+    const renderGridBoldLayout = async (canvas, ctx, width, grouped, cfg) => {
       const headerH = await computeHeaderHeight(brand);
       const catHeaderHFull = 90,
         gapFull = 24,
@@ -1615,13 +1597,12 @@ const MenuPageCanvas = forwardRef(({
       const availableBody = A4_HEIGHT - headerH - 60;
 
       // Halaman SELALU A4 (tidak pernah memanjang) — jumlah item sudah
-      // dibatasi di MenuPageGenerator (maks 4 untuk Grid) supaya ini aman
-      // untuk kasus wajar (menu terkumpul di 1-2 kategori). Kalau kepanjangan:
+      // dibatasi di MenuPageGenerator supaya ini aman untuk kasus wajar
+      // (menu terkumpul di 1-2 kategori). Kalau kepanjangan:
       // 1) Kecilkan dulu jarak/judul kategori/font — foto tetap persegi.
       // 2) Kalau masih belum cukup, foto boleh menyusut, TAPI dibatasi
       //    maksimal rasio ~1.3:1 (jauh dari 16:9) — ini jaring pengaman
-      //    terakhir untuk kasus jarang (menu tersebar di banyak kategori
-      //    sekaligus), bukan jalur utama.
+      //    terakhir untuk kasus jarang, bukan jalur utama.
       const MIN_NSCALE = 0.55;
       const MIN_PHOTO_SCALE = 0.77;
       const CONST = totalCardRows * photoHeightFull;
@@ -1669,7 +1650,7 @@ const MenuPageCanvas = forwardRef(({
       await document.fonts.load(`18px "${brand.fontBody}"`);
       if (cancelled) return;
       let y = headerH;
-      const badgeQueue = []; // digambar terakhir, di atas SEMUA kartu (termasuk kartu tetangga)
+      const badgeQueue = []; // badge favorit digambar terakhir, di atas semua kartu
       for (const group of grouped) {
         ctx.fillStyle = '#FFFFFF';
         ctx.font = `bold 30px "${brand.fontHeading}"`;
@@ -1716,7 +1697,7 @@ const MenuPageCanvas = forwardRef(({
           ctx.lineTo(cx + cardWidth - 18, cy + photoHeight + 8);
           ctx.stroke();
 
-          // Teks di bawah foto
+          // Teks di bawah foto (TANPA harga — harga sekarang jadi badge bulat di foto)
           const padX = 18;
           ctx.fillStyle = cfg.textMain;
           ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
@@ -1726,13 +1707,350 @@ const MenuPageCanvas = forwardRef(({
             ctx.font = `${descFontSize}px "${brand.fontBody}"`;
             ctx.fillText(item.description, cx + padX, cy + photoHeight + nameFontSize + descFontSize + 14, cardWidth - padX * 2);
           }
-          ctx.fillStyle = brand.primaryColor;
-          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
-          ctx.fillText(`Rp ${item.price.toLocaleString('id-ID')}`, cx + padX, cy + cardHeight - 15);
+
+          // Badge harga BULAT besar, menjorok di sudut kanan-bawah foto —
+          // ciri khas gaya Grid Bold, dibedakan dari teks polos gaya lain.
+          drawPriceBadge(ctx, `Rp ${item.price.toLocaleString('id-ID')}`, cx + cardWidth - 6, cy + photoHeight - 6, {
+            scale: Math.max(nScale, 0.75) * 1.15,
+            shape: 'circle',
+            bg: brand.primaryColor,
+            fontSize: 20
+          });
           if (col === cols - 1 || i === group.list.length - 1) y += cardHeight + gap;
         }
       }
       for (const [bx, by, bscale, banchor] of badgeQueue) drawFeaturedBadge(ctx, bx, by, bscale, banchor);
+    };
+
+    // ============================================================
+    // B) DINER LIST (gaya Klasik) — 1 kolom, foto MEDIUM (lebih besar
+    // dari list biasa), badge harga bentuk PIL menjorok di sudut foto.
+    // ============================================================
+    const renderDinerListLayout = async (canvas, ctx, width, grouped, cfg) => {
+      const headerH = await computeHeaderHeight(brand);
+      const catHeaderHBase = 70,
+        rowHBase = 156,
+        bottomPad = 60;
+      const totalRows = grouped.reduce((sum, g) => sum + g.list.length, 0);
+      const naturalBodyHeight = grouped.length * catHeaderHBase + totalRows * rowHBase;
+      if (cancelled) return;
+      canvas.width = A4_WIDTH * renderScale;
+      canvas.height = A4_HEIGHT * renderScale;
+      ctx.scale(renderScale, renderScale);
+      ctx.fillStyle = cfg.pageBg;
+      ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
+      if (backgroundImage) {
+        const img = new Image();
+        img.src = backgroundImage;
+        await new Promise(r => img.onload = r);
+        if (cancelled) return;
+        drawCoverImage(ctx, img, 0, 0, A4_WIDTH, A4_HEIGHT);
+        ctx.fillStyle = cfg.pageBg + 'C7';
+        ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT); // ~78% opacity overlay warna khas gaya
+      }
+      if (cancelled) return;
+      await renderHeader(ctx, A4_WIDTH, brand);
+      await document.fonts.load(`bold 34px "${brand.fontHeading}"`);
+      await document.fonts.load(`bold 30px "${brand.fontBody}"`);
+      await document.fonts.load(`22px "${brand.fontBody}"`);
+      if (cancelled) return;
+
+      // HANYA metrik VERTIKAL yang dipadatkan kalau kepanjangan — lebar
+      // (ukuran thumbnail medium) tidak pernah mengecil drastis, supaya
+      // ciri khas "foto besar" gaya ini tetap terasa.
+      const availableBody = A4_HEIGHT - headerH - bottomPad;
+      const vScale = naturalBodyHeight > availableBody ? Math.max(0.4, availableBody / naturalBodyHeight) : 1;
+      const catHeaderH = catHeaderHBase * vScale;
+      const rowH = rowHBase * vScale;
+      const thumbSize = Math.max(70, 130 * vScale); // ~110-140px di skala penuh sesuai brief "medium"
+      const nameFontSize = Math.round(30 * Math.max(vScale, 0.65));
+      const descFontSize = Math.round(22 * Math.max(vScale, 0.65));
+      let y = headerH;
+      const marginX = 60;
+      for (const group of grouped) {
+        ctx.fillStyle = cfg.dividerColor;
+        ctx.font = `bold 34px "${brand.fontHeading}"`;
+        ctx.fillText(group.cat.toUpperCase(), marginX, y + 45);
+        ctx.strokeStyle = cfg.dividerColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(marginX, y + 58);
+        ctx.lineTo(width - marginX, y + 58);
+        ctx.stroke();
+        y += catHeaderH;
+        for (const item of group.list) {
+          const priceText = `Rp ${item.price.toLocaleString('id-ID')}`;
+          if (item.photoUrl) {
+            try {
+              const thumbImg = new Image();
+              thumbImg.src = item.photoUrl;
+              await new Promise(r => thumbImg.onload = r);
+              if (cancelled) return;
+              drawCoverImage(ctx, thumbImg, marginX, y + 10, thumbSize, thumbSize);
+              // Badge harga PIL menjorok di sudut kanan-bawah foto
+              drawPriceBadge(ctx, priceText, marginX + thumbSize, y + 10 + thumbSize, {
+                scale: Math.max(vScale, 0.7),
+                shape: 'pill',
+                bg: brand.primaryColor,
+                fontSize: 22
+              });
+            } catch (e) {}
+          }
+          const textX = item.photoUrl ? marginX + thumbSize + 24 : marginX;
+          ctx.fillStyle = cfg.textMain;
+          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
+          ctx.fillText(item.name, textX, y + nameFontSize + 8, width - marginX - textX);
+          if (item.featured) {
+            const nameW = ctx.measureText(item.name).width;
+            drawFeaturedBadge(ctx, textX + nameW + 14, y + nameFontSize / 2 + 2, 0.6, 'left-middle');
+          }
+          if (item.description) {
+            ctx.fillStyle = cfg.textSub;
+            ctx.font = `${descFontSize}px "${brand.fontBody}"`;
+            ctx.fillText(item.description, textX, y + nameFontSize + descFontSize + 12, width - marginX - textX);
+          }
+          // Tanpa foto: harga tetap ditampilkan, sebagai pil kecil menempel setelah nama
+          if (!item.photoUrl) {
+            const nameW = ctx.measureText(item.name).width;
+            drawPriceBadge(ctx, priceText, width - marginX - 50, y + nameFontSize / 2 + 2, {
+              scale: Math.max(vScale, 0.7) * 0.9,
+              shape: 'pill',
+              bg: brand.primaryColor,
+              fontSize: 20
+            });
+          }
+          y += rowH;
+        }
+      }
+    };
+
+    // ============================================================
+    // C) BUBBLE STRIP (gaya Playful) — 1 kolom, foto BULAT KECIL
+    // berjajar (bukan kartu foto besar), baris ramping & rapat,
+    // harga teks sederhana rata-kanan.
+    // ============================================================
+    const renderBubbleStripLayout = async (canvas, ctx, width, grouped, cfg) => {
+      const headerH = await computeHeaderHeight(brand);
+      const catHeaderHBase = 56,
+        rowHBase = 78,
+        bottomPad = 60;
+      const totalRows = grouped.reduce((sum, g) => sum + g.list.length, 0);
+      const naturalBodyHeight = grouped.length * catHeaderHBase + totalRows * rowHBase;
+      if (cancelled) return;
+      canvas.width = A4_WIDTH * renderScale;
+      canvas.height = A4_HEIGHT * renderScale;
+      ctx.scale(renderScale, renderScale);
+      ctx.fillStyle = cfg.pageBg;
+      ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
+      if (backgroundImage) {
+        const img = new Image();
+        img.src = backgroundImage;
+        await new Promise(r => img.onload = r);
+        if (cancelled) return;
+        drawCoverImage(ctx, img, 0, 0, A4_WIDTH, A4_HEIGHT);
+        ctx.fillStyle = cfg.pageBg + 'C7';
+        ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
+      }
+      if (cancelled) return;
+      await renderHeader(ctx, A4_WIDTH, brand);
+      await document.fonts.load(`bold 30px "${brand.fontHeading}"`);
+      await document.fonts.load(`bold 26px "${brand.fontBody}"`);
+      await document.fonts.load(`18px "${brand.fontBody}"`);
+      if (cancelled) return;
+      const availableBody = A4_HEIGHT - headerH - bottomPad;
+      const vScale = naturalBodyHeight > availableBody ? Math.max(0.4, availableBody / naturalBodyHeight) : 1;
+      const catHeaderH = catHeaderHBase * vScale;
+      const rowH = rowHBase * vScale;
+      const bubbleSize = Math.max(34, 60 * vScale); // bulat KECIL — ciri khas gaya ini
+      const nameFontSize = Math.round(26 * Math.max(vScale, 0.65));
+      const descFontSize = Math.round(17 * Math.max(vScale, 0.65));
+      let y = headerH;
+      const marginX = 60;
+      for (const group of grouped) {
+        ctx.fillStyle = cfg.dividerColor;
+        ctx.font = `bold 30px "${brand.fontHeading}"`;
+        ctx.fillText(group.cat.toUpperCase(), marginX, y + 26);
+        y += catHeaderH;
+        for (const item of group.list) {
+          if (item.photoUrl) {
+            try {
+              const thumbImg = new Image();
+              thumbImg.src = item.photoUrl;
+              await new Promise(r => thumbImg.onload = r);
+              if (cancelled) return;
+              ctx.save();
+              ctx.beginPath();
+              ctx.arc(marginX + bubbleSize / 2, y + bubbleSize / 2, bubbleSize / 2, 0, Math.PI * 2);
+              ctx.clip();
+              drawCoverImage(ctx, thumbImg, marginX, y, bubbleSize, bubbleSize);
+              ctx.restore();
+              ctx.strokeStyle = cfg.dividerColor;
+              ctx.lineWidth = 2.5;
+              ctx.beginPath();
+              ctx.arc(marginX + bubbleSize / 2, y + bubbleSize / 2, bubbleSize / 2, 0, Math.PI * 2);
+              ctx.stroke();
+            } catch (e) {}
+          }
+          const textX = item.photoUrl ? marginX + bubbleSize + 20 : marginX;
+          const nameBaselineY = y + bubbleSize / 2 + (item.description ? -2 : nameFontSize / 3);
+          ctx.fillStyle = cfg.textMain;
+          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
+          ctx.fillText(item.name, textX, nameBaselineY, width - marginX - textX - 140);
+          if (item.featured) {
+            const nameW = ctx.measureText(item.name).width;
+            drawFeaturedBadge(ctx, textX + nameW + 12, nameBaselineY - nameFontSize / 2 + 2, 0.5, 'left-middle');
+          }
+          if (item.description) {
+            ctx.fillStyle = cfg.textSub;
+            ctx.font = `${descFontSize}px "${brand.fontBody}"`;
+            ctx.fillText(item.description, textX, nameBaselineY + descFontSize + 2, width - marginX - textX - 140);
+          }
+          ctx.fillStyle = brand.primaryColor;
+          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
+          ctx.textAlign = 'right';
+          ctx.fillText(`Rp ${item.price.toLocaleString('id-ID')}`, width - marginX, y + bubbleSize / 2 + nameFontSize / 3);
+          ctx.textAlign = 'left';
+          y += rowH;
+        }
+      }
+    };
+
+    // ============================================================
+    // D) TYPOGRAPHIC EDITORIAL (gaya Rustic) — 2 KOLOM teks mengalir
+    // gaya koran, TANPA foto sama sekali, harga inline di akhir baris,
+    // heading kategori oversized, aksen nama pakai font tulisan-tangan.
+    // Kolom boleh berhenti di tengah kategori (mengalir seperti koran),
+    // ini disengaja, bukan cacat.
+    // ============================================================
+    const renderEditorialLayout = async (canvas, ctx, width, grouped, cfg) => {
+      const headerH = await computeHeaderHeight(brand);
+      const bottomPad = 60;
+      const marginX = 60;
+      const colGap = 50;
+      const catHeaderHBase = 64;
+      const nameLineHBase = 34;
+      const descLineHBase = 22;
+      const itemGapBase = 14;
+      const blocks = [];
+      for (const group of grouped) {
+        blocks.push({
+          type: 'header',
+          text: group.cat,
+          h: catHeaderHBase
+        });
+        for (const item of group.list) {
+          blocks.push({
+            type: 'item',
+            item,
+            h: nameLineHBase + (item.description ? descLineHBase : 0) + itemGapBase
+          });
+        }
+      }
+      const naturalTotal = blocks.reduce((s, b) => s + b.h, 0);
+      const availableBody = A4_HEIGHT - headerH - bottomPad;
+      // Kolom berdampingan HORIZONTAL, jadi tinggi yang dibandingkan adalah
+      // separuh total konten (bukan tinggi 1 halaman penuh dibagi lagi).
+      const vScale = naturalTotal / 2 > availableBody ? Math.max(0.4, availableBody / (naturalTotal / 2)) : 1;
+      const catHeaderH = catHeaderHBase * vScale;
+      const nameLineH = nameLineHBase * Math.max(vScale, 0.6);
+      const descLineH = descLineHBase * Math.max(vScale, 0.6);
+      const itemGap = itemGapBase * vScale;
+      const nameFontSize = Math.round(24 * Math.max(vScale, 0.6));
+      const descFontSize = Math.round(18 * Math.max(vScale, 0.6));
+      const catFontSize = Math.round(34 * Math.max(vScale, 0.6));
+      if (cancelled) return;
+      canvas.width = A4_WIDTH * renderScale;
+      canvas.height = A4_HEIGHT * renderScale;
+      ctx.scale(renderScale, renderScale);
+      ctx.fillStyle = cfg.pageBg;
+      ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
+      if (backgroundImage) {
+        const img = new Image();
+        img.src = backgroundImage;
+        await new Promise(r => img.onload = r);
+        if (cancelled) return;
+        drawCoverImage(ctx, img, 0, 0, A4_WIDTH, A4_HEIGHT);
+        // Overlay lebih pekat dari gaya lain — halaman ini murni tipografi,
+        // background tidak boleh mengganggu keterbacaan teks.
+        ctx.fillStyle = cfg.pageBg + 'D8';
+        ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
+      }
+      if (cancelled) return;
+      await renderHeader(ctx, A4_WIDTH, brand);
+      await document.fonts.load(`bold ${catFontSize}px "${brand.fontHeading}"`);
+      await document.fonts.load(`${nameFontSize}px "Permanent Marker"`);
+      await document.fonts.load(`italic ${descFontSize}px "${brand.fontBody}"`);
+      if (cancelled) return;
+      const colWidth = (width - marginX * 2 - colGap) / 2;
+      const col1X = marginX;
+      const col2X = marginX + colWidth + colGap;
+      const halfTarget = naturalTotal / 2;
+      let acc = 0,
+        splitIdx = blocks.length;
+      for (let i = 0; i < blocks.length; i++) {
+        acc += blocks[i].h;
+        if (acc >= halfTarget) {
+          splitIdx = i + 1;
+          break;
+        }
+      }
+      const col1Blocks = blocks.slice(0, splitIdx);
+      const col2Blocks = blocks.slice(splitIdx);
+      const drawColumnAt = (colBlocks, colX) => {
+        let y = headerH;
+        for (const b of colBlocks) {
+          if (b.type === 'header') {
+            ctx.fillStyle = cfg.dividerColor;
+            ctx.font = `bold ${catFontSize}px "${brand.fontHeading}"`;
+            ctx.fillText(b.text.toUpperCase(), colX, y + catFontSize);
+            ctx.strokeStyle = cfg.dividerColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(colX, y + catFontSize + 10);
+            ctx.lineTo(colX + colWidth, y + catFontSize + 10);
+            ctx.stroke();
+            y += catHeaderH;
+          } else {
+            const item = b.item;
+            const namePrefix = item.featured ? '★ ' : '';
+            const priceText = `Rp ${item.price.toLocaleString('id-ID')}`;
+            ctx.font = `bold ${Math.round(nameFontSize * 0.72)}px "${brand.fontBody}"`;
+            const priceW = ctx.measureText(priceText).width;
+            ctx.font = `${nameFontSize}px "Permanent Marker"`;
+            ctx.fillStyle = cfg.textMain;
+            ctx.fillText(namePrefix + item.name, colX, y + nameFontSize, colWidth - priceW - 12);
+            ctx.font = `bold ${Math.round(nameFontSize * 0.72)}px "${brand.fontBody}"`;
+            ctx.fillStyle = brand.primaryColor;
+            ctx.textAlign = 'right';
+            ctx.fillText(priceText, colX + colWidth, y + nameFontSize);
+            ctx.textAlign = 'left';
+            y += nameLineH;
+            if (item.description) {
+              ctx.font = `italic ${descFontSize}px "${brand.fontBody}"`;
+              ctx.fillStyle = cfg.textSub;
+              ctx.fillText(item.description, colX, y + descFontSize - 4, colWidth);
+              y += descLineH;
+            }
+            y += itemGap;
+          }
+        }
+      };
+      drawColumnAt(col1Blocks, col1X);
+      drawColumnAt(col2Blocks, col2X);
+      // Garis pemisah vertikal di antara 2 kolom — ciri khas layout koran/editorial
+      ctx.strokeStyle = cfg.dividerColor;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(marginX + colWidth + colGap / 2, headerH - 10);
+      ctx.lineTo(marginX + colWidth + colGap / 2, A4_HEIGHT - bottomPad);
+      ctx.stroke();
+    };
+
+    const LAYOUT_RENDERERS = {
+      gridBold: renderGridBoldLayout,
+      dinerList: renderDinerListLayout,
+      bubbleStrip: renderBubbleStripLayout,
+      editorial: renderEditorialLayout
     };
     const render = async () => {
       const canvas = canvasRef.current;
@@ -1744,7 +2062,8 @@ const MenuPageCanvas = forwardRef(({
         list: items.filter(i => i.category === cat)
       })).filter(g => g.list.length > 0);
       if (cancelled) return;
-      if (styleConfig.layoutType === 'grid') await renderGridLayout(canvas, ctx, width, grouped, styleConfig);else await renderListLayout(canvas, ctx, width, grouped, styleConfig);
+      const renderFn = LAYOUT_RENDERERS[styleConfig.layoutKey] || renderDinerListLayout;
+      await renderFn(canvas, ctx, width, grouped, styleConfig);
     };
     render();
     return () => {
