@@ -83,7 +83,14 @@ const defaultAppData = {
   // MainDashboard), supaya tidak kena batas ukuran 1MB per dokumen
   // kalau menu banyak dengan foto.
   contentPlan: [],
-  contentPlanRawText: '' // teks mentah yang ditempel di kolom "Tempel Jawaban ChatGPT" — disimpan permanen (beda dari foto per-hari yang sesi-saja)
+  contentPlanRawText: '', // teks mentah yang ditempel di kolom "Tempel Jawaban ChatGPT" — disimpan permanen (beda dari foto per-hari yang sesi-saja)
+  // API key Gemini milik USER SENDIRI (bukan milik pemilik aplikasi) —
+  // dipakai fitur Vision AI (analisis foto) di tab Promo dkk. Disimpan
+  // di dokumen appData/state yang sama, sudah otomatis privat berkat
+  // Firestore Rules yang ada (tidak perlu Rules baru).
+  settings: {
+    geminiApiKey: ''
+  }
 };
 // 11 pasangan font khusus F&B (berdasar riset tren tipografi 2026 —
 // serif "juicy"/bouncy, bold/brutalist signage, playful, tulisan
@@ -130,6 +137,10 @@ const loadGoogleFonts = () => {
   document.head.appendChild(link);
 };
 const BrandContext = createContext(defaultAppData.brand);
+// Context terpisah dari BrandContext (bukan soal identitas brand,
+// tapi soal pengaturan/API key) — dibaca komponen manapun yang butuh
+// akses Gemini API key untuk fitur Vision AI.
+const SettingsContext = createContext(defaultAppData.settings);
 const hudStyles = `
   @keyframes hudScan { 0% { transform: translateY(-100%); opacity: 0; } 15% { opacity: 0.1; } 85% { opacity: 0.1; } 100% { transform: translateY(2000%); opacity: 0; } }
   @keyframes hudPulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
@@ -243,6 +254,61 @@ const pickVariant = (bank, lastIndexRef) => {
   } while (idx === lastIndexRef.current);
   lastIndexRef.current = idx;
   return bank[idx];
+};
+
+// ============================================================
+// VISION AI — analisis foto pakai Gemini API (punya API key SENDIRI
+// milik user, disimpan di Firestore, TIDAK dikirim ke server kami).
+// Dipanggil langsung dari browser (fetch), sama seperti pola generate
+// gambar via ChatGPT di aplikasi ini — tanpa backend.
+// Model gemini-2.5-flash: multimodal (terima gambar+teks), ada kuota
+// gratis harian yang cukup untuk skala UMKM per Juli 2026.
+// ============================================================
+const GEMINI_VISION_MODEL = 'gemini-2.5-flash';
+const analyzeImageWithGemini = async (apiKey, imageDataUrl, instruction) => {
+  if (!apiKey) throw new Error('API key Gemini belum diisi. Simpan dulu di tab Brand.');
+  const match = imageDataUrl.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
+  if (!match) throw new Error('Format foto tidak valid.');
+  const mimeType = match[1];
+  const base64Data = match[2];
+  let resp;
+  try {
+    resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_VISION_MODEL}:generateContent`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: instruction
+          }, {
+            inline_data: {
+              mime_type: mimeType,
+              data: base64Data
+            }
+          }]
+        }]
+      })
+    });
+  } catch (e) {
+    throw new Error('Gagal menghubungi Gemini API — cek koneksi internet.');
+  }
+  if (!resp.ok) {
+    let detail = '';
+    try {
+      const errJson = await resp.json();
+      detail = errJson?.error?.message || '';
+    } catch (e) {}
+    if (resp.status === 400 || resp.status === 403) throw new Error(`API key ditolak (${resp.status}). Cek kembali API key di tab Brand. ${detail}`);
+    if (resp.status === 429) throw new Error('Kuota Gemini API harian/menit habis. Coba lagi nanti.');
+    throw new Error(`Gemini API error ${resp.status}. ${detail}`);
+  }
+  const data = await resp.json();
+  const text = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text).filter(Boolean).join(' ').trim();
+  if (!text) throw new Error('Gemini tidak mengembalikan hasil teks (mungkin foto diblokir filter keamanan).');
+  return text;
 };
 
 // Rakit Lapis 2-6 jadi 1 blok teks siap pakai. Dipanggil dari
@@ -704,7 +770,11 @@ function MainDashboard({
             ...(data.brand || {})
           },
           contentPlan: Array.isArray(data.contentPlan) ? data.contentPlan : [],
-          contentPlanRawText: data.contentPlanRawText || ''
+          contentPlanRawText: data.contentPlanRawText || '',
+          settings: {
+            ...defaultAppData.settings,
+            ...(data.settings || {})
+          }
         });
         // Migrasi 1x otomatis: kalau masih ada menu lama tergabung di
         // dokumen ini (dari sebelum perbaikan batas ukuran Firestore),
@@ -725,7 +795,8 @@ function MainDashboard({
         setDoc(docRef(), {
           brand: defaultAppData.brand,
           contentPlan: [],
-          contentPlanRawText: ''
+          contentPlanRawText: '',
+          settings: defaultAppData.settings
         }).catch(e => setDbError(`Gagal membuat data awal: ${e.message}`));
       }
     }, err => setDbError(`Gagal baca data: ${err.message}`));
@@ -767,6 +838,8 @@ function MainDashboard({
   };
   return /*#__PURE__*/React.createElement(BrandContext.Provider, {
     value: appData.brand
+  }, /*#__PURE__*/React.createElement(SettingsContext.Provider, {
+    value: appData.settings
   }, /*#__PURE__*/React.createElement("style", null, hudStyles), /*#__PURE__*/React.createElement("div", {
     className: "min-h-screen bg-gradient-to-b from-[#0c0c10] to-[#08080a] text-gray-200 flex flex-col font-['Inter'] pt-14 overflow-x-hidden"
   }, dbError && /*#__PURE__*/React.createElement("div", {
@@ -795,6 +868,7 @@ function MainDashboard({
     className: "flex-grow p-6"
   }, activeTab === 'brands' && /*#__PURE__*/React.createElement(BrandSettings, {
     brand: appData.brand,
+    settings: appData.settings,
     saveAppData: saveAppData
   }), activeTab === 'menu' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(MenuManager, {
     menu: menu,
@@ -806,7 +880,7 @@ function MainDashboard({
     contentPlan: appData.contentPlan || [],
     rawText: appData.contentPlanRawText || '',
     saveAppData: saveAppData
-  }), activeTab === 'feed9' && /*#__PURE__*/React.createElement(FeedCampaignGenerator, null))));
+  }), activeTab === 'feed9' && /*#__PURE__*/React.createElement(FeedCampaignGenerator, null)))));
 }
 const CanvasEditor = memo(() => {
   const canvasRef = useRef(null);
@@ -872,6 +946,7 @@ const CanvasEditor = memo(() => {
 });
 const BrandSettings = memo(({
   brand,
+  settings,
   saveAppData
 }) => {
   const [local, setLocal] = useState({
@@ -920,6 +995,56 @@ const BrandSettings = memo(({
     colorSaveTimer.current = setTimeout(() => {
       updateBrand(updates);
     }, 400);
+  };
+
+  // --- Vision AI: API key Gemini milik user sendiri ---
+  const [apiKeyInput, setApiKeyInput] = useState((settings && settings.geminiApiKey) || '');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [testStatus, setTestStatus] = useState(null); // null | 'testing' | 'ok' | { error }
+  useEffect(() => {
+    setApiKeyInput((settings && settings.geminiApiKey) || '');
+  }, [settings && settings.geminiApiKey]);
+  const saveApiKey = () => {
+    saveAppData({
+      settings: {
+        ...settings,
+        geminiApiKey: apiKeyInput.trim()
+      }
+    });
+    setTestStatus(null);
+  };
+  const testApiKey = async () => {
+    setTestStatus('testing');
+    try {
+      // Tes ringan: kirim teks singkat tanpa gambar, cukup untuk
+      // memastikan API key valid & terhubung.
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_VISION_MODEL}:generateContent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKeyInput.trim()
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: 'Balas dengan kata "OK" saja.'
+            }]
+          }]
+        })
+      });
+      if (!resp.ok) {
+        const errJson = await resp.json().catch(() => ({}));
+        setTestStatus({
+          error: `API key ditolak (${resp.status}). ${errJson?.error?.message || ''}`
+        });
+        return;
+      }
+      setTestStatus('ok');
+    } catch (e) {
+      setTestStatus({
+        error: 'Gagal menghubungi Gemini API — cek koneksi internet.'
+      });
+    }
   };
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-lg mx-auto space-y-4 font-['JetBrains_Mono']"
@@ -1060,6 +1185,39 @@ const BrandSettings = memo(({
     key: key,
     value: key
   }, val.label)))), /*#__PURE__*/React.createElement("div", {
+    className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-lg mx-auto space-y-3 font-['JetBrains_Mono'] mt-6"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-sm font-semibold text-white uppercase tracking-wide"
+  }, "Vision AI (opsional)"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400 leading-relaxed"
+  }, "Isi API key Gemini milik Anda sendiri (gratis) supaya bisa pakai fitur analisis foto otomatis di tab Promo. Kami tidak menyimpan/melihat API key ini — hanya tersimpan di akun Anda."), /*#__PURE__*/React.createElement("a", {
+    href: "https://aistudio.google.com/apikey",
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "text-xs text-[#E8102B] underline block"
+  }, "Cara dapat API key gratis dari Google AI Studio \u2192"), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: showApiKey ? 'text' : 'password',
+    className: "flex-1 p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600 text-sm",
+    placeholder: "Tempel API key Gemini di sini",
+    value: apiKeyInput,
+    onChange: e => setApiKeyInput(e.target.value),
+    onBlur: saveApiKey
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => setShowApiKey(!showApiKey),
+    className: "px-3 text-xs text-gray-400 border border-[#242430] rounded-lg hover:text-white"
+  }, showApiKey ? 'Sembunyikan' : 'Lihat')), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: testApiKey,
+    disabled: !apiKeyInput.trim() || testStatus === 'testing',
+    className: "text-xs px-4 py-2 rounded-lg bg-[#1c1c24] border border-[#242430] text-gray-300 hover:text-white disabled:opacity-40"
+  }, testStatus === 'testing' ? 'Menguji...' : 'Tes Koneksi'), testStatus === 'ok' && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-green-400"
+  }, "\u2713 API key valid & terhubung."), testStatus && testStatus.error && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-red-400"
+  }, testStatus.error)), /*#__PURE__*/React.createElement("div", {
     className: "mt-8 max-w-[800px] mx-auto"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-center text-xs text-gray-500 uppercase mb-3"
@@ -2189,8 +2347,17 @@ const PromoGenerator = memo(() => {
   const [textOrientation, setTextOrientation] = useState('lurus'); // 'lurus' | 'miring' | 'vertikal'
   const [showAdvanced, setShowAdvanced] = useState(false); // "+ Opsi Lanjutan"
   const [showVisualStyle, setShowVisualStyle] = useState(false); // "+ Gaya Visual"
+  const [showVisionAI, setShowVisionAI] = useState(false); // "+ Analisis Foto dengan AI"
+  // --- Vision AI: 2 foto upload (ditunda sebelumnya, dibuka sekarang
+  // bersamaan dengan fitur Vision AI karena terkait erat) ---
+  const [productPhotoUrl, setProductPhotoUrl] = useState(''); // Foto Produk Asli
+  const [styleRefPhotoUrl, setStyleRefPhotoUrl] = useState(''); // Foto Referensi Gaya
+  const [visionBusy, setVisionBusy] = useState(null); // null | 'product' | 'style'
+  const [visionError, setVisionError] = useState('');
+  const [visionSuggestion, setVisionSuggestion] = useState(null); // { type: 'product'|'style', text }
   const canvasRef = useRef();
   const brand = useContext(BrandContext);
+  const settings = useContext(SettingsContext);
   // Anti-pengulangan — supaya generate berturut-turut tidak pernah
   // pakai pencahayaan/komposisi/latar/aksi yang persis sama.
   const lightingLastRef = useRef(-1);
@@ -2262,6 +2429,85 @@ const PromoGenerator = memo(() => {
     };
     reader.readAsDataURL(file);
   };
+
+  // --- Vision AI: upload 2 foto (dikecilkan dulu sama seperti foto
+  // promo utama, supaya base64-nya tidak raksasa saat dikirim ke API) ---
+  const resizeToDataUrl = (file, maxDim) => new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width,
+          h = img.height;
+        if (w > h) {
+          if (w > maxDim) {
+            h *= maxDim / w;
+            w = maxDim;
+          }
+        } else {
+          if (h > maxDim) {
+            w *= maxDim / h;
+            h = maxDim;
+          }
+        }
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  const handleProductPhoto = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setProductPhotoUrl(await resizeToDataUrl(file, 1000));
+  };
+  const handleStyleRefPhoto = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setStyleRefPhotoUrl(await resizeToDataUrl(file, 1000));
+  };
+  const analyzeProductPhoto = async () => {
+    setVisionError('');
+    setVisionBusy('product');
+    try {
+      const text = await analyzeImageWithGemini(settings.geminiApiKey, productPhotoUrl, 'Deskripsikan HANYA bentuk fisik, warna, tekstur, dan cara penyajian (plating) makanan/minuman yang terlihat di foto ini secara presisi dan detail, untuk jadi acuan AI image generator supaya tidak mengarang/mendistorsi bentuk aslinya. JANGAN berkomentar soal gaya foto, pencahayaan, atau latar belakang. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
+      setVisionSuggestion({
+        type: 'product',
+        text
+      });
+    } catch (e) {
+      setVisionError(e.message);
+    } finally {
+      setVisionBusy(null);
+    }
+  };
+  const analyzeStyleRefPhoto = async () => {
+    setVisionError('');
+    setVisionBusy('style');
+    try {
+      const text = await analyzeImageWithGemini(settings.geminiApiKey, styleRefPhotoUrl, 'Deskripsikan HANYA gaya visual foto ini untuk keperluan prompt AI image generation: komposisi, sudut pengambilan, pencahayaan, palet warna, dan mood/suasana. JANGAN sebutkan, kutip, atau tuliskan ulang teks/tulisan apa pun yang terlihat di foto ini walau ada — abaikan total semua teks di foto, fokus HANYA pada gaya visualnya. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
+      setVisionSuggestion({
+        type: 'style',
+        text
+      });
+    } catch (e) {
+      setVisionError(e.message);
+    } finally {
+      setVisionBusy(null);
+    }
+  };
+  const applySuggestion = () => {
+    if (!visionSuggestion) return;
+    const label = visionSuggestion.type === 'product' ? 'Bentuk asli produk' : 'Gaya visual referensi';
+    const addition = `[${label}]: ${visionSuggestion.text}`;
+    setAiPromptHint(prev => prev ? `${prev}\n${addition}` : addition);
+    setVisionSuggestion(null);
+  };
+  const dismissSuggestion = () => setVisionSuggestion(null);
   const handleGenerateAI = () => {
     if (!adCopy || !adCopy.headline) {
       setGenError("Isi Headline dulu, lalu klik \"Kirim Teks Iklan\"");
@@ -2407,6 +2653,71 @@ const PromoGenerator = memo(() => {
     onClick: clearAdCopy,
     className: "text-red-400 hover:text-red-300 ml-2"
   }, "Hapus"))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowVisionAI(!showVisionAI),
+    className: "text-xs text-amber-500 hover:text-amber-400 underline"
+  }, showVisionAI ? '\u2212 Sembunyikan Analisis Foto dengan AI' : '+ Analisis Foto dengan AI (Vision, opsional)'), showVisionAI && /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3 border border-[#222226] rounded p-3"
+  }, !settings.geminiApiKey && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-amber-500"
+  }, "Simpan API key Gemini dulu di tab Brand (section \"Vision AI\") supaya fitur ini bisa dipakai."), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 sm:grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block"
+  }, "Foto Produk Asli"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-gray-500"
+  }, "Supaya AI tidak mengarang bentuk makanan Anda."), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    accept: "image/*",
+    onChange: handleProductPhoto,
+    className: "text-xs file:bg-[#242430] file:text-white file:border-none file:px-3 file:py-1.5 file:rounded"
+  }), productPhotoUrl && /*#__PURE__*/React.createElement("img", {
+    src: productPhotoUrl,
+    className: "w-full h-24 object-cover rounded border border-[#242430]"
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: analyzeProductPhoto,
+    disabled: !productPhotoUrl || !settings.geminiApiKey || visionBusy === 'product',
+    className: "w-full text-xs px-3 py-2 rounded bg-[#1c1c24] border border-[#242430] text-gray-300 hover:text-white disabled:opacity-40"
+  }, visionBusy === 'product' ? 'Menganalisis...' : 'Analisis dengan AI')), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block"
+  }, "Foto Referensi Gaya"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-gray-500"
+  }, "Cuma gaya visualnya yang diambil — teks tetap dari isian Anda sendiri."), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    accept: "image/*",
+    onChange: handleStyleRefPhoto,
+    className: "text-xs file:bg-[#242430] file:text-white file:border-none file:px-3 file:py-1.5 file:rounded"
+  }), styleRefPhotoUrl && /*#__PURE__*/React.createElement("img", {
+    src: styleRefPhotoUrl,
+    className: "w-full h-24 object-cover rounded border border-[#242430]"
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: analyzeStyleRefPhoto,
+    disabled: !styleRefPhotoUrl || !settings.geminiApiKey || visionBusy === 'style',
+    className: "w-full text-xs px-3 py-2 rounded bg-[#1c1c24] border border-[#242430] text-gray-300 hover:text-white disabled:opacity-40"
+  }, visionBusy === 'style' ? 'Menganalisis...' : 'Analisis dengan AI'))), visionError && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-red-400"
+  }, visionError), visionSuggestion && /*#__PURE__*/React.createElement("div", {
+    className: "bg-[#0A0A0D] border border-amber-500/40 rounded p-3 space-y-2"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500 uppercase tracking-wide font-semibold"
+  }, visionSuggestion.type === 'product' ? 'Saran — Bentuk Asli Produk' : 'Saran — Gaya Visual'), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-300"
+  }, visionSuggestion.text), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: applySuggestion,
+    className: "text-xs px-3 py-1.5 rounded bg-[#0A6E4E] text-white hover:bg-[#0C8A63]"
+  }, "Pakai \u2192 masuk ke Arahan AI"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: dismissSuggestion,
+    className: "text-xs px-3 py-1.5 rounded border border-[#242430] text-gray-400 hover:text-white"
+  }, "Abaikan")))), /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowVisualStyle(!showVisualStyle),
     className: "text-xs text-amber-500 hover:text-amber-400 underline"
   }, showVisualStyle ? '\u2212 Sembunyikan Gaya Visual' : '+ Gaya Visual (Aksi/Statis, Teks, Font, Orientasi)'), showVisualStyle && /*#__PURE__*/React.createElement("div", {
