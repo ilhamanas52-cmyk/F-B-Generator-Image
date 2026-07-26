@@ -1062,6 +1062,39 @@ const BrandSettings = memo(({
     }
   };
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-lg mx-auto space-y-3 font-['JetBrains_Mono'] mb-6"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-sm font-semibold text-white uppercase tracking-wide"
+  }, "Vision AI (opsional)"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400 leading-relaxed"
+  }, "Isi API key Gemini milik Anda sendiri (gratis) supaya bisa pakai fitur analisis foto otomatis di tab Promo. Kami tidak menyimpan/melihat API key ini — hanya tersimpan di akun Anda."), /*#__PURE__*/React.createElement("a", {
+    href: "https://aistudio.google.com/apikey",
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "text-xs text-[#E8102B] underline block"
+  }, "Cara dapat API key gratis dari Google AI Studio \u2192"), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: showApiKey ? 'text' : 'password',
+    className: "flex-1 p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600 text-sm",
+    placeholder: "Tempel API key Gemini di sini",
+    value: apiKeyInput,
+    onChange: e => setApiKeyInput(e.target.value),
+    onBlur: saveApiKey
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => setShowApiKey(!showApiKey),
+    className: "px-3 text-xs text-gray-400 border border-[#242430] rounded-lg hover:text-white"
+  }, showApiKey ? 'Sembunyikan' : 'Lihat')), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: testApiKey,
+    disabled: !apiKeyInput.trim() || testStatus === 'testing',
+    className: "text-xs px-4 py-2 rounded-lg bg-[#1c1c24] border border-[#242430] text-gray-300 hover:text-white disabled:opacity-40"
+  }, testStatus === 'testing' ? 'Menguji...' : 'Tes Koneksi'), testStatus === 'ok' && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-green-400"
+  }, "\u2713 API key valid & terhubung."), testStatus && testStatus.error && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-red-400"
+  }, testStatus.error)), /*#__PURE__*/React.createElement("div", {
     className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-lg mx-auto space-y-4 font-['JetBrains_Mono']"
   }, /*#__PURE__*/React.createElement("div", {
     className: "hud-corner top-0 left-0 border-t-2 border-l-2"
@@ -1200,39 +1233,6 @@ const BrandSettings = memo(({
     key: key,
     value: key
   }, val.label)))), /*#__PURE__*/React.createElement("div", {
-    className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-lg mx-auto space-y-3 font-['JetBrains_Mono'] mt-6"
-  }, /*#__PURE__*/React.createElement("h3", {
-    className: "text-sm font-semibold text-white uppercase tracking-wide"
-  }, "Vision AI (opsional)"), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-gray-400 leading-relaxed"
-  }, "Isi API key Gemini milik Anda sendiri (gratis) supaya bisa pakai fitur analisis foto otomatis di tab Promo. Kami tidak menyimpan/melihat API key ini — hanya tersimpan di akun Anda."), /*#__PURE__*/React.createElement("a", {
-    href: "https://aistudio.google.com/apikey",
-    target: "_blank",
-    rel: "noopener noreferrer",
-    className: "text-xs text-[#E8102B] underline block"
-  }, "Cara dapat API key gratis dari Google AI Studio \u2192"), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: showApiKey ? 'text' : 'password',
-    className: "flex-1 p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600 text-sm",
-    placeholder: "Tempel API key Gemini di sini",
-    value: apiKeyInput,
-    onChange: e => setApiKeyInput(e.target.value),
-    onBlur: saveApiKey
-  }), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: () => setShowApiKey(!showApiKey),
-    className: "px-3 text-xs text-gray-400 border border-[#242430] rounded-lg hover:text-white"
-  }, showApiKey ? 'Sembunyikan' : 'Lihat')), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: testApiKey,
-    disabled: !apiKeyInput.trim() || testStatus === 'testing',
-    className: "text-xs px-4 py-2 rounded-lg bg-[#1c1c24] border border-[#242430] text-gray-300 hover:text-white disabled:opacity-40"
-  }, testStatus === 'testing' ? 'Menguji...' : 'Tes Koneksi'), testStatus === 'ok' && /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-green-400"
-  }, "\u2713 API key valid & terhubung."), testStatus && testStatus.error && /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-red-400"
-  }, testStatus.error)), /*#__PURE__*/React.createElement("div", {
     className: "mt-8 max-w-[800px] mx-auto"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-center text-xs text-gray-500 uppercase mb-3"
@@ -2379,6 +2379,19 @@ const PromoGenerator = memo(() => {
   const compositionLastRef = useRef(-1);
   const frameLastRef = useRef(-1);
   const actionLastRef = useRef(-1);
+  // Variant pencahayaan/komposisi/frame dipilih SEKALI (bukan tiap render)
+  // supaya kolom Preview Prompt PERSIS sama dengan yang benar-benar
+  // dikirim saat klik generate — bukan pilihan acak baru tiap kali
+  // Preview dilihat. Diacak ulang lagi setelah generate (lihat resetForNextRound).
+  const [visualVariant, setVisualVariant] = useState(() => ({
+    lighting: pickVariant(LIGHTING_VARIANTS, lightingLastRef),
+    composition: pickVariant(COMPOSITION_VARIANTS, compositionLastRef),
+    frameDepthContrast: pickVariant(FRAME_DEPTH_CONTRAST_VARIANTS, frameLastRef)
+  }));
+  const [pickedAction, setPickedAction] = useState(null);
+  useEffect(() => {
+    setPickedAction(includeAction ? pickVariant(ACTION_VARIANTS, actionLastRef) : null);
+  }, [includeAction]);
   const dimsMap = {
     feed: {
       w: 1080,
@@ -2523,15 +2536,12 @@ const PromoGenerator = memo(() => {
     setVisionSuggestion(null);
   };
   const dismissSuggestion = () => setVisionSuggestion(null);
-  const handleGenerateAI = () => {
-    if (!adCopy || !adCopy.headline) {
-      setGenError("Isi Headline dulu, lalu klik \"Kirim Teks Iklan\"");
-      return;
-    }
-    setGenError('');
-    // Kalau user sudah klik "Pakai" untuk saran Foto Referensi Gaya
-    // (Vision AI), Arahan AI pasti mengandung label ini — jadi generate
-    // ini HARUS ikut gaya referensi, bukan warna/sudut acak brand biasa.
+  // Dipakai untuk kotak Preview Prompt DAN untuk generate sungguhan —
+  // supaya keduanya PERSIS SAMA (WYSIWYG), pakai variant yang sudah
+  // dipilih stabil di state (visualVariant/pickedAction), BUKAN
+  // pickVariant baru tiap dipanggil.
+  const buildFinalPromptText = () => {
+    if (!adCopy || !adCopy.headline) return '';
     const styleRefApplied = aiPromptHint.includes('[Gaya visual referensi]');
     const brandHint = styleRefApplied ? `gaya sesuai brand ${brand.name} (untuk generate ini, abaikan warna default brand — WAJIB ikuti persis palet warna & gaya visual dari foto referensi yang sudah dijelaskan di bawah)` : `nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}`;
     const formatHint = FORMAT_DESCRIPTIONS[format];
@@ -2552,20 +2562,50 @@ const PromoGenerator = memo(() => {
       textInstruction = '. JANGAN sertakan teks/tulisan apapun di gambar — foto produk bersih murni tanpa elemen teks sama sekali.';
     }
     const logoSpaceInstruction = `. Sisakan ruang kosong bersih di ${posPhrase} gambar (jangan taruh elemen desain penting di area itu), karena logo brand akan ditambahkan secara terpisah di posisi tersebut`;
-    const lighting = pickVariant(LIGHTING_VARIANTS, lightingLastRef);
-    const composition = pickVariant(COMPOSITION_VARIANTS, compositionLastRef);
-    const frameDepthContrast = pickVariant(FRAME_DEPTH_CONTRAST_VARIANTS, frameLastRef);
-    const action = includeAction ? pickVariant(ACTION_VARIANTS, actionLastRef) : null;
     const enrichedExtras = buildEnrichedPromptExtras(brand, {
-      lighting,
-      composition,
-      frameDepthContrast,
-      action,
+      lighting: visualVariant.lighting,
+      composition: visualVariant.composition,
+      frameDepthContrast: visualVariant.frameDepthContrast,
+      action: pickedAction,
       fontHeading: customFontHeading || undefined,
       respectStyleRef: styleRefApplied
     });
-    const url = openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${aiPromptHint ? ', ' + aiPromptHint : ''}${textInstruction}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}`);
+    return `${SHAPE_AUTHENTICITY_GUARD} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${aiPromptHint ? ', ' + aiPromptHint : ''}${textInstruction}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}`;
+  };
+  // Setelah generate: kosongkan foto + Arahan AI + saran Vision AI
+  // (supaya tidak membingungkan di percobaan berikutnya) — TAPI teks
+  // iklan (Headline/CTA/dll) TETAP, karena biasanya orang mau coba
+  // beberapa variasi foto/gaya dari teks iklan yang sama. Variant
+  // visual juga diacak ulang untuk ronde berikutnya.
+  const resetForNextRound = () => {
+    setProductPhotoUrl('');
+    setStyleRefPhotoUrl('');
+    setVisionSuggestion(null);
+    setVisionError('');
+    setAiPromptHint('');
+    setVisualVariant({
+      lighting: pickVariant(LIGHTING_VARIANTS, lightingLastRef),
+      composition: pickVariant(COMPOSITION_VARIANTS, compositionLastRef),
+      frameDepthContrast: pickVariant(FRAME_DEPTH_CONTRAST_VARIANTS, frameLastRef)
+    });
+  };
+  const handleGenerateAI = () => {
+    if (!adCopy || !adCopy.headline) {
+      // Bedakan 2 penyebab supaya pesannya tidak menyesatkan: kalau
+      // Headline di form SUDAH diisi tapi belum dikonfirmasi (klik
+      // "Kirim Teks Iklan"), jangan bilang "isi Headline dulu" —
+      // itu membingungkan karena Headline sebenarnya sudah terisi.
+      if (adCopyDraft.headline && adCopyDraft.headline.trim()) {
+        setGenError('Headline sudah diisi, tapi belum dikonfirmasi — klik dulu tombol hijau "Kirim Teks Iklan" sebelum generate.');
+      } else {
+        setGenError('Isi Headline dulu, lalu klik "Kirim Teks Iklan".');
+      }
+      return;
+    }
+    setGenError('');
+    const url = openChatGPTGenerate(buildFinalPromptText());
     setLastGenUrl(url);
+    resetForNextRound();
   };
   const download = () => {
     const data = canvasRef.current.toDataURL('image/png');
@@ -2611,9 +2651,12 @@ const PromoGenerator = memo(() => {
       cta: e.target.value
     })
   }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
     onClick: () => setShowAdvanced(!showAdvanced),
-    className: "text-xs text-amber-500 hover:text-amber-400 underline"
-  }, showAdvanced ? '\u2212 Sembunyikan Opsi Lanjutan' : '+ Opsi Lanjutan (Nama Produk, Sub-Headline, Deskripsi, Badge, Arahan AI)'), showAdvanced && /*#__PURE__*/React.createElement("div", {
+    className: "w-full flex items-center justify-between text-xs text-amber-500 hover:text-amber-400 bg-[#1a1508] hover:bg-[#211a0a] border border-amber-500/20 rounded-lg px-3 py-2 transition-colors"
+  }, /*#__PURE__*/React.createElement("span", null, "Opsi Lanjutan (Nama Produk, Sub-Headline, Deskripsi, Badge, Arahan AI)"), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px]"
+  }, showAdvanced ? '\u25B4 Tutup' : '\u25BE Buka')), showAdvanced && /*#__PURE__*/React.createElement("div", {
     className: "space-y-3 border border-[#222226] rounded p-3"
   }, /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
@@ -2673,9 +2716,12 @@ const PromoGenerator = memo(() => {
     onClick: clearAdCopy,
     className: "text-red-400 hover:text-red-300 ml-2"
   }, "Hapus"))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
     onClick: () => setShowVisionAI(!showVisionAI),
-    className: "text-xs text-amber-500 hover:text-amber-400 underline"
-  }, showVisionAI ? '\u2212 Sembunyikan Analisis Foto dengan AI' : '+ Analisis Foto dengan AI (Vision, opsional)'), showVisionAI && /*#__PURE__*/React.createElement("div", {
+    className: "w-full flex items-center justify-between text-xs text-amber-500 hover:text-amber-400 bg-[#1a1508] hover:bg-[#211a0a] border border-amber-500/20 rounded-lg px-3 py-2 transition-colors"
+  }, /*#__PURE__*/React.createElement("span", null, "Analisis Foto dengan AI (Vision, opsional)"), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px]"
+  }, showVisionAI ? '\u25B4 Tutup' : '\u25BE Buka')), showVisionAI && /*#__PURE__*/React.createElement("div", {
     className: "space-y-3 border border-[#222226] rounded p-3"
   }, !settings.geminiApiKey && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-amber-500"
@@ -2692,10 +2738,19 @@ const PromoGenerator = memo(() => {
     accept: "image/*",
     onChange: handleProductPhoto,
     className: "text-xs file:bg-[#242430] file:text-white file:border-none file:px-3 file:py-1.5 file:rounded"
-  }), productPhotoUrl && /*#__PURE__*/React.createElement("img", {
+  }), productPhotoUrl && /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("img", {
     src: productPhotoUrl,
     className: "w-full h-24 object-cover rounded border border-[#242430]"
   }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => {
+      setProductPhotoUrl('');
+      setVisionError('');
+    },
+    className: "absolute top-1 right-1 text-[10px] px-2 py-0.5 rounded bg-black/70 text-red-400 hover:text-red-300 hover:bg-black/90"
+  }, "Hapus")), /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: analyzeProductPhoto,
     disabled: !productPhotoUrl || !settings.geminiApiKey || visionBusy === 'product',
@@ -2711,10 +2766,19 @@ const PromoGenerator = memo(() => {
     accept: "image/*",
     onChange: handleStyleRefPhoto,
     className: "text-xs file:bg-[#242430] file:text-white file:border-none file:px-3 file:py-1.5 file:rounded"
-  }), styleRefPhotoUrl && /*#__PURE__*/React.createElement("img", {
+  }), styleRefPhotoUrl && /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("img", {
     src: styleRefPhotoUrl,
     className: "w-full h-24 object-cover rounded border border-[#242430]"
   }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => {
+      setStyleRefPhotoUrl('');
+      setVisionError('');
+    },
+    className: "absolute top-1 right-1 text-[10px] px-2 py-0.5 rounded bg-black/70 text-red-400 hover:text-red-300 hover:bg-black/90"
+  }, "Hapus")), /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: analyzeStyleRefPhoto,
     disabled: !styleRefPhotoUrl || !settings.geminiApiKey || visionBusy === 'style',
@@ -2738,9 +2802,12 @@ const PromoGenerator = memo(() => {
     onClick: dismissSuggestion,
     className: "text-xs px-3 py-1.5 rounded border border-[#242430] text-gray-400 hover:text-white"
   }, "Abaikan")))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
     onClick: () => setShowVisualStyle(!showVisualStyle),
-    className: "text-xs text-amber-500 hover:text-amber-400 underline"
-  }, showVisualStyle ? '\u2212 Sembunyikan Gaya Visual' : '+ Gaya Visual (Aksi/Statis, Teks, Font, Orientasi)'), showVisualStyle && /*#__PURE__*/React.createElement("div", {
+    className: "w-full flex items-center justify-between text-xs text-amber-500 hover:text-amber-400 bg-[#1a1508] hover:bg-[#211a0a] border border-amber-500/20 rounded-lg px-3 py-2 transition-colors"
+  }, /*#__PURE__*/React.createElement("span", null, "Gaya Visual (Aksi/Statis, Teks, Font, Orientasi)"), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px]"
+  }, showVisualStyle ? '\u25B4 Tutup' : '\u25BE Buka')), showVisualStyle && /*#__PURE__*/React.createElement("div", {
     className: "space-y-3 border border-[#222226] rounded p-3"
   }, /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
@@ -2792,7 +2859,16 @@ const PromoGenerator = memo(() => {
     key: f,
     onClick: () => setFormat(f),
     className: `p-2 rounded uppercase text-xs font-bold ${format === f ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
-  }, f))), aiPromptHint.includes('[Gaya visual referensi]') && /*#__PURE__*/React.createElement("p", {
+  }, f))), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block"
+  }, "Preview Prompt (yang akan dikirim ke ChatGPT)"), /*#__PURE__*/React.createElement("textarea", {
+    readOnly: true,
+    rows: 4,
+    value: buildFinalPromptText() || 'Isi Headline, klik "Kirim Teks Iklan", baru preview prompt muncul di sini.',
+    className: "w-full p-2.5 bg-[#0A0A0D] border border-[#222226] text-gray-400 rounded text-[11px] leading-relaxed resize-y"
+  })), aiPromptHint.includes('[Gaya visual referensi]') && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500 bg-[#0A0A0D] border border-amber-500/30 rounded p-2"
   }, "\u2139 Mode ikut Foto Referensi Gaya aktif untuk generate ini \u2014 warna & sudut kamera brand dilepas, mengikuti deskripsi referensi di Arahan AI."), /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateAI,
