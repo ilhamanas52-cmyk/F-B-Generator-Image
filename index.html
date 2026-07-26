@@ -32,7 +32,7 @@
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { getFirestore, doc, onSnapshot, setDoc, getDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, doc, onSnapshot, setDoc, getDoc, deleteDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore';
 const { useState, useEffect, useRef, createContext, useContext, memo, forwardRef, useImperativeHandle } = React;
 
 // ============================================================
@@ -78,12 +78,16 @@ const defaultAppData = {
     logoUrl: '',
     logoPosition: 'bottom-right'
   },
-  menu: [],
-  contentPlan: []
+  // "menu" TIDAK lagi disimpan di sini — tiap item menu sekarang jadi
+  // dokumen Firestore TERSENDIRI (lihat menuItems collection di
+  // MainDashboard), supaya tidak kena batas ukuran 1MB per dokumen
+  // kalau menu banyak dengan foto.
+  contentPlan: [],
+  contentPlanRawText: '' // teks mentah yang ditempel di kolom "Tempel Jawaban ChatGPT" — disimpan permanen (beda dari foto per-hari yang sesi-saja)
 };
-// 6 pasangan font khusus F&B (berdasar riset tren tipografi 2026 —
+// 11 pasangan font khusus F&B (berdasar riset tren tipografi 2026 —
 // serif "juicy"/bouncy, bold/brutalist signage, playful, tulisan
-// tangan tebal, heritage serif, dan modern bersih).
+// tangan tebal & elegan, heritage serif, condensed diner, dan modern bersih).
 const fontOptions = [{
   heading: 'Fraunces',
   body: 'Inter'
@@ -102,9 +106,24 @@ const fontOptions = [{
 }, {
   heading: 'Montserrat',
   body: 'Lato'
+}, {
+  heading: 'Bebas Neue',
+  body: 'Roboto Condensed'
+}, {
+  heading: 'Pacifico',
+  body: 'Quicksand'
+}, {
+  heading: 'Great Vibes',
+  body: 'Lato'
+}, {
+  heading: 'Baloo 2',
+  body: 'Mulish'
+}, {
+  heading: 'Cormorant Garamond',
+  body: 'Work Sans'
 }];
 const loadGoogleFonts = () => {
-  const fonts = ['Fraunces', 'Inter', 'Archivo+Black', 'Poppins', 'Nunito', 'Permanent+Marker', 'Open+Sans', 'Merriweather', 'EB+Garamond', 'Montserrat', 'Lato', 'Space+Grotesk', 'JetBrains+Mono'];
+  const fonts = ['Fraunces', 'Inter', 'Archivo+Black', 'Poppins', 'Nunito', 'Permanent+Marker', 'Open+Sans', 'Merriweather', 'EB+Garamond', 'Montserrat', 'Lato', 'Bebas+Neue', 'Roboto+Condensed', 'Pacifico', 'Quicksand', 'Great+Vibes', 'Baloo+2', 'Mulish', 'Cormorant+Garamond', 'Work+Sans', 'Space+Grotesk', 'JetBrains+Mono'];
   const link = document.createElement('link');
   link.href = `https://fonts.googleapis.com/css2?family=${fonts.join(':wght@400;700&family=')}&display=swap`;
   link.rel = 'stylesheet';
@@ -561,6 +580,7 @@ function MainDashboard({
 }) {
   const [activeTab, setActiveTab] = useState('brands');
   const [appData, setAppData] = useState(defaultAppData);
+  const [menu, setMenu] = useState([]);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [dbError, setDbError] = useState(null);
   useEffect(() => {
@@ -570,11 +590,13 @@ function MainDashboard({
     setIsAuthReady(true);
   }, []);
   const docRef = () => doc(db, 'artifacts', appId, 'users', user.uid, 'appData', 'state');
+  const menuCollRef = () => collection(db, 'artifacts', appId, 'users', user.uid, 'menuItems');
 
-  // Baca sekali di awal sesi, lalu dengarkan perubahan (pola dari contoh teman Anda)
+  // Baca dokumen utama (Brand, rencana 30 hari, teks mentah paste).
+  // Menu TIDAK lagi ada di sini — lihat listener terpisah di bawah.
   useEffect(() => {
     if (!isAuthReady || !user) return;
-    return onSnapshot(docRef(), d => {
+    return onSnapshot(docRef(), async d => {
       if (d.exists()) {
         const data = d.data();
         setAppData({
@@ -582,17 +604,45 @@ function MainDashboard({
             ...defaultAppData.brand,
             ...(data.brand || {})
           },
-          menu: Array.isArray(data.menu) ? data.menu : [],
-          contentPlan: Array.isArray(data.contentPlan) ? data.contentPlan : []
+          contentPlan: Array.isArray(data.contentPlan) ? data.contentPlan : [],
+          contentPlanRawText: data.contentPlanRawText || ''
         });
+        // Migrasi 1x otomatis: kalau masih ada menu lama tergabung di
+        // dokumen ini (dari sebelum perbaikan batas ukuran Firestore),
+        // pindahkan tiap item jadi dokumen tersendiri, lalu kosongkan
+        // field lama supaya dokumen utama mengecil kembali.
+        if (Array.isArray(data.menu) && data.menu.length > 0) {
+          for (const item of data.menu) {
+            await setDoc(doc(menuCollRef(), item.id), item).catch(() => {});
+          }
+          await setDoc(docRef(), {
+            menu: []
+          }, {
+            merge: true
+          }).catch(() => {});
+        }
       } else {
         // Dokumen belum ada — buat dengan data default
-        setDoc(docRef(), defaultAppData).catch(e => setDbError(`Gagal membuat data awal: ${e.message}`));
+        setDoc(docRef(), {
+          brand: defaultAppData.brand,
+          contentPlan: [],
+          contentPlanRawText: ''
+        }).catch(e => setDbError(`Gagal membuat data awal: ${e.message}`));
       }
     }, err => setDbError(`Gagal baca data: ${err.message}`));
   }, [isAuthReady, user]);
 
-  // Tulis ulang (merge) tiap kali appData berubah karena aksi pengguna
+  // Dengarkan koleksi menuItems — tiap dokumen = 1 item menu (dengan
+  // fotonya sendiri), supaya bisa terus bertambah tanpa pernah kena
+  // batas ukuran 1MB (batas itu berlaku PER DOKUMEN, bukan per koleksi).
+  useEffect(() => {
+    if (!isAuthReady || !user) return;
+    return onSnapshot(menuCollRef(), snap => {
+      setMenu(snap.docs.map(d => d.data()));
+    }, err => setDbError(`Gagal baca menu: ${err.message}`));
+  }, [isAuthReady, user]);
+
+  // Tulis ulang (merge) tiap kali appData (Brand/Konten 30 Hari) berubah
   const saveAppData = updates => {
     if (!user) return;
     const next = {
@@ -603,6 +653,18 @@ function MainDashboard({
     setDoc(docRef(), next, {
       merge: true
     }).catch(e => setDbError(`Gagal menyimpan: ${e.message}`));
+  };
+
+  // Tambah/hapus 1 item menu — langsung ke dokumennya sendiri di
+  // koleksi menuItems, TIDAK lewat saveAppData (supaya tidak pernah
+  // ikut membengkakkan dokumen utama).
+  const addMenuItem = item => {
+    if (!user) return;
+    setDoc(doc(menuCollRef(), item.id), item).catch(e => setDbError(`Gagal menyimpan menu: ${e.message}`));
+  };
+  const removeMenuItem = id => {
+    if (!user) return;
+    deleteDoc(doc(menuCollRef(), id)).catch(e => setDbError(`Gagal menghapus menu: ${e.message}`));
   };
   return /*#__PURE__*/React.createElement(BrandContext.Provider, {
     value: appData.brand
@@ -636,14 +698,14 @@ function MainDashboard({
     brand: appData.brand,
     saveAppData: saveAppData
   }), activeTab === 'menu' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(MenuManager, {
-    menu: appData.menu,
-    saveAppData: saveAppData
+    menu: menu,
+    addMenuItem: addMenuItem,
+    removeMenuItem: removeMenuItem
   }), /*#__PURE__*/React.createElement(MenuPageGenerator, {
-    menu: appData.menu
-  })), activeTab === 'promo' && /*#__PURE__*/React.createElement(PromoGenerator, {
-    menu: appData.menu
-  }), activeTab === 'konten' && /*#__PURE__*/React.createElement(ContentPlanGenerator, {
+    menu: menu
+  })), activeTab === 'promo' && /*#__PURE__*/React.createElement(PromoGenerator, null), activeTab === 'konten' && /*#__PURE__*/React.createElement(ContentPlanGenerator, {
     contentPlan: appData.contentPlan || [],
+    rawText: appData.contentPlanRawText || '',
     saveAppData: saveAppData
   }), activeTab === 'feed9' && /*#__PURE__*/React.createElement(FeedCampaignGenerator, null))));
 }
@@ -906,7 +968,8 @@ const BrandSettings = memo(({
 });
 const MenuManager = memo(({
   menu,
-  saveAppData
+  addMenuItem,
+  removeMenuItem
 }) => {
   const [newItem, setNewItem] = useState({
     name: '',
@@ -969,9 +1032,7 @@ const MenuManager = memo(({
       price: Number(newItem.price),
       id: `menu_${Date.now()}`
     };
-    saveAppData({
-      menu: [...menu, item]
-    });
+    addMenuItem(item);
     setNewItem({
       name: '',
       price: '',
@@ -983,9 +1044,7 @@ const MenuManager = memo(({
     setError('');
     setCapacityWarning('');
   };
-  const removeItem = id => saveAppData({
-    menu: menu.filter(i => i.id !== id)
-  });
+  const removeItem = id => removeMenuItem(id);
   return /*#__PURE__*/React.createElement("div", {
     className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-2xl mx-auto space-y-4"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1614,11 +1673,8 @@ const MenuPageCanvas = forwardRef(({
     className: "w-full h-auto bg-white"
   }));
 });
-const PromoGenerator = memo(({
-  menu
-}) => {
+const PromoGenerator = memo(() => {
   const [photoUrl, setPhotoUrl] = useState('');
-  const [selectedMenuId, setSelectedMenuId] = useState('');
   const [aiPromptHint, setAiPromptHint] = useState('');
   const [format, setFormat] = useState('feed');
   const [genError, setGenError] = useState('');
@@ -1699,17 +1755,6 @@ const PromoGenerator = memo(({
     };
     reader.readAsDataURL(file);
   };
-  const handleSelectMenu = id => {
-    setSelectedMenuId(id);
-    const item = menu.find(m => m.id === id);
-    if (item) {
-      setAdCopyDraft(prev => ({
-        ...prev,
-        productName: prev.productName || item.name
-      }));
-      if (item.photoUrl) setPhotoUrl(item.photoUrl);
-    }
-  };
   const handleGenerateAI = () => {
     if (!adCopy || !adCopy.headline) {
       setGenError("Isi Headline dulu, lalu klik \"Kirim Teks Iklan\"");
@@ -1752,18 +1797,7 @@ const PromoGenerator = memo(({
     className: "hud-corner hud-corner-br bottom-0 right-0 border-b-2 border-r-2"
   }), /*#__PURE__*/React.createElement("div", {
     className: "hud-scanline"
-  }), /*#__PURE__*/React.createElement("label", {
-    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
-  }, "Pilih dari Menu (opsional)"), /*#__PURE__*/React.createElement("select", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
-    value: selectedMenuId,
-    onChange: e => handleSelectMenu(e.target.value)
-  }, /*#__PURE__*/React.createElement("option", {
-    value: ""
-  }, "-- Tidak pilih --"), menu.map(m => /*#__PURE__*/React.createElement("option", {
-    key: m.id,
-    value: m.id
-  }, m.name))), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", {
     className: "border-t border-[#222226] pt-4 space-y-3"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-400 font-bold uppercase"
@@ -1983,10 +2017,11 @@ const CompositionCanvas = forwardRef(({
 // yang disimpan permanen.
 const ContentPlanGenerator = memo(({
   contentPlan,
+  rawText,
   saveAppData
 }) => {
   const [selectedThemes, setSelectedThemes] = useState([]);
-  const [pasteText, setPasteText] = useState('');
+  const [pasteText, setPasteText] = useState(rawText || '');
   const [dayPhotos, setDayPhotos] = useState({});
   const [genError, setGenError] = useState('');
   const [lastGenUrl, setLastGenUrl] = useState('');
@@ -1995,17 +2030,37 @@ const ContentPlanGenerator = memo(({
   const [includeLogo, setIncludeLogo] = useState(true);
   const brand = useContext(BrandContext);
   const canvasRef = useRef();
+  const rawTextSaveTimer = useRef(null);
   useEffect(() => {
     if (contentPlan.length > 0 && (selectedDay === null || !contentPlan.some(d => d.day === selectedDay))) {
       setSelectedDay(contentPlan[0].day);
     }
   }, [contentPlan]);
+  // Sinkronkan pasteText kalau rawText dari Firestore baru masuk
+  // SETELAH komponen ini pertama kali dimuat (data async) — supaya
+  // teks yang tersimpan tetap muncul, bukan cuma saat mount pertama.
+  useEffect(() => {
+    if (rawText && rawText !== pasteText) setPasteText(rawText);
+    // eslint-disable-next-line
+  }, [rawText]);
   const toggleTheme = t => {
     setSelectedThemes(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
   };
   const handleGeneratePlan = () => {
     const url = openChatGPTText(buildContentPlanPrompt(brand, selectedThemes));
     setLastGenUrl(url);
+  };
+  // Teks di kolom "Tempel Jawaban ChatGPT" disimpan permanen ke
+  // Firestore (beda dari foto per-hari yang sengaja sesi-saja) —
+  // di-debounce 500ms supaya tidak menyimpan di setiap ketukan huruf.
+  const handlePasteTextChange = text => {
+    setPasteText(text);
+    if (rawTextSaveTimer.current) clearTimeout(rawTextSaveTimer.current);
+    rawTextSaveTimer.current = setTimeout(() => {
+      saveAppData({
+        contentPlanRawText: text
+      });
+    }, 500);
   };
   const handleParse = () => {
     if (!pasteText.trim()) {
@@ -2025,7 +2080,8 @@ const ContentPlanGenerator = memo(({
   };
   const handleClearPlan = () => {
     saveAppData({
-      contentPlan: []
+      contentPlan: [],
+      contentPlanRawText: ''
     });
     setPasteText('');
     setDayPhotos({});
@@ -2114,7 +2170,7 @@ const ContentPlanGenerator = memo(({
     className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded text-sm",
     rows: 6,
     value: pasteText,
-    onChange: e => setPasteText(e.target.value),
+    onChange: e => handlePasteTextChange(e.target.value),
     placeholder: "Tempel seluruh jawaban ChatGPT di sini..."
   }), /*#__PURE__*/React.createElement("button", {
     onClick: handleParse,
