@@ -186,16 +186,90 @@ const openChatGPTText = promptText => {
 // di prompt, tapi tetap teks biasa yang bisa dihapus/diedit pengguna.
 const DESIGN_GUIDELINE_PROMPT = "gunakan kaidah desain grafis yang kontras dan kuat dan membuat orang berhenti scroll dan membaca hingga tuntas. image akan digunakan sebagai materi iklan di FB dan IG. buat susunan warna mencolok kontras dengan timeline facebook dan Instagram, namun tetap mempertahankan kaidah psikologi warna dan teori warna serasi dan kaidah kekuatan desain grafis, dan color pallete. pastikan margin aman 10%-15%";
 
-// 4 lapis boilerplate otomatis supaya prompt sekaya hasil riset manual —
-// tanpa pengguna perlu isi kolom tambahan apapun. Dibangun dari data
-// brand yang sudah ada (warna & font), plus arahan generik food photography
-// yang berlaku untuk hampir semua produk F&B.
-const buildEnrichedPromptExtras = brand => {
-  const visualEffects = "Tambahkan efek visual profesional yang sesuai dengan jenis produknya (misalnya uap hangat untuk makanan/minuman panas, embun/es untuk minuman dingin, tekstur renyah/lembut/creamy sesuai karakter produk), shadow lembut di bawah produk supaya terlihat menonjol dari background, background sedikit blur (depth of field) agar fokus tetap ke produk, kilau/highlight halus di permukaan produk untuk kesan segar.";
-  const layoutComposition = "Komposisi area: 55-65% area untuk foto close-up produk sebagai fokus utama, 15-20% area untuk badge promo/diskon (kalau relevan), 10-15% area untuk headline besar di bagian atas, sisanya untuk ruang logo dan CTA di bagian bawah.";
-  const colorPalette = `Palet warna: ${brand.primaryColor} untuk menarik perhatian dan memberi kesan mendesak, ${brand.secondaryColor} untuk kontras kuat, ${brand.accentColor} untuk menonjolkan elemen promo/CTA, ditambah putih untuk menjaga keterbacaan teks.`;
-  const typography = `Tipografi: headline pakai gaya font tebal dan besar bergaya "${brand.fontHeading}" (memenuhi sekitar 25-30% area atas), teks isi pakai gaya font bersih dan mudah dibaca bergaya "${brand.fontBody}", CTA pakai font ekstra tebal dengan warna kontras.`;
-  return `${visualEffects} ${layoutComposition} ${colorPalette} ${typography}`;
+// ============================================================
+// SISTEM PROMPT GAMBAR — formula 6 lapis terkonsolidasi
+// (Subjek → Pencahayaan → Komposisi&Aksi → Warna Terkunci →
+// Tipografi → Kualitas&Larangan), hasil eksplorasi mendalam
+// bersama pengguna (bentuk autentik makanan, elemen "wow" dari
+// referensi visual nyata, SOP higienis, dsb).
+// ============================================================
+
+// Penjaga bentuk autentik — supaya detail makanan/minuman (butir
+// nasi, helai mie, buih, dll) tidak berubah bentuk jadi generik,
+// walau boleh menggumpal/menumpuk secara alami.
+const SHAPE_AUTHENTICITY_GUARD = "Sebelum menggambar, eksplorasi dan cermati dulu bentuk fisik AUTENTIK dari hidangan/minuman yang diminta secara spesifik — bukan interpretasi generik bergaya ilustrasi AI pada umumnya. Prinsip utama: TIDAK BOLEH ADA DISTORSI BENTUK pada elemen individual apapun (butir nasi, helai mie, potongan buah, es batu, gelembung/buih, serat, dll). Elemen-elemen itu BOLEH menggumpal, saling menempel, tumpang tindih, atau tersusun rapat (itu wajar dan alami) — TAPI bentuk asli tiap elemen individual harus tetap konsisten, tidak berubah hanya karena menggumpal atau bertumpuk.";
+
+// SOP kebersihan — otomatis disisipkan setiap kali bank momen aksi
+// yang dipilih melibatkan tangan manusia (bukan pilihan, demi
+// kredibilitas & kepercayaan pelanggan).
+const HYGIENE_SOP_TEXT = "Tangan manusia yang terlihat dalam gambar WAJIB memakai sarung tangan sekali pakai (nitrile/lateks berwarna terang), rambut tertutup jaring rambut (hairnet) di bawah topi koki, sesuai standar kebersihan dapur profesional.";
+
+// Lapis 6 — kualitas & larangan, dipakai di SEMUA generate gambar.
+const QUALITY_PROHIBITION_LAYER = "High quality, food/beverage photography editorial. Hindari kesan stock-photo generik, hindari oversaturasi warna tidak natural, hindari tekstur makanan/minuman terlihat plastik/palsu.";
+
+// Bank variasi PENCAHAYAAN (Lapis 2)
+const LIGHTING_VARIANTS = ["Pencahayaan jendela alami hangat, sinar keemasan masuk dari samping, menciptakan bayangan lembut dan highlight alami di permukaan produk.", "Pencahayaan studio 3 titik dramatis, key light dari kiri atas, fill light lembut, rim light tipis di tepi produk memisahkan objek dari latar gelap.", "Cahaya mendung lembut merata (soft overcast), tanpa bayangan tajam, warna natural tidak berlebihan kontras.", "Pencahayaan backlit dramatis dari belakang, siluet tipis di tepi objek, uap/embun terlihat jelas terkena cahaya."];
+
+// Bank variasi KOMPOSISI (Lapis 3, bagian pertama) — termasuk elemen
+// "wow": depth of field, elemen keluar bingkai, latar kontras ekstrem.
+const COMPOSITION_VARIANTS = ["Komposisi statis elegan, objek diletakkan sedikit miring 10-15 derajat dari sumbu vertikal, ruang negatif di sekitar objek.", "Komposisi DINAMIS MELAYANG — objek atau sebagian dari objek MELAYANG di udara membentuk sudut berbeda-beda, bukan diam di piring/gelas.", "Komposisi close-up dramatis, sudut eye-level rendah, objek mendominasi hampir seluruh frame.", "Komposisi top-down (dari atas), objek di tengah dengan elemen pendukung tersusun di sekelilingnya."];
+const FRAME_DEPTH_CONTRAST_VARIANTS = ["Beberapa elemen pendukung (bahan mentah, remah, percikan) sengaja diletakkan MELEWATI TEPI FRAME (terpotong sebagian di pinggir foto), menciptakan kesan melimpah. Depth of field — objek utama tajam fokus, elemen lain di belakang sedikit blur menciptakan kedalaman. Latar BENAR-BENAR GELAP PEKAT (hitam), menciptakan kontras dramatis dengan warna produk.", "Beberapa elemen pendukung sengaja diletakkan MELEWATI TEPI FRAME, menciptakan kesan melimpah. Depth of field — objek utama tajam fokus, elemen lain di belakang sedikit blur menciptakan kedalaman. Latar BERWARNA JENUH SENADA dengan produk (bukan netral/putih polos), menciptakan kontras dramatis."];
+
+// Bank variasi MOMEN AKSI (Lapis 3, bagian kedua) — dilewati kalau
+// pengguna pilih mode Statis. Tiap entri menandai apakah melibatkan
+// tangan (memicu HYGIENE_SOP_TEXT otomatis).
+const ACTION_VARIANTS = [{
+  text: "Momen aksi — cairan (saus/sirup/kuah) sedang DITUANG dari atas membentuk gerakan alami, percikan kecil terlihat.",
+  hands: true
+}, {
+  text: "Momen aksi — uap panas tipis mengepul jelas dari permukaan objek, menandakan baru saja disajikan.",
+  hands: false
+}, {
+  text: "Momen aksi — taburan (bubuk/bawang goreng/sprinkles) sedang DITABURKAN/JATUH dari atas membentuk gerakan melayang di udara.",
+  hands: true
+}, {
+  text: "Momen aksi — bahan utama sedang DIPOTONG/DIBELAH, memperlihatkan tekstur/isi bagian dalam dengan jelas.",
+  hands: true
+}];
+
+// Pilih 1 varian dari bank secara acak, TAPI tidak pernah sama
+// dengan yang dipakai di generate SEBELUMNYA (anti-pengulangan) —
+// lastIndexRef adalah useRef milik komponen pemanggil.
+const pickVariant = (bank, lastIndexRef) => {
+  if (bank.length === 1) return bank[0];
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * bank.length);
+  } while (idx === lastIndexRef.current);
+  lastIndexRef.current = idx;
+  return bank[idx];
+};
+
+// Rakit Lapis 2-6 jadi 1 blok teks siap pakai. Dipanggil dari
+// komponen yang SUDAH memilih varian (lewat pickVariant + useRef
+// masing-masing), supaya anti-pengulangan bekerja per-komponen.
+const buildEnrichedPromptExtras = (brand, {
+  lighting,
+  composition,
+  frameDepthContrast,
+  action,
+  // { text, hands } atau null kalau mode Statis
+  fontHeading,
+  fontBody
+} = {}) => {
+  const fh = fontHeading || brand.fontHeading;
+  const fb = fontBody || brand.fontBody;
+  const parts = [lighting, composition, frameDepthContrast];
+  if (action) {
+    parts.push(action.text);
+    if (action.hands) parts.push(HYGIENE_SOP_TEXT);
+  }
+  const colorLock = `Palet warna WAJIB sesuai brand — ${brand.primaryColor} untuk aksen tegas, ${brand.secondaryColor} untuk kontras kuat, ${brand.accentColor} untuk menonjolkan elemen promo/CTA, gunakan PERSIS kode HEX ini (bukan pendekatan warna lain).`;
+  parts.push(colorLock);
+  const typography = `Kalau ada teks, pakai gaya font tebal besar bergaya "${fh}" untuk judul/headline (dengan tekstur/finishing yang sesuai gaya font-nya, bukan flat polos), gaya bersih "${fb}" untuk isi. Badge (kalau ada) sedikit dimiringkan/dirotasi, jangan sejajar sempurna.`;
+  parts.push(typography);
+  parts.push(QUALITY_PROHIBITION_LAYER);
+  return parts.join(' ');
 };
 
 // Deskripsi format/rasio yang otomatis disisipkan ke prompt sesuai
@@ -326,15 +400,24 @@ const FEED_ROLES = [{
   label: 'CTA 2',
   hint: 'ajakan order penutup campaign, gaya berbeda dari CTA 1, kesan closing/urgency'
 }];
-const buildFeedSlotPrompt = (brand, brief, role) => {
-  const brandHint = `nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}, font bergaya "${brand.fontHeading}"`;
+const buildFeedSlotPrompt = (brand, brief, role, variantRefs) => {
+  const brandHint = `gaya sesuai brand ${brand.name}`;
   let contentHint = '';
   if (role.label.startsWith('Fitur') && brief.fitur) contentHint = `, tonjolkan keunggulan: ${brief.fitur}`;
   if (role.label === 'Harga' && brief.hargaPromo) contentHint = `, sertakan teks harga dengan jelas: "${brief.hargaPromo}"`;
   if (role.label === 'Promo' && brief.hargaPromo) contentHint = `, sertakan teks promo/diskon mencolok: "${brief.hargaPromo}"`;
   if (role.label.startsWith('Testimoni') && brief.testimoni) contentHint = `, sertakan kutipan testimoni di gambar: "${brief.testimoni}"`;
   if (role.label.startsWith('CTA') && brief.cta) contentHint = `, sertakan teks CTA di gambar: "${brief.cta}"`;
-  return `Foto promosi Instagram untuk produk: ${brief.productName || 'produk ini'}, ${role.hint}${contentHint}, ${brandHint}, format persegi (1:1) untuk feed Instagram, high quality`;
+  const lighting = pickVariant(LIGHTING_VARIANTS, variantRefs.lightingRef);
+  const composition = pickVariant(COMPOSITION_VARIANTS, variantRefs.compositionRef);
+  const frameDepthContrast = pickVariant(FRAME_DEPTH_CONTRAST_VARIANTS, variantRefs.frameRef);
+  const enrichedExtras = buildEnrichedPromptExtras(brand, {
+    lighting,
+    composition,
+    frameDepthContrast,
+    action: null
+  });
+  return `${SHAPE_AUTHENTICITY_GUARD} Foto promosi Instagram untuk produk: ${brief.productName || 'produk ini'}, ${role.hint}${contentHint}, ${brandHint}, format persegi (1:1) untuk feed Instagram. ${enrichedExtras}`;
 };
 const buildContentPlanPrompt = (brand, themes) => {
   const themeList = themes.length > 0 ? themes.join(', ') : 'bebas sesuai kreativitas, variatif';
@@ -1169,6 +1252,7 @@ const MenuPageGenerator = memo(({
   const [lastGenUrl, setLastGenUrl] = useState('');
   const canvasRef = useRef();
   const brand = useContext(BrandContext);
+  const lightingLastRef = useRef(-1);
   const filteredMenu = categoryFilter === 'all' ? menu : menu.filter(m => m.category === categoryFilter);
   // Batas item per halaman A4, beda per gaya (Grid pakai foto persegi besar
   // jadi kapasitasnya lebih sedikit; List baris lebih ramping jadi lebih
@@ -1215,7 +1299,8 @@ const MenuPageGenerator = memo(({
     }
     setGenError('');
     const styleHint = MENU_STYLE_PRESETS[selectedStyle].promptHint;
-    const url = openChatGPTGenerate(`background suasana untuk halaman menu restoran/cafe ${brand.name}, ${styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, seluruh area kosong bersih tanpa teks/watermark/elemen desain apapun (akan ditambahkan daftar menu secara terpisah), format vertikal poster, high quality food/cafe atmosphere photography`);
+    const lighting = pickVariant(LIGHTING_VARIANTS, lightingLastRef);
+    const url = openChatGPTGenerate(`background suasana untuk halaman menu restoran/cafe ${brand.name}, ${styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, seluruh area kosong bersih tanpa teks/watermark/elemen desain apapun (akan ditambahkan daftar menu secara terpisah), format vertikal poster. ${lighting} ${QUALITY_PROHIBITION_LAYER}`);
     setLastGenUrl(url);
   };
   const download = () => {
@@ -1688,8 +1773,21 @@ const PromoGenerator = memo(() => {
     badge: ''
   });
   const [adCopy, setAdCopy] = useState(null); // null = belum "dikirim"
+  // 4 kontrol baru — disembunyikan di balik "+ Gaya Visual" (progressive disclosure)
+  const [includeAction, setIncludeAction] = useState(true); // true = boleh ada momen aksi, false = Statis saja
+  const [includeText, setIncludeText] = useState(true); // false = foto bersih tanpa teks sama sekali
+  const [customFontHeading, setCustomFontHeading] = useState(''); // kosong = pakai font Brand Identity
+  const [textOrientation, setTextOrientation] = useState('lurus'); // 'lurus' | 'miring' | 'vertikal'
+  const [showAdvanced, setShowAdvanced] = useState(false); // "+ Opsi Lanjutan"
+  const [showVisualStyle, setShowVisualStyle] = useState(false); // "+ Gaya Visual"
   const canvasRef = useRef();
   const brand = useContext(BrandContext);
+  // Anti-pengulangan — supaya generate berturut-turut tidak pernah
+  // pakai pencahayaan/komposisi/latar/aksi yang persis sama.
+  const lightingLastRef = useRef(-1);
+  const compositionLastRef = useRef(-1);
+  const frameLastRef = useRef(-1);
+  const actionLastRef = useRef(-1);
   const dimsMap = {
     feed: {
       w: 1080,
@@ -1766,16 +1864,32 @@ const PromoGenerator = memo(() => {
     const posKey = brand.logoPosition || 'bottom-right';
     const posPhrase = LOGO_POSITIONS[posKey].promptPhrase;
     const productSubject = adCopy.productName || adCopy.headline;
-    const parts = [];
-    parts.push(`Headline: "${adCopy.headline}" (font besar, paling menonjol, di bagian atas)`);
-    if (adCopy.subheadline) parts.push(`Sub-headline: "${adCopy.subheadline}" (di bawah headline, ukuran sedang)`);
-    if (adCopy.description) parts.push(`Deskripsi: "${adCopy.description}" (kecil, di bagian bawah)`);
-    if (adCopy.cta) parts.push(`Tombol CTA (Call to Action): "${adCopy.cta}" (bentuk seperti tombol, warna kontras, paling bawah)`);
-    if (adCopy.badge) parts.push(`Badge promo: "${adCopy.badge}" (bentuk label/badge bulat mencolok, posisi menonjol, warna kontras)`);
-    const textInstruction = `. Sertakan teks berikut di gambar, pastikan ejaan persis seperti ini: ${parts.join(', ')}`;
+    let textInstruction = '';
+    if (includeText) {
+      const parts = [];
+      const orientationHint = textOrientation === 'miring' ? ' (teks dimiringkan/dirotasi sekitar 10-15 derajat, bukan lurus datar)' : textOrientation === 'vertikal' ? ' (teks disusun VERTIKAL dari bawah ke atas, seperti label kemasan)' : '';
+      parts.push(`Headline: "${adCopy.headline}" (font besar, paling menonjol, di bagian atas${orientationHint})`);
+      if (adCopy.subheadline) parts.push(`Sub-headline: "${adCopy.subheadline}" (di bawah headline, ukuran sedang)`);
+      if (adCopy.description) parts.push(`Deskripsi: "${adCopy.description}" (kecil, di bagian bawah)`);
+      if (adCopy.cta) parts.push(`Tombol CTA (Call to Action): "${adCopy.cta}" (bentuk seperti tombol, warna kontras, paling bawah)`);
+      if (adCopy.badge) parts.push(`Badge promo: "${adCopy.badge}" (bentuk label/badge bulat mencolok, posisi menonjol, warna kontras)`);
+      textInstruction = `. Sertakan teks berikut di gambar, pastikan ejaan persis seperti ini: ${parts.join(', ')}`;
+    } else {
+      textInstruction = '. JANGAN sertakan teks/tulisan apapun di gambar — foto produk bersih murni tanpa elemen teks sama sekali.';
+    }
     const logoSpaceInstruction = `. Sisakan ruang kosong bersih di ${posPhrase} gambar (jangan taruh elemen desain penting di area itu), karena logo brand akan ditambahkan secara terpisah di posisi tersebut`;
-    const enrichedExtras = buildEnrichedPromptExtras(brand);
-    const url = openChatGPTGenerate(`background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${aiPromptHint ? ', ' + aiPromptHint : ''}${textInstruction}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}`);
+    const lighting = pickVariant(LIGHTING_VARIANTS, lightingLastRef);
+    const composition = pickVariant(COMPOSITION_VARIANTS, compositionLastRef);
+    const frameDepthContrast = pickVariant(FRAME_DEPTH_CONTRAST_VARIANTS, frameLastRef);
+    const action = includeAction ? pickVariant(ACTION_VARIANTS, actionLastRef) : null;
+    const enrichedExtras = buildEnrichedPromptExtras(brand, {
+      lighting,
+      composition,
+      frameDepthContrast,
+      action,
+      fontHeading: customFontHeading || undefined
+    });
+    const url = openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${aiPromptHint ? ', ' + aiPromptHint : ''}${textInstruction}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}`);
     setLastGenUrl(url);
   };
   const download = () => {
@@ -1803,16 +1917,6 @@ const PromoGenerator = memo(() => {
     className: "text-xs text-gray-400 font-bold uppercase"
   }, "Teks Iklan"), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
-  }, "Nama Produk (yang difoto AI)"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
-    placeholder: "Contoh: Es Teh Manis",
-    value: adCopyDraft.productName,
-    onChange: e => setAdCopyDraft({
-      ...adCopyDraft,
-      productName: e.target.value
-    })
-  }), /*#__PURE__*/React.createElement("label", {
-    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Headline"), /*#__PURE__*/React.createElement("input", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Contoh: Rasakan Sensasi Barunya!",
@@ -1820,6 +1924,31 @@ const PromoGenerator = memo(() => {
     onChange: e => setAdCopyDraft({
       ...adCopyDraft,
       headline: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "CTA (Call to Action)"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Contoh: Order Sekarang",
+    value: adCopyDraft.cta,
+    onChange: e => setAdCopyDraft({
+      ...adCopyDraft,
+      cta: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowAdvanced(!showAdvanced),
+    className: "text-xs text-amber-500 hover:text-amber-400 underline"
+  }, showAdvanced ? '\u2212 Sembunyikan Opsi Lanjutan' : '+ Opsi Lanjutan (Nama Produk, Sub-Headline, Deskripsi, Badge, Arahan AI)'), showAdvanced && /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3 border border-[#222226] rounded p-3"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Nama Produk (yang difoto AI)"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: "Contoh: Es Teh Manis",
+    value: adCopyDraft.productName,
+    onChange: e => setAdCopyDraft({
+      ...adCopyDraft,
+      productName: e.target.value
     })
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
@@ -1843,16 +1972,6 @@ const PromoGenerator = memo(() => {
     })
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
-  }, "CTA (Call to Action)"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
-    placeholder: "Contoh: Order Sekarang",
-    value: adCopyDraft.cta,
-    onChange: e => setAdCopyDraft({
-      ...adCopyDraft,
-      cta: e.target.value
-    })
-  }), /*#__PURE__*/React.createElement("label", {
-    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Badge Promo (opsional)"), /*#__PURE__*/React.createElement("input", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Contoh: DISKON 10%",
@@ -1861,15 +1980,7 @@ const PromoGenerator = memo(() => {
       ...adCopyDraft,
       badge: e.target.value
     })
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: submitAdCopy,
-    className: "w-full bg-gradient-to-r from-[#0A6E4E] to-[#0C8A63] hover:from-[#0C8A63] hover:to-[#0EA678] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#0A6E4E]/30 font-semibold"
-  }, "Kirim Teks Iklan"), adCopy && /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between text-xs text-green-400 bg-[#0A0A0D] border border-[#222226] rounded p-2"
-  }, /*#__PURE__*/React.createElement("span", null, "Teks iklan sudah siap dipakai."), /*#__PURE__*/React.createElement("button", {
-    onClick: clearAdCopy,
-    className: "text-red-400 hover:text-red-300 ml-2"
-  }, "Hapus"))), /*#__PURE__*/React.createElement("label", {
+  }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Arahan AI (opsional)"), /*#__PURE__*/React.createElement("textarea", {
     className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded text-sm",
@@ -1878,7 +1989,64 @@ const PromoGenerator = memo(() => {
     value: aiPromptHint,
     onChange: e => setAiPromptHint(e.target.value),
     placeholder: "Arahan AI (opsional)"
-  }), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: submitAdCopy,
+    className: "w-full bg-gradient-to-r from-[#0A6E4E] to-[#0C8A63] hover:from-[#0C8A63] hover:to-[#0EA678] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#0A6E4E]/30 font-semibold"
+  }, "Kirim Teks Iklan"), adCopy && /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between text-xs text-green-400 bg-[#0A0A0D] border border-[#222226] rounded p-2"
+  }, /*#__PURE__*/React.createElement("span", null, "Teks iklan sudah siap dipakai."), /*#__PURE__*/React.createElement("button", {
+    onClick: clearAdCopy,
+    className: "text-red-400 hover:text-red-300 ml-2"
+  }, "Hapus"))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowVisualStyle(!showVisualStyle),
+    className: "text-xs text-amber-500 hover:text-amber-400 underline"
+  }, showVisualStyle ? '\u2212 Sembunyikan Gaya Visual' : '+ Gaya Visual (Aksi/Statis, Teks, Font, Orientasi)'), showVisualStyle && /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3 border border-[#222226] rounded p-3"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Gaya Komposisi"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setIncludeAction(false),
+    className: `p-2 rounded text-xs font-bold ${!includeAction ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, "Statis Elegan"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setIncludeAction(true),
+    className: `p-2 rounded text-xs font-bold ${includeAction ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, "Ada Momen Aksi")), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Teks di Gambar"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setIncludeText(true),
+    className: `p-2 rounded text-xs font-bold ${includeText ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, "Ada Teks"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setIncludeText(false),
+    className: `p-2 rounded text-xs font-bold ${!includeText ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, "Foto Bersih (Tanpa Teks)")), includeText && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Orientasi Teks"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-3 gap-2"
+  }, [{
+    key: 'lurus',
+    label: 'Lurus'
+  }, {
+    key: 'miring',
+    label: 'Miring'
+  }, {
+    key: 'vertikal',
+    label: 'Vertikal'
+  }].map(o => /*#__PURE__*/React.createElement("button", {
+    key: o.key,
+    onClick: () => setTextOrientation(o.key),
+    className: `p-2 rounded text-xs font-bold ${textOrientation === o.key ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, o.label)))), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Gaya Font untuk Gambar Ini (opsional, kosongkan = pakai font Brand)"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    placeholder: `Kosong = pakai "${brand.fontHeading}" dari Brand Identity`,
+    value: customFontHeading,
+    onChange: e => setCustomFontHeading(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2"
   }, ['feed', 'story', 'youtube', 'gofood'].map(f => /*#__PURE__*/React.createElement("button", {
     key: f,
@@ -1896,7 +2064,7 @@ const PromoGenerator = memo(() => {
     className: "text-red-500 text-sm"
   }, genError), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-500"
-  }, "Tab ChatGPT akan terbuka dengan prompt lengkap (sudah termasuk teks iklan & posisi ruang kosong logo). Setelah gambar jadi, download lalu upload di bawah ini — logo & tagline brand akan otomatis ditempel di posisi yang sudah diatur di tab Brand."), /*#__PURE__*/React.createElement("label", {
+  }, "Tab ChatGPT akan terbuka dengan prompt lengkap (sudah termasuk teks iklan & posisi ruang kosong logo). Setelah gambar jadi, download lalu upload di bawah ini \u2014 logo & tagline brand akan otomatis ditempel di posisi yang sudah diatur di tab Brand."), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Upload Hasil Gambar AI"), /*#__PURE__*/React.createElement("input", {
     type: "file",
@@ -2209,7 +2377,7 @@ const ContentPlanGenerator = memo(({
   }, "Konsep Foto: "), activeDay.konsepFoto), needsRealPhotoReminder(activeDay) && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-yellow-500 bg-[#0A0A0D] border border-yellow-700 rounded p-2"
   }, "⚠ Konten ini menyinggung tempat/orang asli (dapur, karyawan, koki, tampak depan, dll) — lampirkan foto asli resto/tim Anda ke chat ChatGPT, supaya AI tidak mengarang tempat/orang sendiri."), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setLastGenUrl(openChatGPTGenerate(activeDay.promptGambar)),
+    onClick: () => setLastGenUrl(openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}. ${QUALITY_PROHIBITION_LAYER}`)),
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg text-sm transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
   }, "Buat Gambar dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
     href: lastGenUrl,
@@ -2272,13 +2440,20 @@ const FeedCampaignGenerator = memo(() => {
   const brand = useContext(BrandContext);
   const canvasRef = useRef();
   const activeRole = FEED_ROLES.find(r => r.id === selectedSlot);
+  const lightingLastRef = useRef(-1);
+  const compositionLastRef = useRef(-1);
+  const frameLastRef = useRef(-1);
   const handleGenerateSlot = () => {
     if (!brief.productName) {
       setGenError('Isi Nama Produk dulu.');
       return;
     }
     setGenError('');
-    const url = openChatGPTGenerate(buildFeedSlotPrompt(brand, brief, activeRole));
+    const url = openChatGPTGenerate(buildFeedSlotPrompt(brand, brief, activeRole, {
+      lightingRef: lightingLastRef,
+      compositionRef: compositionLastRef,
+      frameRef: frameLastRef
+    }));
     setLastGenUrl(url);
   };
   const handleSlotPhoto = e => {
