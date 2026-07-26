@@ -307,29 +307,31 @@ const LOGO_POSITIONS = {
 // 4 pilihan gaya desain untuk halaman menu — mempengaruhi prompt
 // background AI (suasana/tekstur/mood), sementara grid menu tetap
 // digambar presisi oleh kanvas kita sendiri (warna & font brand).
-// Setiap gaya sekarang punya STRUKTUR TATA LETAK sendiri yang benar-benar
-// beda (bukan cuma beda warna dipetakan ke 2 kerangka yang sama seperti
-// sebelumnya). layoutKey menentukan fungsi render mana yang dipakai
-// (lihat render() di MenuPageCanvas) dan itemCap menentukan batas item
-// per halaman A4 sesuai kepadatan masing-masing struktur.
+// 3 dari 4 gaya (semua KECUALI Klasik) dirombak TOTAL berdasarkan
+// referensi visual nyata yang diajukan user (poster menu Glo Kitchen,
+// Gourmet Boss, The Burger House) — bukan lagi rombakan versi
+// sebelumnya. Klasik & Elegan SENGAJA tidak diubah sama sekali atas
+// permintaan user. layoutKey menentukan fungsi render mana yang
+// dipakai (lihat LAYOUT_RENDERERS di MenuPageCanvas).
 const MENU_STYLE_PRESETS = {
-  modern: {
-    label: 'Modern Minimalis',
-    layoutKey: 'gridBold',
-    // A) Grid Bold — grid 2 kolom + badge harga bulat besar menonjol
-    itemCap: 4,
-    cardRadius: 12,
-    pageBg: '#141414',
-    cardBg: '#FFFFFF',
-    textMain: '#1A1A1A',
-    textSub: '#777777',
-    dividerColor: '#333333',
-    promptHint: 'gaya modern minimalis, banyak ruang kosong (negative space), warna monokrom lembut dengan satu warna aksen, tekstur halus flat, pencahayaan bersih dan terang'
+  colorBlock: {
+    label: 'Blok Warna Berani',
+    layoutKey: 'colorBlock',
+    // Referensi: Glo Kitchen — tiap item jadi blok warna solid besar
+    // (bukan kartu putih+garis pembatas), foto bulat menjorok keluar
+    // tepi blok, harga jadi label kecil di sudut blok.
+    itemCap: 6,
+    pageBg: '#1A1207',
+    textMain: '#FFFFFF',
+    textSub: 'rgba(255,255,255,0.82)',
+    dividerColor: '#F2A23D',
+    promptHint: 'gaya poster promo makanan warna-warni berani, blok warna solid besar, kontras tinggi, kesan energik street-food, pencahayaan terang merata'
   },
   classic: {
     label: 'Klasik & Elegan',
     layoutKey: 'dinerList',
     // B) Diner Besar/List — 1 kolom, foto medium, badge harga pil overlap foto
+    // TIDAK DIUBAH — dipertahankan atas permintaan user.
     itemCap: 6,
     pageBg: '#1C1712',
     textMain: '#F3E6C9',
@@ -337,29 +339,30 @@ const MENU_STYLE_PRESETS = {
     dividerColor: '#C9A227',
     promptHint: 'gaya klasik elegan bernuansa vintage, ornamen garis halus, warna hangat gelap seperti coklat tua dan emas, pencahayaan dramatis lembut, kesan mewah restoran kelas atas'
   },
-  playful: {
-    label: 'Playful & Ceria',
-    layoutKey: 'bubbleStrip',
-    // C) Bubble Strip/List — foto bulat kecil berjajar, tanpa kartu
-    itemCap: 10,
-    pageBg: '#3D2B6B',
-    cardBg: '#FFF3E2',
-    textMain: '#3D2B6B',
-    textSub: '#A6895C',
-    dividerColor: '#FF8FB1',
-    promptHint: 'gaya playful ceria, warna-warni cerah, bentuk membulat lembut, kesan fun dan energik, pencahayaan terang merata'
+  circleOverlap: {
+    label: 'Foto Bulat Bertumpuk',
+    layoutKey: 'circleOverlap',
+    // Referensi: Gourmet Boss — judul besar, strip warna vertikal di
+    // sisi kiri, foto bulat besar bertumpuk sepanjang strip, harga
+    // pakai dotted-leader dengan jarak antar-baris lega.
+    itemCap: 8,
+    pageBg: '#3A0E12',
+    textMain: '#FFFFFF',
+    textSub: 'rgba(255,255,255,0.75)',
+    dividerColor: '#E8622B',
+    promptHint: 'gaya poster menu restoran elegan berani, latar merah tua gelap, strip warna oranye vertikal, pencahayaan studio dramatis, kesan premium'
   },
-  rustic: {
-    label: 'Rustic & Hangat',
-    layoutKey: 'editorial',
-    // D) Typographic Editorial — 2 kolom teks mengalir, TANPA foto,
-    // harga inline di akhir baris, heading kategori besar + aksen tulisan tangan
-    itemCap: 18,
-    pageBg: '#EFE1C6',
-    textMain: '#3B2A1A',
-    textSub: '#7A5C3E',
-    dividerColor: '#8B5E34',
-    promptHint: 'gaya rustic hangat, tekstur kayu atau kertas kraft, warna earthy tone seperti coklat tanah dan krem, pencahayaan hangat keemasan, kesan homey'
+  heroGlow: {
+    label: 'Hero Glow Dramatis',
+    layoutKey: 'heroGlow',
+    // Referensi: The Burger House — judul raksasa efek gradasi+glow,
+    // foto item saling tumpuk-silang diagonal, badge promo bercahaya.
+    itemCap: 6,
+    pageBg: '#0B0B0C',
+    textMain: '#FFFFFF',
+    textSub: 'rgba(255,255,255,0.7)',
+    dividerColor: '#FF8A3D',
+    promptHint: 'gaya poster promo dramatis malam hari, latar gelap gulita, cahaya lampu sorot hangat, glow/bloom di sekitar objek, kesan bold dan modern'
   }
 };
 
@@ -1085,12 +1088,16 @@ const MenuManager = memo(({
         const maxDim = 600;
         let w = img.width,
           h = img.height;
-        const ratio = img.width / img.height;
-        // Perkiraan kasar kapasitas 1 halaman A4 (gaya Grid) berdasarkan
-        // rasio foto — cuma perkiraan, bukan hitungan pasti.
-        const approxCapacity = ratio >= 1.5 ? 6 : ratio <= 1.15 ? 4 : 5;
-        if (menu.length + 1 > approxCapacity) {
-          setCapacityWarning(`Menu Anda sudah ${menu.length + 1} item — untuk foto rasio seperti ini, perkiraan muatan 1 halaman A4 (gaya Grid) sekitar ${approxCapacity} item. Item selebihnya tetap tersimpan, tapi halaman menu mungkin terasa padat.`);
+        // Semua gaya sekarang memotong foto jadi bentuk tetap (bulat/kotak/persegi
+        // via cover-crop), jadi kapasitas TIDAK lagi tergantung rasio foto asli
+        // seperti dulu — melainkan tergantung gaya menu yang dipilih nanti
+        // (lihat itemCap per gaya di MENU_STYLE_PRESETS). Di sini kita cuma
+        // tunjukkan rentang kapasitas terkecil-terbesar di antara semua gaya.
+        const caps = Object.values(MENU_STYLE_PRESETS).map(s => s.itemCap);
+        const minCap = Math.min(...caps);
+        const maxCap = Math.max(...caps);
+        if (menu.length + 1 > minCap) {
+          setCapacityWarning(`Menu Anda sudah ${menu.length + 1} item — kapasitas 1 halaman A4 berbeda tiap gaya, sekitar ${minCap}-${maxCap} item tergantung gaya yang dipilih nanti di tab Generate Menu. Item selebihnya tetap tersimpan, tapi halaman menu mungkin terasa padat kalau memilih gaya dengan kapasitas kecil.`);
         } else {
           setCapacityWarning('');
         }
@@ -1257,7 +1264,7 @@ const PRINT_SCALE = 2.3;
 const MenuPageGenerator = memo(({
   menu
 }) => {
-  const [selectedStyle, setSelectedStyle] = useState('modern');
+  const [selectedStyle, setSelectedStyle] = useState('colorBlock');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [photoUrl, setPhotoUrl] = useState('');
   const [quality, setQuality] = useState('screen'); // 'screen' (ringan) | 'print' (tajam untuk A4)
@@ -1268,11 +1275,8 @@ const MenuPageGenerator = memo(({
   const lightingLastRef = useRef(-1);
   const filteredMenu = categoryFilter === 'all' ? menu : menu.filter(m => m.category === categoryFilter);
   // Batas item per halaman A4, beda per gaya sesuai kepadatan STRUKTUR
-  // masing-masing (Grid Bold pakai foto persegi besar jadi kapasitasnya
-  // paling sedikit; Editorial tanpa foto sama sekali jadi bisa muat
-  // paling banyak) — supaya halaman SELALU pas A4 tanpa foto/font
+  // masing-masing halaman — supaya halaman SELALU pas A4 tanpa foto/font
   // dipaksa menyusut ekstrem atau halaman memanjang.
-  const currentLayoutKey = MENU_STYLE_PRESETS[selectedStyle].layoutKey;
   const ITEM_CAP = MENU_STYLE_PRESETS[selectedStyle].itemCap;
   const displayedMenu = filteredMenu.slice(0, ITEM_CAP);
   const isTruncated = filteredMenu.length > ITEM_CAP;
@@ -1346,9 +1350,9 @@ const MenuPageGenerator = memo(({
     key: key,
     onClick: () => setSelectedStyle(key),
     className: `p-3 rounded text-xs font-bold text-left ${selectedStyle === key ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
-  }, val.label))), currentLayoutKey === 'gridBold' && /*#__PURE__*/React.createElement("p", {
+  }, val.label))), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-500"
-  }, "Gaya Grid Bold pakai foto persegi seragam untuk hasil rapi — maksimal ±4 foto per halaman A4."), /*#__PURE__*/React.createElement("label", {
+  }, "Kapasitas per halaman A4 beda tiap gaya (", MENU_STYLE_PRESETS[selectedStyle].itemCap, " item untuk gaya ", MENU_STYLE_PRESETS[selectedStyle].label, ") — gunakan filter kategori kalau menu lebih banyak."), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Filter Kategori"), /*#__PURE__*/React.createElement("select", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
@@ -1483,6 +1487,46 @@ const MenuPageCanvas = forwardRef(({
       ctx.textAlign = 'left';
     };
 
+    // Header versi RINGKAS — logo lebih kecil & rata kiri (bukan tengah),
+    // dipakai gaya Foto Bulat Bertumpuk & Hero Glow yang butuh banyak ruang
+    // vertikal untuk elemen hero/judul raksasa masing-masing.
+    const computeCompactHeaderHeight = async brand => {
+      let h = 24;
+      h += brand.logoUrl ? 70 : 6;
+      h += 6;
+      return h;
+    };
+    const renderCompactHeader = async (ctx, brand) => {
+      await document.fonts.load(`bold 30px "${brand.fontHeading}"`);
+      await document.fonts.load(`16px "${brand.fontBody}"`);
+      const marginX = 50;
+      const topY = 24;
+      let textX = marginX;
+      if (brand.logoUrl) {
+        try {
+          const logoImg = new Image();
+          logoImg.src = brand.logoUrl;
+          await new Promise(r => logoImg.onload = r);
+          const lSize = 70;
+          const ratio = logoImg.width / logoImg.height;
+          let lw = lSize,
+            lh = lSize;
+          if (ratio > 1) lh = lSize / ratio;else lw = lSize * ratio;
+          drawImageWithOutline(ctx, logoImg, marginX, topY, lw, lh, 'rgba(255,255,255,0.85)', 1.5);
+          textX = marginX + lw + 16;
+        } catch (e) {}
+      }
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = `bold 30px "${brand.fontHeading}"`;
+      ctx.fillText(brand.name, textX, topY + 34);
+      if (brand.tagline) {
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.font = `16px "${brand.fontBody}"`;
+        ctx.fillText(brand.tagline, textX, topY + 54);
+      }
+    };
+
     // Kanvas dipaksa tetap rasio A4 (210:297) — TIDAK lagi memanjang
     // mengikuti jumlah menu. Kalau konten lebih tinggi dari muatan
     // 1 halaman, seluruh isi diskalakan turun secara proporsional
@@ -1584,142 +1628,139 @@ const MenuPageCanvas = forwardRef(({
     // A) GRID BOLD (gaya Modern) — grid 2 kolom + badge harga BULAT
     // besar menonjol di sudut foto (bukan teks polos di bawah kartu).
     // ============================================================
-    const renderGridBoldLayout = async (canvas, ctx, width, grouped, cfg) => {
-      const headerH = await computeHeaderHeight(brand);
-      const catHeaderHFull = 90,
-        gapFull = 24,
-        marginX = 40;
-      const cols = 2;
-      const cardWidth = (width - marginX * 2 - gapFull * (cols - 1)) / cols; // LEBAR selalu penuh, tidak pernah dikecilkan
-      const photoHeightFull = cardWidth; // basis 1:1 (persegi)
-      const textAreaHeightFull = 150;
-      const totalCardRows = grouped.reduce((sum, g) => sum + Math.ceil(g.list.length / cols), 0);
-      const availableBody = A4_HEIGHT - headerH - 60;
+    // Helper kecil dipakai gaya-gaya baru: load gambar via Promise (mengurangi
+    // pengulangan pola new Image()+onload di 3 fungsi render baru).
+    const loadImg = src => new Promise(resolve => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.src = src;
+    });
+    // Garis titik-titik penghubung nama→harga (dotted leader) — dipakai
+    // gaya Foto Bulat Bertumpuk sesuai referensi.
+    const drawDottedLeader = (ctx, xStart, xEnd, y, color) => {
+      if (xEnd <= xStart) return;
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([2, 6]);
+      ctx.beginPath();
+      ctx.moveTo(xStart, y);
+      ctx.lineTo(xEnd, y);
+      ctx.stroke();
+      ctx.restore();
+    };
 
-      // Halaman SELALU A4 (tidak pernah memanjang) — jumlah item sudah
-      // dibatasi di MenuPageGenerator supaya ini aman untuk kasus wajar
-      // (menu terkumpul di 1-2 kategori). Kalau kepanjangan:
-      // 1) Kecilkan dulu jarak/judul kategori/font — foto tetap persegi.
-      // 2) Kalau masih belum cukup, foto boleh menyusut, TAPI dibatasi
-      //    maksimal rasio ~1.3:1 (jauh dari 16:9) — ini jaring pengaman
-      //    terakhir untuk kasus jarang, bukan jalur utama.
-      const MIN_NSCALE = 0.55;
-      const MIN_PHOTO_SCALE = 0.77;
-      const CONST = totalCardRows * photoHeightFull;
-      const VARCOEF = grouped.length * catHeaderHFull + totalCardRows * (textAreaHeightFull + gapFull);
-      const naturalFull = CONST + VARCOEF;
-      let nScale = 1,
-        photoScale = 1;
-      if (naturalFull > availableBody) {
-        nScale = (availableBody - CONST) / VARCOEF;
-        if (nScale >= MIN_NSCALE) {
-          photoScale = 1; // Tahap 1 cukup — foto tetap persegi
-        } else {
-          nScale = MIN_NSCALE;
-          const usedByOthers = grouped.length * catHeaderHFull * nScale + totalCardRows * (textAreaHeightFull + gapFull) * nScale;
-          photoScale = Math.max(MIN_PHOTO_SCALE, (availableBody - usedByOthers) / (totalCardRows * photoHeightFull));
-        }
-      }
-      const pageHeight = A4_HEIGHT;
-      const catHeaderH = catHeaderHFull * nScale;
-      const gap = gapFull * nScale;
-      const photoHeight = photoHeightFull * photoScale;
-      const textAreaHeight = textAreaHeightFull * nScale;
-      const cardHeight = photoHeight + textAreaHeight;
-      const nameFontSize = Math.round(26 * Math.max(nScale, 0.7));
-      const descFontSize = Math.round(18 * Math.max(nScale, 0.7));
+    // ============================================================
+    // BLOK WARNA BERANI — referensi: poster menu "Glo Kitchen".
+    // Tiap item jadi blok warna solid besar (bukan kartu putih+garis
+    // pembatas), foto BULAT menjorok keluar tepi blok, harga jadi
+    // label kecil menjorok di sudut atas-kanan blok. Warna blok
+    // berputar per-item (bukan per-kategori) supaya tiap baris terasa
+    // beda, sama seperti referensi (merah/oranye/olive berurutan).
+    // ============================================================
+    const COLOR_BLOCK_PALETTE = ['#D9432B', '#E8862B', '#6E7F35', '#2E6E7A', '#8A3B6E'];
+    const renderColorBlockLayout = async (canvas, ctx, width, grouped, cfg) => {
+      const headerH = await computeHeaderHeight(brand);
+      const catHeaderHBase = 56,
+        blockHBase = 168,
+        blockGapBase = 20,
+        bottomPad = 50;
+      const marginX = 50;
+      const totalItems = grouped.reduce((s, g) => s + g.list.length, 0);
+      const naturalBodyHeight = grouped.length * catHeaderHBase + totalItems * (blockHBase + blockGapBase);
+      const availableBody = A4_HEIGHT - headerH - bottomPad;
+      const vScale = naturalBodyHeight > availableBody ? Math.max(0.45, availableBody / naturalBodyHeight) : 1;
+      const catHeaderH = catHeaderHBase * vScale;
+      const blockH = blockHBase * vScale;
+      const blockGap = blockGapBase * vScale;
+      const nameFontSize = Math.round(30 * Math.max(vScale, 0.65));
+      const descFontSize = Math.round(19 * Math.max(vScale, 0.65));
       if (cancelled) return;
       canvas.width = A4_WIDTH * renderScale;
-      canvas.height = pageHeight * renderScale;
+      canvas.height = A4_HEIGHT * renderScale;
       ctx.scale(renderScale, renderScale);
       ctx.fillStyle = cfg.pageBg;
-      ctx.fillRect(0, 0, A4_WIDTH, pageHeight);
+      ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
       if (backgroundImage) {
-        const img = new Image();
-        img.src = backgroundImage;
-        await new Promise(r => img.onload = r);
+        const img = await loadImg(backgroundImage);
         if (cancelled) return;
-        drawCoverImage(ctx, img, 0, 0, A4_WIDTH, pageHeight);
-        ctx.fillStyle = cfg.pageBg + '8C';
-        ctx.fillRect(0, 0, A4_WIDTH, pageHeight); // ~55% opacity overlay warna khas gaya
+        drawCoverImage(ctx, img, 0, 0, A4_WIDTH, A4_HEIGHT);
+        ctx.fillStyle = cfg.pageBg + 'B0';
+        ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
       }
       if (cancelled) return;
       await renderHeader(ctx, A4_WIDTH, brand);
-      await document.fonts.load(`bold 30px "${brand.fontHeading}"`);
-      await document.fonts.load(`bold 26px "${brand.fontBody}"`);
-      await document.fonts.load(`18px "${brand.fontBody}"`);
+      await document.fonts.load(`bold 32px "${brand.fontHeading}"`);
+      await document.fonts.load(`bold ${nameFontSize}px "${brand.fontBody}"`);
+      await document.fonts.load(`${descFontSize}px "${brand.fontBody}"`);
       if (cancelled) return;
       let y = headerH;
-      const badgeQueue = []; // badge favorit digambar terakhir, di atas semua kartu
+      let itemIndex = 0;
       for (const group of grouped) {
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = `bold 30px "${brand.fontHeading}"`;
+        ctx.fillStyle = cfg.dividerColor;
+        ctx.font = `bold 32px "${brand.fontHeading}"`;
         ctx.fillText(group.cat.toUpperCase(), marginX, y + 30);
-        ctx.strokeStyle = cfg.dividerColor;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(marginX, y + 46);
-        ctx.lineTo(width - marginX, y + 46);
-        ctx.stroke();
         y += catHeaderH;
-        for (let i = 0; i < group.list.length; i++) {
-          const item = group.list[i];
-          const col = i % cols;
-          const cx = marginX + col * (cardWidth + gapFull);
-          const cy = y;
+        for (const item of group.list) {
+          const blockColor = COLOR_BLOCK_PALETTE[itemIndex % COLOR_BLOCK_PALETTE.length];
+          const bx = marginX,
+            by = y,
+            bw = width - marginX * 2,
+            bh = blockH;
 
-          // Kartu berwarna khas gaya, sudut membulat sesuai gaya
-          ctx.fillStyle = cfg.cardBg;
-          roundRectPath(ctx, cx, cy, cardWidth, cardHeight, cfg.cardRadius);
+          // Blok warna solid, sudut sangat membulat (kesan pil)
+          roundRectPath(ctx, bx, by, bw, bh, bh / 2);
+          ctx.fillStyle = blockColor;
           ctx.fill();
 
-          // Foto produk, rounded di atas kartu
+          // Foto BULAT menjorok keluar tepi blok (bleed atas & bawah)
+          let textStartX = bx + 40;
           if (item.photoUrl) {
             try {
-              const thumbImg = new Image();
-              thumbImg.src = item.photoUrl;
-              await new Promise(r => thumbImg.onload = r);
+              const thumbImg = await loadImg(item.photoUrl);
               if (cancelled) return;
+              const r = bh * 0.62;
+              const cx = bx + r * 0.85,
+                cy = by + bh / 2;
               ctx.save();
-              roundRectPath(ctx, cx, cy, cardWidth, photoHeight, cfg.cardRadius);
+              ctx.beginPath();
+              ctx.arc(cx, cy, r, 0, Math.PI * 2);
               ctx.clip();
-              drawCoverImage(ctx, thumbImg, cx, cy, cardWidth, photoHeight);
+              drawCoverImage(ctx, thumbImg, cx - r, cy - r, r * 2, r * 2);
               ctx.restore();
+              ctx.strokeStyle = '#FFFFFF';
+              ctx.lineWidth = 5;
+              ctx.beginPath();
+              ctx.arc(cx, cy, r, 0, Math.PI * 2);
+              ctx.stroke();
+              textStartX = cx + r + 24;
+              if (item.featured) drawFeaturedBadge(ctx, cx + r * 0.55, cy - r * 0.55, 0.55, 'inset-topright');
             } catch (e) {}
           }
-          if (item.featured) badgeQueue.push([cx + cardWidth - 12, cy + 12, 0.85, 'inset-topright']);
 
-          // Aksen garis tipis khas gaya di bawah foto
-          ctx.strokeStyle = cfg.dividerColor;
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.moveTo(cx + 18, cy + photoHeight + 8);
-          ctx.lineTo(cx + cardWidth - 18, cy + photoHeight + 8);
-          ctx.stroke();
-
-          // Teks di bawah foto (TANPA harga — harga sekarang jadi badge bulat di foto)
-          const padX = 18;
+          // Nama & deskripsi di atas blok warna
           ctx.fillStyle = cfg.textMain;
           ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
-          ctx.fillText(item.name, cx + padX, cy + photoHeight + nameFontSize + 8, cardWidth - padX * 2);
+          ctx.fillText(item.name, textStartX, by + bh / 2 - (item.description ? 6 : -8), bx + bw - textStartX - 110);
           if (item.description) {
             ctx.fillStyle = cfg.textSub;
             ctx.font = `${descFontSize}px "${brand.fontBody}"`;
-            ctx.fillText(item.description, cx + padX, cy + photoHeight + nameFontSize + descFontSize + 14, cardWidth - padX * 2);
+            ctx.fillText(item.description, textStartX, by + bh / 2 + descFontSize + 2, bx + bw - textStartX - 110);
           }
 
-          // Badge harga BULAT besar, menjorok di sudut kanan-bawah foto —
-          // ciri khas gaya Grid Bold, dibedakan dari teks polos gaya lain.
-          drawPriceBadge(ctx, `Rp ${item.price.toLocaleString('id-ID')}`, cx + cardWidth - 6, cy + photoHeight - 6, {
-            scale: Math.max(nScale, 0.75) * 1.15,
-            shape: 'circle',
-            bg: brand.primaryColor,
+          // Label harga menjorok di sudut atas-kanan blok — putih dengan
+          // teks warna blok, kesan "flag" menonjol (bukan teks polos)
+          drawPriceBadge(ctx, `Rp ${item.price.toLocaleString('id-ID')}`, bx + bw - 55, by + 6, {
+            scale: Math.max(vScale, 0.7),
+            shape: 'pill',
+            bg: '#FFFFFF',
+            textColor: blockColor,
             fontSize: 20
           });
-          if (col === cols - 1 || i === group.list.length - 1) y += cardHeight + gap;
+          itemIndex++;
+          y += blockH + blockGap;
         }
       }
-      for (const [bx, by, bscale, banchor] of badgeQueue) drawFeaturedBadge(ctx, bx, by, bscale, banchor);
     };
 
     // ============================================================
@@ -1829,13 +1870,29 @@ const MenuPageCanvas = forwardRef(({
     // berjajar (bukan kartu foto besar), baris ramping & rapat,
     // harga teks sederhana rata-kanan.
     // ============================================================
-    const renderBubbleStripLayout = async (canvas, ctx, width, grouped, cfg) => {
-      const headerH = await computeHeaderHeight(brand);
-      const catHeaderHBase = 56,
-        rowHBase = 78,
+    // ============================================================
+    // FOTO BULAT BERTUMPUK — referensi: poster menu "Gourmet Boss".
+    // Header ringkas (logo kecil rata kiri) + judul raksasa "DAFTAR
+    // MENU", strip warna vertikal di sisi kiri, foto BULAT BESAR
+    // bertumpuk sepanjang strip, harga pakai dotted-leader dengan
+    // jarak antar-baris lega.
+    // ============================================================
+    const renderCircleOverlapLayout = async (canvas, ctx, width, grouped, cfg) => {
+      const headerH = await computeCompactHeaderHeight(brand);
+      const heroTitleH = 92; // ruang untuk judul raksasa di bawah header ringkas
+      const bodyTop = headerH + heroTitleH;
+      const catHeaderHBase = 50,
+        rowHBase = 90,
         bottomPad = 60;
       const totalRows = grouped.reduce((sum, g) => sum + g.list.length, 0);
       const naturalBodyHeight = grouped.length * catHeaderHBase + totalRows * rowHBase;
+      const availableBody = A4_HEIGHT - bodyTop - bottomPad;
+      const vScale = naturalBodyHeight > availableBody ? Math.max(0.4, availableBody / naturalBodyHeight) : 1;
+      const catHeaderH = catHeaderHBase * vScale;
+      const rowH = rowHBase * vScale;
+      const circleSize = Math.max(50, 96 * vScale); // besar & sedikit bertumpuk antar-baris — ciri khas gaya ini
+      const nameFontSize = Math.round(27 * Math.max(vScale, 0.65));
+      const descFontSize = Math.round(17 * Math.max(vScale, 0.65));
       if (cancelled) return;
       canvas.width = A4_WIDTH * renderScale;
       canvas.height = A4_HEIGHT * renderScale;
@@ -1843,73 +1900,80 @@ const MenuPageCanvas = forwardRef(({
       ctx.fillStyle = cfg.pageBg;
       ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
       if (backgroundImage) {
-        const img = new Image();
-        img.src = backgroundImage;
-        await new Promise(r => img.onload = r);
+        const img = await loadImg(backgroundImage);
         if (cancelled) return;
         drawCoverImage(ctx, img, 0, 0, A4_WIDTH, A4_HEIGHT);
         ctx.fillStyle = cfg.pageBg + 'C7';
         ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
       }
       if (cancelled) return;
-      await renderHeader(ctx, A4_WIDTH, brand);
-      await document.fonts.load(`bold 30px "${brand.fontHeading}"`);
-      await document.fonts.load(`bold 26px "${brand.fontBody}"`);
-      await document.fonts.load(`18px "${brand.fontBody}"`);
+      await renderCompactHeader(ctx, brand);
+      await document.fonts.load(`bold 62px "${brand.fontHeading}"`);
+      await document.fonts.load(`bold 26px "${brand.fontHeading}"`);
+      await document.fonts.load(`bold ${nameFontSize}px "${brand.fontBody}"`);
+      await document.fonts.load(`${descFontSize}px "${brand.fontBody}"`);
       if (cancelled) return;
-      const availableBody = A4_HEIGHT - headerH - bottomPad;
-      const vScale = naturalBodyHeight > availableBody ? Math.max(0.4, availableBody / naturalBodyHeight) : 1;
-      const catHeaderH = catHeaderHBase * vScale;
-      const rowH = rowHBase * vScale;
-      const bubbleSize = Math.max(34, 60 * vScale); // bulat KECIL — ciri khas gaya ini
-      const nameFontSize = Math.round(26 * Math.max(vScale, 0.65));
-      const descFontSize = Math.round(17 * Math.max(vScale, 0.65));
-      let y = headerH;
-      const marginX = 60;
+
+      // Judul raksasa — elemen hero halaman, ciri khas referensi
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = `bold 62px "${brand.fontHeading}"`;
+      ctx.fillText('DAFTAR MENU', 50, headerH + 60);
+      const marginX = 50;
+      const stripX = marginX;
+      const stripW = circleSize + 30;
+
+      // Strip warna vertikal di sepanjang badan menu — digambar penuh
+      // dari awal, terlepas dari isi konten pas atau tidak (sengaja,
+      // efek visual dari referensi).
+      ctx.fillStyle = cfg.dividerColor;
+      roundRectPath(ctx, stripX, bodyTop, stripW, A4_HEIGHT - bodyTop - bottomPad + 30, stripW / 2);
+      ctx.fill();
+      let y = bodyTop;
       for (const group of grouped) {
-        ctx.fillStyle = cfg.dividerColor;
-        ctx.font = `bold 30px "${brand.fontHeading}"`;
-        ctx.fillText(group.cat.toUpperCase(), marginX, y + 26);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = `bold 26px "${brand.fontHeading}"`;
+        ctx.fillText(group.cat.toUpperCase(), stripX + stripW + 20, y + 24);
         y += catHeaderH;
         for (const item of group.list) {
+          const circleCx = stripX + stripW / 2;
+          const circleCy = y + circleSize / 2;
           if (item.photoUrl) {
             try {
-              const thumbImg = new Image();
-              thumbImg.src = item.photoUrl;
-              await new Promise(r => thumbImg.onload = r);
+              const thumbImg = await loadImg(item.photoUrl);
               if (cancelled) return;
               ctx.save();
               ctx.beginPath();
-              ctx.arc(marginX + bubbleSize / 2, y + bubbleSize / 2, bubbleSize / 2, 0, Math.PI * 2);
+              ctx.arc(circleCx, circleCy, circleSize / 2, 0, Math.PI * 2);
               ctx.clip();
-              drawCoverImage(ctx, thumbImg, marginX, y, bubbleSize, bubbleSize);
+              drawCoverImage(ctx, thumbImg, circleCx - circleSize / 2, circleCy - circleSize / 2, circleSize, circleSize);
               ctx.restore();
-              ctx.strokeStyle = cfg.dividerColor;
-              ctx.lineWidth = 2.5;
+              ctx.strokeStyle = '#FFFFFF';
+              ctx.lineWidth = 4;
               ctx.beginPath();
-              ctx.arc(marginX + bubbleSize / 2, y + bubbleSize / 2, bubbleSize / 2, 0, Math.PI * 2);
+              ctx.arc(circleCx, circleCy, circleSize / 2, 0, Math.PI * 2);
               ctx.stroke();
             } catch (e) {}
           }
-          const textX = item.photoUrl ? marginX + bubbleSize + 20 : marginX;
-          const nameBaselineY = y + bubbleSize / 2 + (item.description ? -2 : nameFontSize / 3);
+          const textX = stripX + stripW + 24;
+          const textY = circleCy - (item.description ? 6 : -4);
+          const priceText = `Rp ${item.price.toLocaleString('id-ID')}`;
+          ctx.font = `bold ${Math.round(nameFontSize * 0.85)}px "${brand.fontBody}"`;
+          const priceW = ctx.measureText(priceText).width;
+          const priceX = width - marginX - priceW;
           ctx.fillStyle = cfg.textMain;
           ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
-          ctx.fillText(item.name, textX, nameBaselineY, width - marginX - textX - 140);
-          if (item.featured) {
-            const nameW = ctx.measureText(item.name).width;
-            drawFeaturedBadge(ctx, textX + nameW + 12, nameBaselineY - nameFontSize / 2 + 2, 0.5, 'left-middle');
-          }
+          ctx.fillText(item.name, textX, textY, priceX - textX - 20);
+          const nameW = Math.min(ctx.measureText(item.name).width, priceX - textX - 20);
+          if (item.featured) drawFeaturedBadge(ctx, textX + nameW + 12, textY - nameFontSize / 2 + 2, 0.5, 'left-middle');
+          drawDottedLeader(ctx, textX + nameW + 16, priceX - 10, textY - nameFontSize * 0.32, cfg.dividerColor);
+          ctx.fillStyle = brand.primaryColor;
+          ctx.font = `bold ${Math.round(nameFontSize * 0.85)}px "${brand.fontBody}"`;
+          ctx.fillText(priceText, priceX, textY);
           if (item.description) {
             ctx.fillStyle = cfg.textSub;
             ctx.font = `${descFontSize}px "${brand.fontBody}"`;
-            ctx.fillText(item.description, textX, nameBaselineY + descFontSize + 2, width - marginX - textX - 140);
+            ctx.fillText(item.description, textX, textY + descFontSize + 4, width - marginX - textX);
           }
-          ctx.fillStyle = brand.primaryColor;
-          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
-          ctx.textAlign = 'right';
-          ctx.fillText(`Rp ${item.price.toLocaleString('id-ID')}`, width - marginX, y + bubbleSize / 2 + nameFontSize / 3);
-          ctx.textAlign = 'left';
           y += rowH;
         }
       }
@@ -1922,42 +1986,29 @@ const MenuPageCanvas = forwardRef(({
     // Kolom boleh berhenti di tengah kategori (mengalir seperti koran),
     // ini disengaja, bukan cacat.
     // ============================================================
-    const renderEditorialLayout = async (canvas, ctx, width, grouped, cfg) => {
-      const headerH = await computeHeaderHeight(brand);
-      const bottomPad = 60;
-      const marginX = 60;
-      const colGap = 50;
-      const catHeaderHBase = 64;
-      const nameLineHBase = 34;
-      const descLineHBase = 22;
-      const itemGapBase = 14;
-      const blocks = [];
-      for (const group of grouped) {
-        blocks.push({
-          type: 'header',
-          text: group.cat,
-          h: catHeaderHBase
-        });
-        for (const item of group.list) {
-          blocks.push({
-            type: 'item',
-            item,
-            h: nameLineHBase + (item.description ? descLineHBase : 0) + itemGapBase
-          });
-        }
-      }
-      const naturalTotal = blocks.reduce((s, b) => s + b.h, 0);
-      const availableBody = A4_HEIGHT - headerH - bottomPad;
-      // Kolom berdampingan HORIZONTAL, jadi tinggi yang dibandingkan adalah
-      // separuh total konten (bukan tinggi 1 halaman penuh dibagi lagi).
-      const vScale = naturalTotal / 2 > availableBody ? Math.max(0.4, availableBody / (naturalTotal / 2)) : 1;
+    // ============================================================
+    // HERO GLOW DRAMATIS — referensi: poster "The Burger House".
+    // Header ringkas, judul raksasa efek GRADASI + GLOW (bukan warna
+    // solid datar), foto item unggulan saling tumpuk-silang secara
+    // diagonal di bawah judul, badge favorit/harga diberi efek glow.
+    // Daftar harga di bagian bawah TANPA foto per-item (semua foto
+    // sudah ditampilkan di kolase hero atas), sesuai referensi.
+    // ============================================================
+    const renderHeroGlowLayout = async (canvas, ctx, width, grouped, cfg) => {
+      const headerH = await computeCompactHeaderHeight(brand);
+      const titleH = 96;
+      const collageH = 220;
+      const bodyTop = headerH + titleH + collageH;
+      const bottomPad = 50;
+      const catHeaderHBase = 44,
+        rowHBase = 46;
+      const totalRows = grouped.reduce((sum, g) => sum + g.list.length, 0);
+      const naturalBodyHeight = grouped.length * catHeaderHBase + totalRows * rowHBase;
+      const availableBody = A4_HEIGHT - bodyTop - bottomPad;
+      const vScale = naturalBodyHeight > availableBody ? Math.max(0.45, availableBody / naturalBodyHeight) : 1;
       const catHeaderH = catHeaderHBase * vScale;
-      const nameLineH = nameLineHBase * Math.max(vScale, 0.6);
-      const descLineH = descLineHBase * Math.max(vScale, 0.6);
-      const itemGap = itemGapBase * vScale;
-      const nameFontSize = Math.round(24 * Math.max(vScale, 0.6));
-      const descFontSize = Math.round(18 * Math.max(vScale, 0.6));
-      const catFontSize = Math.round(34 * Math.max(vScale, 0.6));
+      const rowH = rowHBase * vScale;
+      const nameFontSize = Math.round(24 * Math.max(vScale, 0.65));
       if (cancelled) return;
       canvas.width = A4_WIDTH * renderScale;
       canvas.height = A4_HEIGHT * renderScale;
@@ -1965,92 +2016,131 @@ const MenuPageCanvas = forwardRef(({
       ctx.fillStyle = cfg.pageBg;
       ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
       if (backgroundImage) {
-        const img = new Image();
-        img.src = backgroundImage;
-        await new Promise(r => img.onload = r);
+        const img = await loadImg(backgroundImage);
         if (cancelled) return;
         drawCoverImage(ctx, img, 0, 0, A4_WIDTH, A4_HEIGHT);
-        // Overlay lebih pekat dari gaya lain — halaman ini murni tipografi,
-        // background tidak boleh mengganggu keterbacaan teks.
-        ctx.fillStyle = cfg.pageBg + 'D8';
+        ctx.fillStyle = cfg.pageBg + 'B8';
         ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
       }
       if (cancelled) return;
-      await renderHeader(ctx, A4_WIDTH, brand);
-      await document.fonts.load(`bold ${catFontSize}px "${brand.fontHeading}"`);
-      await document.fonts.load(`${nameFontSize}px "Permanent Marker"`);
-      await document.fonts.load(`italic ${descFontSize}px "${brand.fontBody}"`);
+      await renderCompactHeader(ctx, brand);
+      await document.fonts.load(`bold 74px "${brand.fontHeading}"`);
+      await document.fonts.load(`bold 26px "${brand.fontHeading}"`);
+      await document.fonts.load(`bold ${nameFontSize}px "${brand.fontBody}"`);
       if (cancelled) return;
-      const colWidth = (width - marginX * 2 - colGap) / 2;
-      const col1X = marginX;
-      const col2X = marginX + colWidth + colGap;
-      const halfTarget = naturalTotal / 2;
-      let acc = 0,
-        splitIdx = blocks.length;
-      for (let i = 0; i < blocks.length; i++) {
-        acc += blocks[i].h;
-        if (acc >= halfTarget) {
-          splitIdx = i + 1;
-          break;
+
+      // Judul raksasa dengan GRADASI warna + GLOW (bukan warna solid datar)
+      ctx.save();
+      ctx.font = `bold 74px "${brand.fontHeading}"`;
+      ctx.textAlign = 'center';
+      const grad = ctx.createLinearGradient(0, headerH, 0, headerH + 74);
+      grad.addColorStop(0, '#FFFFFF');
+      grad.addColorStop(1, cfg.dividerColor);
+      ctx.fillStyle = grad;
+      ctx.shadowColor = cfg.dividerColor;
+      ctx.shadowBlur = 26;
+      ctx.fillText('DAFTAR MENU', width / 2, headerH + 62);
+      ctx.restore();
+      ctx.textAlign = 'left';
+
+      // Kolase foto tumpuk-silang DIAGONAL — maksimal 3 item (prioritas
+      // yang ditandai Menu Unggulan, sisanya diambil dari item pertama
+      // yang punya foto), meniru komposisi "produk saling tumpuk" referensi.
+      const allItems = grouped.flatMap(g => g.list);
+      const withPhoto = allItems.filter(i => i.photoUrl);
+      const featuredFirst = [...withPhoto.filter(i => i.featured), ...withPhoto.filter(i => !i.featured)].slice(0, 3);
+      const collageY = headerH + titleH + collageH / 2;
+      const collageSlots = [{
+        dx: 0,
+        rot: 0,
+        size: 208,
+        z: 2
+      }, {
+        dx: -190,
+        rot: -0.16,
+        size: 168,
+        z: 0
+      }, {
+        dx: 190,
+        rot: 0.16,
+        size: 168,
+        z: 1
+      }];
+      // Slot TENGAH (terbesar) selalu diprioritaskan lebih dulu — jadi kalau
+      // cuma ada 1-2 foto tersedia, yang tampil adalah foto prioritas utama
+      // di posisi paling menonjol, bukan kebetulan jatuh ke slot samping.
+      const activeSlots = collageSlots.slice(0, featuredFirst.length).sort((a, b) => a.z - b.z);
+      for (const slot of activeSlots) {
+        const item = featuredFirst[collageSlots.indexOf(slot)];
+        if (!item) continue;
+        try {
+          const img = await loadImg(item.photoUrl);
+          if (cancelled) return;
+          ctx.save();
+          ctx.translate(width / 2 + slot.dx, collageY);
+          ctx.rotate(slot.rot);
+          ctx.shadowColor = 'rgba(0,0,0,0.5)';
+          ctx.shadowBlur = 18;
+          roundRectPath(ctx, -slot.size / 2, -slot.size / 2, slot.size, slot.size, 20);
+          ctx.fillStyle = '#000000';
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.save();
+          roundRectPath(ctx, -slot.size / 2, -slot.size / 2, slot.size, slot.size, 20);
+          ctx.clip();
+          drawCoverImage(ctx, img, -slot.size / 2, -slot.size / 2, slot.size, slot.size);
+          ctx.restore();
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 4;
+          roundRectPath(ctx, -slot.size / 2, -slot.size / 2, slot.size, slot.size, 20);
+          ctx.stroke();
+          ctx.restore();
+        } catch (e) {}
+      }
+
+      // Daftar harga di bawah kolase — TANPA foto per-item (sesuai referensi),
+      // badge favorit diberi efek glow.
+      let y = bodyTop;
+      const marginX = 60;
+      for (const group of grouped) {
+        ctx.fillStyle = cfg.dividerColor;
+        ctx.font = `bold 26px "${brand.fontHeading}"`;
+        ctx.fillText(group.cat.toUpperCase(), marginX, y + 22);
+        y += catHeaderH;
+        for (const item of group.list) {
+          const priceText = `Rp ${item.price.toLocaleString('id-ID')}`;
+          ctx.font = `bold ${Math.round(nameFontSize * 0.82)}px "${brand.fontBody}"`;
+          const priceW = ctx.measureText(priceText).width;
+          ctx.fillStyle = cfg.textMain;
+          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
+          ctx.fillText(item.name, marginX, y + nameFontSize, width - marginX * 2 - priceW - 20);
+          if (item.featured) {
+            const nameW = ctx.measureText(item.name).width;
+            ctx.save();
+            ctx.shadowColor = cfg.dividerColor;
+            ctx.shadowBlur = 14;
+            drawFeaturedBadge(ctx, marginX + nameW + 14, y + nameFontSize / 2 + 2, 0.5, 'left-middle');
+            ctx.restore();
+          }
+          ctx.save();
+          ctx.shadowColor = cfg.dividerColor;
+          ctx.shadowBlur = 10;
+          ctx.fillStyle = cfg.dividerColor;
+          ctx.font = `bold ${Math.round(nameFontSize * 0.82)}px "${brand.fontBody}"`;
+          ctx.textAlign = 'right';
+          ctx.fillText(priceText, width - marginX, y + nameFontSize);
+          ctx.textAlign = 'left';
+          ctx.restore();
+          y += rowH;
         }
       }
-      const col1Blocks = blocks.slice(0, splitIdx);
-      const col2Blocks = blocks.slice(splitIdx);
-      const drawColumnAt = (colBlocks, colX) => {
-        let y = headerH;
-        for (const b of colBlocks) {
-          if (b.type === 'header') {
-            ctx.fillStyle = cfg.dividerColor;
-            ctx.font = `bold ${catFontSize}px "${brand.fontHeading}"`;
-            ctx.fillText(b.text.toUpperCase(), colX, y + catFontSize);
-            ctx.strokeStyle = cfg.dividerColor;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(colX, y + catFontSize + 10);
-            ctx.lineTo(colX + colWidth, y + catFontSize + 10);
-            ctx.stroke();
-            y += catHeaderH;
-          } else {
-            const item = b.item;
-            const namePrefix = item.featured ? '★ ' : '';
-            const priceText = `Rp ${item.price.toLocaleString('id-ID')}`;
-            ctx.font = `bold ${Math.round(nameFontSize * 0.72)}px "${brand.fontBody}"`;
-            const priceW = ctx.measureText(priceText).width;
-            ctx.font = `${nameFontSize}px "Permanent Marker"`;
-            ctx.fillStyle = cfg.textMain;
-            ctx.fillText(namePrefix + item.name, colX, y + nameFontSize, colWidth - priceW - 12);
-            ctx.font = `bold ${Math.round(nameFontSize * 0.72)}px "${brand.fontBody}"`;
-            ctx.fillStyle = brand.primaryColor;
-            ctx.textAlign = 'right';
-            ctx.fillText(priceText, colX + colWidth, y + nameFontSize);
-            ctx.textAlign = 'left';
-            y += nameLineH;
-            if (item.description) {
-              ctx.font = `italic ${descFontSize}px "${brand.fontBody}"`;
-              ctx.fillStyle = cfg.textSub;
-              ctx.fillText(item.description, colX, y + descFontSize - 4, colWidth);
-              y += descLineH;
-            }
-            y += itemGap;
-          }
-        }
-      };
-      drawColumnAt(col1Blocks, col1X);
-      drawColumnAt(col2Blocks, col2X);
-      // Garis pemisah vertikal di antara 2 kolom — ciri khas layout koran/editorial
-      ctx.strokeStyle = cfg.dividerColor;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(marginX + colWidth + colGap / 2, headerH - 10);
-      ctx.lineTo(marginX + colWidth + colGap / 2, A4_HEIGHT - bottomPad);
-      ctx.stroke();
     };
 
     const LAYOUT_RENDERERS = {
-      gridBold: renderGridBoldLayout,
+      colorBlock: renderColorBlockLayout,
       dinerList: renderDinerListLayout,
-      bubbleStrip: renderBubbleStripLayout,
-      editorial: renderEditorialLayout
+      circleOverlap: renderCircleOverlapLayout,
+      heroGlow: renderHeroGlowLayout
     };
     const render = async () => {
       const canvas = canvasRef.current;
