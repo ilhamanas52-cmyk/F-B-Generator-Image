@@ -264,7 +264,7 @@ const pickVariant = (bank, lastIndexRef) => {
 // Model gemini-2.5-flash: multimodal (terima gambar+teks), ada kuota
 // gratis harian yang cukup untuk skala UMKM per Juli 2026.
 // ============================================================
-const GEMINI_VISION_MODEL = 'gemini-2.5-flash';
+const GEMINI_VISION_MODEL = 'gemini-3.5-flash';
 const analyzeImageWithGemini = async (apiKey, imageDataUrl, instruction) => {
   if (!apiKey) throw new Error('API key Gemini belum diisi. Simpan dulu di tab Brand.');
   const match = imageDataUrl.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
