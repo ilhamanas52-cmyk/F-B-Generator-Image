@@ -314,6 +314,11 @@ const analyzeImageWithGemini = async (apiKey, imageDataUrl, instruction) => {
 // Rakit Lapis 2-6 jadi 1 blok teks siap pakai. Dipanggil dari
 // komponen yang SUDAH memilih varian (lewat pickVariant + useRef
 // masing-masing), supaya anti-pengulangan bekerja per-komponen.
+// respectStyleRef: true kalau user sudah menerapkan hasil analisis
+// "Foto Referensi Gaya" (Vision AI) ke Arahan AI untuk generate ini —
+// pencahayaan/komposisi/sudut acak DAN kunci warna brand dilepas
+// supaya tidak bentrok dengan gaya dari foto referensi (lihat diskusi
+// bug angle+warna berbeda dari referensi).
 const buildEnrichedPromptExtras = (brand, {
   lighting,
   composition,
@@ -321,17 +326,27 @@ const buildEnrichedPromptExtras = (brand, {
   action,
   // { text, hands } atau null kalau mode Statis
   fontHeading,
-  fontBody
+  fontBody,
+  respectStyleRef = false
 } = {}) => {
   const fh = fontHeading || brand.fontHeading;
   const fb = fontBody || brand.fontBody;
-  const parts = [lighting, composition, frameDepthContrast];
+  const parts = [];
+  if (respectStyleRef) {
+    // Lewati pencahayaan/komposisi/sudut ACAK — biarkan deskripsi gaya
+    // dari foto referensi (sudah ada di Arahan AI) yang jadi acuan.
+    parts.push('PENTING: Instruksi di atas SUDAH menyertakan deskripsi gaya visual (pencahayaan, komposisi, sudut kamera, palet warna) dari foto referensi yang diberikan user. WAJIB ikuti PERSIS deskripsi tersebut untuk pencahayaan, komposisi, sudut pengambilan gambar, dan palet warna — JANGAN gunakan variasi komposisi/sudut/warna lain di luar yang sudah dijelaskan di sana, dan JANGAN memakai warna brand default.');
+  } else {
+    parts.push(lighting, composition, frameDepthContrast);
+  }
   if (action) {
     parts.push(action.text);
     if (action.hands) parts.push(HYGIENE_SOP_TEXT);
   }
-  const colorLock = `Palet warna WAJIB sesuai brand — ${brand.primaryColor} untuk aksen tegas, ${brand.secondaryColor} untuk kontras kuat, ${brand.accentColor} untuk menonjolkan elemen promo/CTA, gunakan PERSIS kode HEX ini (bukan pendekatan warna lain).`;
-  parts.push(colorLock);
+  if (!respectStyleRef) {
+    const colorLock = `Palet warna WAJIB sesuai brand — ${brand.primaryColor} untuk aksen tegas, ${brand.secondaryColor} untuk kontras kuat, ${brand.accentColor} untuk menonjolkan elemen promo/CTA, gunakan PERSIS kode HEX ini (bukan pendekatan warna lain).`;
+    parts.push(colorLock);
+  }
   const typography = `Kalau ada teks, pakai gaya font tebal besar bergaya "${fh}" untuk judul/headline (dengan tekstur/finishing yang sesuai gaya font-nya, bukan flat polos), gaya bersih "${fb}" untuk isi. Badge (kalau ada) sedikit dimiringkan/dirotasi, jangan sejajar sempurna.`;
   parts.push(typography);
   parts.push(QUALITY_PROHIBITION_LAYER);
@@ -2514,7 +2529,11 @@ const PromoGenerator = memo(() => {
       return;
     }
     setGenError('');
-    const brandHint = `nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}`;
+    // Kalau user sudah klik "Pakai" untuk saran Foto Referensi Gaya
+    // (Vision AI), Arahan AI pasti mengandung label ini — jadi generate
+    // ini HARUS ikut gaya referensi, bukan warna/sudut acak brand biasa.
+    const styleRefApplied = aiPromptHint.includes('[Gaya visual referensi]');
+    const brandHint = styleRefApplied ? `gaya sesuai brand ${brand.name} (untuk generate ini, abaikan warna default brand — WAJIB ikuti persis palet warna & gaya visual dari foto referensi yang sudah dijelaskan di bawah)` : `nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}`;
     const formatHint = FORMAT_DESCRIPTIONS[format];
     const posKey = brand.logoPosition || 'bottom-right';
     const posPhrase = LOGO_POSITIONS[posKey].promptPhrase;
@@ -2542,7 +2561,8 @@ const PromoGenerator = memo(() => {
       composition,
       frameDepthContrast,
       action,
-      fontHeading: customFontHeading || undefined
+      fontHeading: customFontHeading || undefined,
+      respectStyleRef: styleRefApplied
     });
     const url = openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${aiPromptHint ? ', ' + aiPromptHint : ''}${textInstruction}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}`);
     setLastGenUrl(url);
@@ -2772,7 +2792,9 @@ const PromoGenerator = memo(() => {
     key: f,
     onClick: () => setFormat(f),
     className: `p-2 rounded uppercase text-xs font-bold ${format === f ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
-  }, f))), /*#__PURE__*/React.createElement("button", {
+  }, f))), aiPromptHint.includes('[Gaya visual referensi]') && /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500 bg-[#0A0A0D] border border-amber-500/30 rounded p-2"
+  }, "\u2139 Mode ikut Foto Referensi Gaya aktif untuk generate ini \u2014 warna & sudut kamera brand dilepas, mengikuti deskripsi referensi di Arahan AI."), /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateAI,
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
   }, "Buat Gambar dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
