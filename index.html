@@ -2350,7 +2350,6 @@ const PromoGenerator = memo(() => {
     productName: '',
     headline: '',
     subheadline: '',
-    description: '',
     cta: '',
     badge: ''
   });
@@ -2360,7 +2359,6 @@ const PromoGenerator = memo(() => {
   const [includeText, setIncludeText] = useState(true); // false = foto bersih tanpa teks sama sekali
   const [customFontHeading, setCustomFontHeading] = useState(''); // kosong = pakai font Brand Identity
   const [textOrientation, setTextOrientation] = useState('lurus'); // 'lurus' | 'miring' | 'vertikal'
-  const [showAdvanced, setShowAdvanced] = useState(false); // "+ Opsi Lanjutan"
   const [showVisualStyle, setShowVisualStyle] = useState(false); // "+ Gaya Visual"
   const [showVisionAI, setShowVisionAI] = useState(false); // "+ Analisis Foto dengan AI"
   // --- Vision AI: 2 foto upload (ditunda sebelumnya, dibuka sekarang
@@ -2371,6 +2369,8 @@ const PromoGenerator = memo(() => {
   const [visionError, setVisionError] = useState('');
   const [visionSuggestion, setVisionSuggestion] = useState(null); // { type: 'product'|'style', text }
   const canvasRef = useRef();
+  const productPhotoInputRef = useRef(null);
+  const styleRefPhotoInputRef = useRef(null);
   const brand = useContext(BrandContext);
   const settings = useContext(SettingsContext);
   // Anti-pengulangan — supaya generate berturut-turut tidak pernah
@@ -2422,9 +2422,20 @@ const PromoGenerator = memo(() => {
       productName: '',
       headline: '',
       subheadline: '',
-      description: '',
       cta: '',
       badge: ''
+    });
+  };
+  // Kemudahan pakai: isi contoh teks promo wajar dalam 1 klik — berguna
+  // terutama untuk yang baru pertama kali pakai dan bingung "harus isi
+  // apa", bisa lihat contohnya dulu baru diedit sesuai kebutuhan.
+  const fillExample = () => {
+    setAdCopyDraft({
+      productName: 'Es Kopi Susu',
+      headline: 'Promo Spesial Hari Ini!',
+      subheadline: 'Khusus hingga malam ini',
+      cta: 'Order Sekarang',
+      badge: 'DISKON 10%'
     });
   };
   const handlePhoto = e => {
@@ -2554,7 +2565,6 @@ const PromoGenerator = memo(() => {
       const orientationHint = textOrientation === 'miring' ? ' (teks dimiringkan/dirotasi sekitar 10-15 derajat, bukan lurus datar)' : textOrientation === 'vertikal' ? ' (teks disusun VERTIKAL dari bawah ke atas, seperti label kemasan)' : '';
       parts.push(`Headline: "${adCopy.headline}" (font besar, paling menonjol, di bagian atas${orientationHint})`);
       if (adCopy.subheadline) parts.push(`Sub-headline: "${adCopy.subheadline}" (di bawah headline, ukuran sedang)`);
-      if (adCopy.description) parts.push(`Deskripsi: "${adCopy.description}" (kecil, di bagian bawah)`);
       if (adCopy.cta) parts.push(`Tombol CTA (Call to Action): "${adCopy.cta}" (bentuk seperti tombol, warna kontras, paling bawah)`);
       if (adCopy.badge) parts.push(`Badge promo: "${adCopy.badge}" (bentuk label/badge bulat mencolok, posisi menonjol, warna kontras)`);
       textInstruction = `. Sertakan teks berikut di gambar, pastikan ejaan persis seperti ini: ${parts.join(', ')}`;
@@ -2583,6 +2593,10 @@ const PromoGenerator = memo(() => {
     setVisionSuggestion(null);
     setVisionError('');
     setAiPromptHint('');
+    // Reset input file secara eksplisit — mengosongkan state saja TIDAK
+    // menghapus nama file yang ditampilkan browser di sebelah tombol upload.
+    if (productPhotoInputRef.current) productPhotoInputRef.current.value = '';
+    if (styleRefPhotoInputRef.current) styleRefPhotoInputRef.current.value = '';
     setVisualVariant({
       lighting: pickVariant(LIGHTING_VARIANTS, lightingLastRef),
       composition: pickVariant(COMPOSITION_VARIANTS, compositionLastRef),
@@ -2614,6 +2628,37 @@ const PromoGenerator = memo(() => {
     a.download = 'promo.png';
     a.click();
   };
+  // Kemudahan pakai: bagikan hasil promo langsung ke WhatsApp. Di HP
+  // (Android/iOS Chrome/Safari) ini membuka menu share bawaan HP dengan
+  // gambar SUDAH terlampir, tinggal pilih WhatsApp. Di desktop/browser
+  // yang tidak dukung share file (keterbatasan teknis browser, bukan
+  // bug), otomatis fallback: download dulu, lalu buka WhatsApp Web
+  // dengan teks siap pakai — gambar tinggal dilampirkan manual sekali.
+  const shareToWhatsApp = async () => {
+    setGenError('');
+    try {
+      const canvas = canvasRef.current;
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const file = new File([blob], 'promo.png', {
+        type: 'image/png'
+      });
+      const shareText = adCopy?.headline || 'Promo terbaru!';
+      if (navigator.canShare && navigator.canShare({
+        files: [file]
+      })) {
+        await navigator.share({
+          files: [file],
+          title: 'Promo',
+          text: shareText
+        });
+      } else {
+        download();
+        window.open(`https://wa.me/?text=${encodeURIComponent(shareText + ' (gambar sudah didownload, tinggal lampirkan di chat WhatsApp)')}`, '_blank');
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') setGenError('Gagal membagikan: ' + e.message);
+    }
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-lg mx-auto space-y-4"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2628,9 +2673,15 @@ const PromoGenerator = memo(() => {
     className: "hud-scanline"
   }), /*#__PURE__*/React.createElement("div", {
     className: "border-t border-[#222226] pt-4 space-y-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-400 font-bold uppercase"
-  }, "Teks Iklan"), /*#__PURE__*/React.createElement("label", {
+  }, "Teks Iklan"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: fillExample,
+    className: "text-[11px] text-blue-400 hover:text-blue-300 underline"
+  }, "Isi Contoh")), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Headline"), /*#__PURE__*/React.createElement("input", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
@@ -2650,15 +2701,7 @@ const PromoGenerator = memo(() => {
       ...adCopyDraft,
       cta: e.target.value
     })
-  }), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: () => setShowAdvanced(!showAdvanced),
-    className: "w-full flex items-center justify-between text-xs text-amber-500 hover:text-amber-400 bg-[#1a1508] hover:bg-[#211a0a] border border-amber-500/20 rounded-lg px-3 py-2 transition-colors"
-  }, /*#__PURE__*/React.createElement("span", null, "Opsi Lanjutan (Nama Produk, Sub-Headline, Deskripsi, Badge, Arahan AI)"), /*#__PURE__*/React.createElement("span", {
-    className: "text-[10px]"
-  }, showAdvanced ? '\u25B4 Tutup' : '\u25BE Buka')), showAdvanced && /*#__PURE__*/React.createElement("div", {
-    className: "space-y-3 border border-[#222226] rounded p-3"
-  }, /*#__PURE__*/React.createElement("label", {
+  }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Nama Produk (yang difoto AI)"), /*#__PURE__*/React.createElement("input", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
@@ -2680,16 +2723,6 @@ const PromoGenerator = memo(() => {
     })
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
-  }, "Deskripsi"), /*#__PURE__*/React.createElement("textarea", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
-    placeholder: "Deskripsi singkat",
-    value: adCopyDraft.description,
-    onChange: e => setAdCopyDraft({
-      ...adCopyDraft,
-      description: e.target.value
-    })
-  }), /*#__PURE__*/React.createElement("label", {
-    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Badge Promo (opsional)"), /*#__PURE__*/React.createElement("input", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Contoh: DISKON 10%",
@@ -2707,7 +2740,58 @@ const PromoGenerator = memo(() => {
     value: aiPromptHint,
     onChange: e => setAiPromptHint(e.target.value),
     placeholder: "Arahan AI (opsional)"
-  })), /*#__PURE__*/React.createElement("button", {
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 border border-[#242430] rounded p-3 bg-[#0A0A0D]"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block"
+  }, "Foto Produk Asli"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-gray-500"
+  }, "Supaya AI tidak mengarang bentuk makanan Anda."), !settings.geminiApiKey && /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500"
+  }, "Simpan API key Gemini dulu di tab Brand supaya bisa dianalisis AI."), /*#__PURE__*/React.createElement("input", {
+    ref: productPhotoInputRef,
+    type: "file",
+    accept: "image/*",
+    onChange: handleProductPhoto,
+    className: "text-xs file:bg-[#242430] file:text-white file:border-none file:px-3 file:py-1.5 file:rounded"
+  }), productPhotoUrl && /*#__PURE__*/React.createElement("div", {
+    className: "relative inline-block"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: productPhotoUrl,
+    className: "w-full h-24 object-cover rounded border border-[#242430]"
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => {
+      setProductPhotoUrl('');
+      setVisionError('');
+      if (productPhotoInputRef.current) productPhotoInputRef.current.value = '';
+    },
+    "aria-label": "Hapus foto produk asli",
+    className: "absolute top-1.5 right-1.5 w-7 h-7 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-500 text-white text-base font-bold shadow-lg border-2 border-white/80"
+  }, "\u2715")), productPhotoUrl && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: analyzeProductPhoto,
+    disabled: !settings.geminiApiKey || visionBusy === 'product',
+    className: "w-full text-xs px-3 py-2 rounded bg-[#1c1c24] border border-[#242430] text-gray-300 hover:text-white disabled:opacity-40"
+  }, visionBusy === 'product' ? 'Menganalisis...' : 'Analisis dengan AI'), visionSuggestion && visionSuggestion.type === 'product' && /*#__PURE__*/React.createElement("div", {
+    className: "bg-[#0A0A0D] border border-amber-500/40 rounded p-3 space-y-2"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500 uppercase tracking-wide font-semibold"
+  }, "Saran \u2014 Bentuk Asli Produk"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-300"
+  }, visionSuggestion.text), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: applySuggestion,
+    className: "text-xs px-3 py-1.5 rounded bg-[#0A6E4E] text-white hover:bg-[#0C8A63]"
+  }, "Pakai \u2192 masuk ke Arahan AI"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: dismissSuggestion,
+    className: "text-xs px-3 py-1.5 rounded border border-[#242430] text-gray-400 hover:text-white"
+  }, "Abaikan"))), visionError && visionBusy === null && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-red-400"
+  }, visionError)), /*#__PURE__*/React.createElement("button", {
     onClick: submitAdCopy,
     className: "w-full bg-gradient-to-r from-[#0A6E4E] to-[#0C8A63] hover:from-[#0C8A63] hover:to-[#0EA678] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#0A6E4E]/30 font-semibold"
   }, "Kirim Teks Iklan"), adCopy && /*#__PURE__*/React.createElement("div", {
@@ -2726,48 +2810,19 @@ const PromoGenerator = memo(() => {
   }, !settings.geminiApiKey && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-amber-500"
   }, "Simpan API key Gemini dulu di tab Brand (section \"Vision AI\") supaya fitur ini bisa dipakai."), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-1 sm:grid-cols-2 gap-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block"
-  }, "Foto Produk Asli"), /*#__PURE__*/React.createElement("p", {
-    className: "text-[11px] text-gray-500"
-  }, "Supaya AI tidak mengarang bentuk makanan Anda."), /*#__PURE__*/React.createElement("input", {
-    type: "file",
-    accept: "image/*",
-    onChange: handleProductPhoto,
-    className: "text-xs file:bg-[#242430] file:text-white file:border-none file:px-3 file:py-1.5 file:rounded"
-  }), productPhotoUrl && /*#__PURE__*/React.createElement("div", {
-    className: "relative"
-  }, /*#__PURE__*/React.createElement("img", {
-    src: productPhotoUrl,
-    className: "w-full h-24 object-cover rounded border border-[#242430]"
-  }), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: () => {
-      setProductPhotoUrl('');
-      setVisionError('');
-    },
-    className: "absolute top-1 right-1 text-[10px] px-2 py-0.5 rounded bg-black/70 text-red-400 hover:text-red-300 hover:bg-black/90"
-  }, "Hapus")), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: analyzeProductPhoto,
-    disabled: !productPhotoUrl || !settings.geminiApiKey || visionBusy === 'product',
-    className: "w-full text-xs px-3 py-2 rounded bg-[#1c1c24] border border-[#242430] text-gray-300 hover:text-white disabled:opacity-40"
-  }, visionBusy === 'product' ? 'Menganalisis...' : 'Analisis dengan AI')), /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
   }, /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block"
   }, "Foto Referensi Gaya"), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-gray-500"
-  }, "Cuma gaya visualnya yang diambil — teks tetap dari isian Anda sendiri."), /*#__PURE__*/React.createElement("input", {
+  }, "Cuma gaya visualnya yang diambil \u2014 teks tetap dari isian Anda sendiri."), /*#__PURE__*/React.createElement("input", {
+    ref: styleRefPhotoInputRef,
     type: "file",
     accept: "image/*",
     onChange: handleStyleRefPhoto,
     className: "text-xs file:bg-[#242430] file:text-white file:border-none file:px-3 file:py-1.5 file:rounded"
   }), styleRefPhotoUrl && /*#__PURE__*/React.createElement("div", {
-    className: "relative"
+    className: "relative inline-block"
   }, /*#__PURE__*/React.createElement("img", {
     src: styleRefPhotoUrl,
     className: "w-full h-24 object-cover rounded border border-[#242430]"
@@ -2776,20 +2831,22 @@ const PromoGenerator = memo(() => {
     onClick: () => {
       setStyleRefPhotoUrl('');
       setVisionError('');
+      if (styleRefPhotoInputRef.current) styleRefPhotoInputRef.current.value = '';
     },
-    className: "absolute top-1 right-1 text-[10px] px-2 py-0.5 rounded bg-black/70 text-red-400 hover:text-red-300 hover:bg-black/90"
-  }, "Hapus")), /*#__PURE__*/React.createElement("button", {
+    "aria-label": "Hapus foto referensi gaya",
+    className: "absolute top-1.5 right-1.5 w-7 h-7 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-500 text-white text-base font-bold shadow-lg border-2 border-white/80"
+  }, "\u2715")), /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: analyzeStyleRefPhoto,
     disabled: !styleRefPhotoUrl || !settings.geminiApiKey || visionBusy === 'style',
     className: "w-full text-xs px-3 py-2 rounded bg-[#1c1c24] border border-[#242430] text-gray-300 hover:text-white disabled:opacity-40"
-  }, visionBusy === 'style' ? 'Menganalisis...' : 'Analisis dengan AI'))), visionError && /*#__PURE__*/React.createElement("p", {
+  }, visionBusy === 'style' ? 'Menganalisis...' : 'Analisis dengan AI')), visionError && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-red-400"
-  }, visionError), visionSuggestion && /*#__PURE__*/React.createElement("div", {
+  }, visionError), visionSuggestion && visionSuggestion.type === 'style' && /*#__PURE__*/React.createElement("div", {
     className: "bg-[#0A0A0D] border border-amber-500/40 rounded p-3 space-y-2"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500 uppercase tracking-wide font-semibold"
-  }, visionSuggestion.type === 'product' ? 'Saran — Bentuk Asli Produk' : 'Saran — Gaya Visual'), /*#__PURE__*/React.createElement("p", {
+  }, "Saran \u2014 Gaya Visual"), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-300"
   }, visionSuggestion.text), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2"
@@ -2804,6 +2861,7 @@ const PromoGenerator = memo(() => {
   }, "Abaikan")))), /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: () => setShowVisualStyle(!showVisualStyle),
+
     className: "w-full flex items-center justify-between text-xs text-amber-500 hover:text-amber-400 bg-[#1a1508] hover:bg-[#211a0a] border border-amber-500/20 rounded-lg px-3 py-2 transition-colors"
   }, /*#__PURE__*/React.createElement("span", null, "Gaya Visual (Aksi/Statis, Teks, Font, Orientasi)"), /*#__PURE__*/React.createElement("span", {
     className: "text-[10px]"
@@ -2888,10 +2946,15 @@ const PromoGenerator = memo(() => {
     type: "file",
     onChange: handlePhoto,
     className: "text-gray-400 text-sm"
-  }), /*#__PURE__*/React.createElement("button", {
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
     onClick: download,
-    className: "w-full bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold"
-  }, "Download Promo Final"), /*#__PURE__*/React.createElement(CompositionCanvas, {
+    className: "bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold text-sm"
+  }, "Download Promo Final"), /*#__PURE__*/React.createElement("button", {
+    onClick: shareToWhatsApp,
+    className: "bg-gradient-to-r from-[#25D366] to-[#1DA851] hover:from-[#2EE873] hover:to-[#25D366] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#25D366]/30 font-semibold text-sm"
+  }, "Bagikan ke WhatsApp")), /*#__PURE__*/React.createElement(CompositionCanvas, {
     ref: canvasRef,
     productImage: photoUrl,
     width: dims.w,
