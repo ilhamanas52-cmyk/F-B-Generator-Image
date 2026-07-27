@@ -141,6 +141,53 @@ const BrandContext = createContext(defaultAppData.brand);
 // tapi soal pengaturan/API key) — dibaca komponen manapun yang butuh
 // akses Gemini API key untuk fitur Vision AI.
 const SettingsContext = createContext(defaultAppData.settings);
+
+// ============================================================
+// SISTEM PAKET REGULER & PRO
+//
+// Nilai `plan` di Firestore TETAP 'single'/'reseller'/'reseller_client'
+// (supaya URL pendaftaran & pengaturan Scalev tidak perlu diubah) —
+// yang berubah cuma LABEL yang ditampilkan ke user ("Reguler"/"Pro")
+// dan FITUR yang didapat. isPro() adalah satu-satunya tempat yang
+// menentukan arti "Pro" secara teknis — supaya kalau nanti nilai
+// plan berubah, cukup ubah 1 fungsi ini.
+// ============================================================
+const isPro = plan => plan === 'reseller' || plan === 'reseller_client';
+
+// Link "Upgrade ke Pro" — SEMENTARA placeholder ('#') sampai user
+// menyediakan URL Scalev sungguhan. HANYA di sini nilainya diisi,
+// supaya nanti tinggal ganti 1 baris ini saat linknya sudah siap.
+const SCALEV_PRO_UPGRADE_URL = '#';
+const PlanContext = createContext('single');
+
+// Komponen kunci "Khusus Pro" — dipakai BERULANG di semua fitur
+// Pro-only (Video, Banner Cetak, Foto Referensi Gaya, dll) supaya
+// polanya SELALU SAMA di seluruh aplikasi (bukan beda-beda per tempat).
+// Fitur TETAP TERLIHAT (tidak disembunyikan), tapi dilapisi overlay
+// kunci + ajakan upgrade — sesuai keputusan user.
+const ProLock = ({
+  children,
+  label = 'Fitur ini khusus paket Pro'
+}) => {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "pointer-events-none opacity-40 blur-[1px] select-none"
+  }, children), /*#__PURE__*/React.createElement("div", {
+    className: "absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 rounded-lg"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1.5 bg-[#1a1508] border border-amber-500/40 rounded-full px-3 py-1"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-amber-500 text-xs"
+  }, "\uD83D\uDD12"), /*#__PURE__*/React.createElement("span", {
+    className: "text-amber-500 text-xs font-semibold"
+  }, label)), /*#__PURE__*/React.createElement("a", {
+    href: SCALEV_PRO_UPGRADE_URL,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "text-xs bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white px-4 py-1.5 rounded-lg font-semibold"
+  }, "Upgrade ke Pro")));
+};
 const hudStyles = `
   @keyframes hudScan { 0% { transform: translateY(-100%); opacity: 0; } 15% { opacity: 0.1; } 85% { opacity: 0.1; } 100% { transform: translateY(2000%); opacity: 0; } }
   @keyframes hudPulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
@@ -926,6 +973,8 @@ function MainDashboard({
     value: appData.brand
   }, /*#__PURE__*/React.createElement(SettingsContext.Provider, {
     value: appData.settings
+  }, /*#__PURE__*/React.createElement(PlanContext.Provider, {
+    value: (profile && profile.plan) || 'single'
   }, /*#__PURE__*/React.createElement("style", null, hudStyles), /*#__PURE__*/React.createElement("div", {
     className: "min-h-screen bg-gradient-to-b from-[#0c0c10] to-[#08080a] text-gray-200 flex flex-col font-['Inter'] pt-14 overflow-x-hidden"
   }, dbError && /*#__PURE__*/React.createElement("div", {
@@ -966,7 +1015,7 @@ function MainDashboard({
     contentPlan: appData.contentPlan || [],
     rawText: appData.contentPlanRawText || '',
     saveAppData: saveAppData
-  }), activeTab === 'feed9' && /*#__PURE__*/React.createElement(FeedCampaignGenerator, null)))));
+  }), activeTab === 'feed9' && /*#__PURE__*/React.createElement(FeedCampaignGenerator, null))))));
 }
 const CanvasEditor = memo(() => {
   const canvasRef = useRef(null);
@@ -1516,6 +1565,9 @@ const MenuPageGenerator = memo(({
   const [lastGenUrl, setLastGenUrl] = useState('');
   const canvasRef = useRef();
   const brand = useContext(BrandContext);
+  const plan = useContext(PlanContext);
+  // Reguler dapat 2 gaya (Klasik & Elegan, Blok Warna Berani), Pro dapat semua 4.
+  const FREE_MENU_STYLES = ['classic', 'colorBlock'];
   const lightingLastRef = useRef(-1);
   const filteredMenu = categoryFilter === 'all' ? menu : menu.filter(m => m.category === categoryFilter);
   // Batas item per halaman A4, beda per gaya sesuai kepadatan STRUKTUR
@@ -1590,11 +1642,21 @@ const MenuPageGenerator = memo(({
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Pilih Gaya Desain"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2"
-  }, Object.entries(MENU_STYLE_PRESETS).map(([key, val]) => /*#__PURE__*/React.createElement("button", {
-    key: key,
-    onClick: () => setSelectedStyle(key),
-    className: `p-3 rounded text-xs font-bold text-left ${selectedStyle === key ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
-  }, val.label))), /*#__PURE__*/React.createElement("p", {
+  }, Object.entries(MENU_STYLE_PRESETS).map(([key, val]) => {
+    const locked = !isPro(plan) && !FREE_MENU_STYLES.includes(key);
+    const btn = /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        if (!locked) setSelectedStyle(key);
+      },
+      className: `p-3 rounded text-xs font-bold text-left w-full ${selectedStyle === key ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    }, val.label);
+    return locked ? /*#__PURE__*/React.createElement(ProLock, {
+      key: key,
+      label: "Khusus Pro"
+    }, btn) : /*#__PURE__*/React.createElement("div", {
+      key: key
+    }, btn);
+  })), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-500"
   }, "Kapasitas per halaman A4 beda tiap gaya (", MENU_STYLE_PRESETS[selectedStyle].itemCap, " item untuk gaya ", MENU_STYLE_PRESETS[selectedStyle].label, ") — gunakan filter kategori kalau menu lebih banyak."), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
@@ -2439,6 +2501,7 @@ const PromoGenerator = memo(() => {
   const [styleRefPhotoUrl, setStyleRefPhotoUrl] = useState(''); // Foto Referensi Gaya
   const [productPhotoDesc, setProductPhotoDesc] = useState(''); // hasil analisis otomatis, langsung dipakai
   const [stylePhotoDesc, setStylePhotoDesc] = useState(''); // hasil analisis otomatis, langsung dipakai
+  const [visionAnalyzedForProduct, setVisionAnalyzedForProduct] = useState(''); // Nama Produk saat analisis foto terakhir berhasil
   const [visionBusy, setVisionBusy] = useState(null); // null | 'product' | 'style'
   const [visionError, setVisionError] = useState('');
   const canvasRef = useRef();
@@ -2446,8 +2509,7 @@ const PromoGenerator = memo(() => {
   const styleRefPhotoInputRef = useRef(null);
   const brand = useContext(BrandContext);
   const settings = useContext(SettingsContext);
-  // Anti-pengulangan — supaya generate berturut-turut tidak pernah
-  // pakai pencahayaan/komposisi/latar/aksi yang persis sama.
+  const plan = useContext(PlanContext);
   const lightingLastRef = useRef(-1);
   const compositionLastRef = useRef(-1);
   const frameLastRef = useRef(-1);
@@ -2455,7 +2517,7 @@ const PromoGenerator = memo(() => {
   // Variant pencahayaan/komposisi/frame dipilih SEKALI (bukan tiap render)
   // supaya kolom Preview Prompt PERSIS sama dengan yang benar-benar
   // dikirim saat klik generate — bukan pilihan acak baru tiap kali
-  // Preview dilihat. Diacak ulang lagi setelah generate (lihat resetForNextRound).
+  // Preview dilihat. Diacak ulang lagi setelah generate (lihat rerollVisualVariant).
   const [visualVariant, setVisualVariant] = useState(() => ({
     lighting: pickVariant(LIGHTING_VARIANTS, lightingLastRef),
     composition: pickVariant(COMPOSITION_VARIANTS, compositionLastRef),
@@ -2561,6 +2623,7 @@ const PromoGenerator = memo(() => {
     try {
       const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA bentuk fisik, warna, tekstur, dan cara penyajian (plating) makanan/minuman yang terlihat di foto ini secara presisi dan detail, untuk jadi acuan AI image generator supaya tidak mengarang/mendistorsi bentuk aslinya. JANGAN berkomentar soal gaya foto, pencahayaan, atau latar belakang. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
       setProductPhotoDesc(text);
+      setVisionAnalyzedForProduct(adCopyDraft.productName.trim());
     } catch (e) {
       setVisionError(e.message);
     } finally {
@@ -2574,6 +2637,7 @@ const PromoGenerator = memo(() => {
     try {
       const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA gaya visual foto ini untuk keperluan prompt AI image generation: komposisi, sudut pengambilan, pencahayaan, palet warna, dan mood/suasana. JANGAN sebutkan, kutip, atau tuliskan ulang teks/tulisan apa pun yang terlihat di foto ini walau ada — abaikan total semua teks di foto, fokus HANYA pada gaya visualnya. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
       setStylePhotoDesc(text);
+      setVisionAnalyzedForProduct(adCopyDraft.productName.trim());
     } catch (e) {
       setVisionError(e.message);
     } finally {
@@ -2641,24 +2705,34 @@ const PromoGenerator = memo(() => {
       full
     };
   };
-  // Setelah generate: kosongkan foto + hasil analisis + Arahan AI
-  // (supaya tidak membingungkan di percobaan berikutnya) — TAPI teks
-  // iklan (Nama Produk/Headline/CTA/dll) TETAP, karena biasanya orang
-  // mau coba beberapa variasi foto/gaya dari teks iklan yang sama.
-  const resetForNextRound = () => {
-    setProductPhotoUrl('');
-    setStyleRefPhotoUrl('');
-    setProductPhotoDesc('');
-    setStylePhotoDesc('');
-    setVisionError('');
-    setAiPromptHint('');
-    if (productPhotoInputRef.current) productPhotoInputRef.current.value = '';
-    if (styleRefPhotoInputRef.current) styleRefPhotoInputRef.current.value = '';
+  // Sesuai permintaan user: foto & hasil analisis TIDAK dihapus otomatis
+  // setelah generate lagi (biar bisa coba beberapa variasi tanpa upload
+  // ulang) — foto cuma hilang kalau user refresh/tutup aplikasi (itu
+  // sudah terjadi alami karena disimpan di memori sesi, bukan Firestore).
+  // Yang tetap diacak ulang tiap generate cuma variasi gaya visual
+  // (pencahayaan/komposisi), supaya generate berturut-turut tetap variatif.
+  const rerollVisualVariant = () => {
     setVisualVariant({
       lighting: pickVariant(LIGHTING_VARIANTS, lightingLastRef),
       composition: pickVariant(COMPOSITION_VARIANTS, compositionLastRef),
       frameDepthContrast: pickVariant(FRAME_DEPTH_CONTRAST_VARIANTS, frameLastRef)
     });
+  };
+  // Foto tetap nyantol antar-generate — tapi kalau Nama Produk berubah
+  // SETELAH foto dianalisis, deskripsi bentuk/gaya lama itu berisiko
+  // sudah tidak relevan (lihat kasus "kopi jadi mie ayam" sebelumnya).
+  // visionAnalyzedForProduct mengingat Nama Produk SAAT analisis
+  // terakhir berhasil, untuk dibandingkan dan munculkan peringatan.
+  const productNameMismatch = !!visionAnalyzedForProduct && (!!productPhotoDesc || !!stylePhotoDesc) && visionAnalyzedForProduct !== adCopyDraft.productName.trim();
+  const clearVisionData = () => {
+    setProductPhotoUrl('');
+    setStyleRefPhotoUrl('');
+    setProductPhotoDesc('');
+    setStylePhotoDesc('');
+    setVisionAnalyzedForProduct('');
+    setVisionError('');
+    if (productPhotoInputRef.current) productPhotoInputRef.current.value = '';
+    if (styleRefPhotoInputRef.current) styleRefPhotoInputRef.current.value = '';
   };
   const handleGenerateAI = () => {
     if (!adCopyDraft.productName || !adCopyDraft.productName.trim()) {
@@ -2669,7 +2743,7 @@ const PromoGenerator = memo(() => {
     const data = buildPromptData();
     const url = openChatGPTGenerate(data.full);
     setLastGenUrl(url);
-    resetForNextRound();
+    rerollVisualVariant();
   };
   const download = () => {
     const data = canvasRef.current.toDataURL('image/png');
@@ -2828,11 +2902,13 @@ const PromoGenerator = memo(() => {
     className: "text-[11px] text-green-400"
   }, "\u2713 Bentuk asli produk otomatis ditambahkan ke prompt.")), /*#__PURE__*/React.createElement("button", {
     type: "button",
-    onClick: () => setShowVisionAI(!showVisionAI),
-    className: "w-full flex items-center justify-between text-xs text-amber-500 hover:text-amber-400 bg-[#1a1508] hover:bg-[#211a0a] border border-amber-500/20 rounded-lg px-3 py-2 transition-colors"
-  }, /*#__PURE__*/React.createElement("span", null, "Foto Referensi Gaya (Vision, opsional)"), /*#__PURE__*/React.createElement("span", {
+    onClick: () => {
+      if (isPro(plan)) setShowVisionAI(!showVisionAI);
+    },
+    className: `w-full flex items-center justify-between text-xs text-amber-500 hover:text-amber-400 bg-[#1a1508] hover:bg-[#211a0a] border border-amber-500/20 rounded-lg px-3 py-2 transition-colors ${!isPro(plan) ? 'opacity-50 cursor-not-allowed' : ''}`
+  }, /*#__PURE__*/React.createElement("span", null, "Foto Referensi Gaya (Vision, opsional)", !isPro(plan) && ' \uD83D\uDD12 Khusus Pro'), /*#__PURE__*/React.createElement("span", {
     className: "text-[10px]"
-  }, showVisionAI ? '\u25B4 Tutup' : '\u25BE Buka')), showVisionAI && /*#__PURE__*/React.createElement("div", {
+  }, showVisionAI && isPro(plan) ? '\u25B4 Tutup' : '\u25BE Buka')), showVisionAI && isPro(plan) && /*#__PURE__*/React.createElement("div", {
     className: "space-y-2 border border-[#222226] rounded p-3"
   }, !settings.geminiApiKey && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-amber-500"
@@ -2963,9 +3039,15 @@ const PromoGenerator = memo(() => {
     className: "text-xs text-gray-500 leading-relaxed"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-amber-500 font-semibold"
-  }, "Gaya Visual: "), promptData.enrichedExtras))), aiPromptHint.includes('[Gaya visual referensi]') && /*#__PURE__*/React.createElement("p", {
+  }, "Gaya Visual: "), promptData.enrichedExtras))), productNameMismatch && /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] text-amber-500 bg-[#0A0A0D] border border-amber-500/40 rounded p-2 flex items-center justify-between gap-2"
+  }, /*#__PURE__*/React.createElement("span", null, "\u26A0 Foto acuan ini dianalisis untuk \"", visionAnalyzedForProduct, "\", tapi Nama Produk sekarang \"", adCopyDraft.productName, "\" — kemungkinan sudah tidak relevan."), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: clearVisionData,
+    className: "shrink-0 text-xs px-2 py-1 rounded bg-red-600 hover:bg-red-500 text-white whitespace-nowrap"
+  }, "Hapus Foto Acuan")), !!stylePhotoDesc && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500 bg-[#0A0A0D] border border-amber-500/30 rounded p-2"
-  }, "\u2139 Mode ikut Foto Referensi Gaya aktif untuk generate ini \u2014 warna & sudut kamera brand dilepas, mengikuti deskripsi referensi di Arahan AI."), /*#__PURE__*/React.createElement("button", {
+  }, "\u2139 Mode ikut Foto Referensi Gaya aktif untuk generate ini \u2014 warna & sudut kamera brand dilepas, mengikuti deskripsi referensi foto."), /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateAI,
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
   }, "Buat Gambar dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
@@ -3123,9 +3205,14 @@ const ContentPlanGenerator = memo(({
   // seperti tab Promo).
   const [photoLibrary, setPhotoLibrary] = useState([]);
   const [dayGenBusy, setDayGenBusy] = useState(false);
+  // Arahan AI GLOBAL (1 kotak, berlaku untuk SEMUA hari sekaligus) —
+  // bukan per-hari, supaya tidak perlu isi 30 kotak terpisah.
+  const [globalAiHint, setGlobalAiHint] = useState('');
   const photoLibraryInputRef = useRef(null);
   const brand = useContext(BrandContext);
   const settings = useContext(SettingsContext);
+  const plan = useContext(PlanContext);
+  const MAX_PHOTO_LIBRARY = isPro(plan) ? 10 : 3;
   const canvasRef = useRef();
   const rawTextSaveTimer = useRef(null);
   useEffect(() => {
@@ -3230,8 +3317,8 @@ const ContentPlanGenerator = memo(({
   const handleAddLibraryPhoto = async e => {
     const file = e.target.files[0];
     if (!file) return;
-    if (photoLibrary.length >= 10) {
-      setGenError('Maksimal 10 foto arahan AI.');
+    if (photoLibrary.length >= MAX_PHOTO_LIBRARY) {
+      setGenError(`Maksimal ${MAX_PHOTO_LIBRARY} foto arahan AI untuk paket Anda saat ini.`);
       if (photoLibraryInputRef.current) photoLibraryInputRef.current.value = '';
       return;
     }
@@ -3308,7 +3395,8 @@ const ContentPlanGenerator = memo(({
       const topicText = `${activeDay.tema} ${activeDay.konsep} ${activeDay.konsepFoto}`;
       const matched = await pickBestMatchingPhoto(settings.geminiApiKey, topicText, photoLibrary);
       const visionClause = matched ? `. [Foto acuan]: ${matched.detail}` : '';
-      const url = openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}. ${QUALITY_PROHIBITION_LAYER}`);
+      const hintClause = globalAiHint.trim() ? `. [Arahan AI]: ${globalAiHint.trim()}` : '';
+      const url = openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}${hintClause}. ${QUALITY_PROHIBITION_LAYER}`);
       setLastGenUrl(url);
     } finally {
       setDayGenBusy(false);
@@ -3341,9 +3429,16 @@ const ContentPlanGenerator = memo(({
     className: "space-y-2 border border-[#242430] rounded-lg p-3 bg-[#0A0A0D]"
   }, /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block"
-  }, "Foto Arahan AI (opsional, maks 10)"), /*#__PURE__*/React.createElement("p", {
+  }, `Foto Arahan AI (opsional, maks ${MAX_PHOTO_LIBRARY})`), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-gray-500"
-  }, "Upload foto asli (makanan, minuman, tampak resto, crew, dll). Begitu di-upload, tiap foto otomatis dianalisis, lalu saat generate gambar 1 hari, sistem otomatis mencocokkan & menggabungkan foto yang relevan \u2014 tanpa perlu pilih manual."), !settings.geminiApiKey && /*#__PURE__*/React.createElement("p", {
+  }, "Upload foto asli (makanan, minuman, tampak resto, crew, dll). Begitu di-upload, tiap foto otomatis dianalisis, lalu saat generate gambar 1 hari, sistem otomatis mencocokkan & menggabungkan foto yang relevan \u2014 tanpa perlu pilih manual."), !isPro(plan) && /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500"
+  }, "Paket Anda maks ", MAX_PHOTO_LIBRARY, " foto. ", /*#__PURE__*/React.createElement("a", {
+    href: SCALEV_PRO_UPGRADE_URL,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "underline"
+  }, "Upgrade ke Pro"), " untuk maks 10 foto."), !settings.geminiApiKey && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500"
   }, "Simpan API key Gemini dulu di tab Brand supaya foto bisa dianalisis."), photoLibrary.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-4 sm:grid-cols-5 gap-2"
@@ -3362,7 +3457,7 @@ const ContentPlanGenerator = memo(({
     className: "absolute inset-0 flex items-center justify-center bg-black/60 rounded text-[9px] text-blue-300 animate-pulse text-center p-0.5"
   }, "Menganalisis\u2026"), p.error && /*#__PURE__*/React.createElement("div", {
     className: "absolute inset-0 flex items-center justify-center bg-black/70 rounded text-[9px] text-red-400 text-center p-0.5"
-  }, "Gagal")))), photoLibrary.length < 10 && /*#__PURE__*/React.createElement("div", {
+  }, "Gagal")))), photoLibrary.length < MAX_PHOTO_LIBRARY && /*#__PURE__*/React.createElement("div", {
     className: "aspect-square rounded border border-dashed border-[#333] flex items-center justify-center"
   }, /*#__PURE__*/React.createElement("label", {
     className: "text-[10px] text-gray-500 hover:text-gray-300 cursor-pointer text-center px-1"
@@ -3378,7 +3473,16 @@ const ContentPlanGenerator = memo(({
     accept: "image/*",
     onChange: handleAddLibraryPhoto,
     className: "text-xs file:bg-[#242430] file:text-white file:border-none file:px-3 file:py-1.5 file:rounded"
-  })), /*#__PURE__*/React.createElement("button", {
+  })), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Arahan AI (opsional, berlaku untuk semua hari)"), /*#__PURE__*/React.createElement("textarea", {
+    className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded text-sm",
+    maxLength: 300,
+    rows: 2,
+    value: globalAiHint,
+    onChange: e => setGlobalAiHint(e.target.value),
+    placeholder: "Contoh: selalu pakai nuansa ceria, hindari warna merah menyala"
+  }), /*#__PURE__*/React.createElement("button", {
     onClick: handleGeneratePlan,
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
   }, "Buat Rencana 30 Hari dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
@@ -3516,9 +3620,13 @@ const FeedCampaignGenerator = memo(() => {
   // prompt tanpa konfirmasi manual.
   const [photoLibrary, setPhotoLibrary] = useState([]);
   const [slotGenBusy, setSlotGenBusy] = useState(false);
+  // Arahan AI GLOBAL (1 kotak, berlaku untuk SEMUA 9 slot sekaligus)
+  const [globalAiHint, setGlobalAiHint] = useState('');
   const photoLibraryInputRef = useRef(null);
   const brand = useContext(BrandContext);
   const settings = useContext(SettingsContext);
+  const plan = useContext(PlanContext);
+  const MAX_PHOTO_LIBRARY = isPro(plan) ? 10 : 3;
   const canvasRef = useRef();
   const activeRole = FEED_ROLES.find(r => r.id === selectedSlot);
   const lightingLastRef = useRef(-1);
@@ -3534,11 +3642,13 @@ const FeedCampaignGenerator = memo(() => {
     try {
       const topicText = `${activeRole.label} ${activeRole.hint} ${brief.productName}`;
       const matched = await pickBestMatchingPhoto(settings.geminiApiKey, topicText, photoLibrary);
-      const url = openChatGPTGenerate(buildFeedSlotPrompt(brand, brief, activeRole, {
+      const basePrompt = buildFeedSlotPrompt(brand, brief, activeRole, {
         lightingRef: lightingLastRef,
         compositionRef: compositionLastRef,
         frameRef: frameLastRef
-      }, matched ? matched.detail : null));
+      }, matched ? matched.detail : null);
+      const hintClause = globalAiHint.trim() ? `. [Arahan AI]: ${globalAiHint.trim()}` : '';
+      const url = openChatGPTGenerate(`${basePrompt}${hintClause}`);
       setLastGenUrl(url);
     } finally {
       setSlotGenBusy(false);
@@ -3547,8 +3657,8 @@ const FeedCampaignGenerator = memo(() => {
   const handleAddLibraryPhoto = async e => {
     const file = e.target.files[0];
     if (!file) return;
-    if (photoLibrary.length >= 10) {
-      setGenError('Maksimal 10 foto arahan AI.');
+    if (photoLibrary.length >= MAX_PHOTO_LIBRARY) {
+      setGenError(`Maksimal ${MAX_PHOTO_LIBRARY} foto arahan AI untuk paket Anda saat ini.`);
       if (photoLibraryInputRef.current) photoLibraryInputRef.current.value = '';
       return;
     }
@@ -3744,9 +3854,16 @@ const FeedCampaignGenerator = memo(() => {
     className: "space-y-2 border border-[#242430] rounded-lg p-3 bg-[#0A0A0D]"
   }, /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block"
-  }, "Foto Arahan AI (opsional, maks 10)"), /*#__PURE__*/React.createElement("p", {
+  }, `Foto Arahan AI (opsional, maks ${MAX_PHOTO_LIBRARY})`), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-gray-500"
-  }, "Upload foto asli (produk, tampak resto, crew, dll). Begitu di-upload, tiap foto otomatis dianalisis, lalu saat generate 1 slot, sistem otomatis mencocokkan & menggabungkan foto yang relevan \u2014 tanpa perlu pilih manual."), !settings.geminiApiKey && /*#__PURE__*/React.createElement("p", {
+  }, "Upload foto asli (produk, tampak resto, crew, dll). Begitu di-upload, tiap foto otomatis dianalisis, lalu saat generate 1 slot, sistem otomatis mencocokkan & menggabungkan foto yang relevan \u2014 tanpa perlu pilih manual."), !isPro(plan) && /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500"
+  }, "Paket Anda maks ", MAX_PHOTO_LIBRARY, " foto. ", /*#__PURE__*/React.createElement("a", {
+    href: SCALEV_PRO_UPGRADE_URL,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "underline"
+  }, "Upgrade ke Pro"), " untuk maks 10 foto."), !settings.geminiApiKey && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500"
   }, "Simpan API key Gemini dulu di tab Brand supaya foto bisa dianalisis."), photoLibrary.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-4 sm:grid-cols-5 gap-2"
@@ -3765,7 +3882,7 @@ const FeedCampaignGenerator = memo(() => {
     className: "absolute inset-0 flex items-center justify-center bg-black/60 rounded text-[9px] text-blue-300 animate-pulse text-center p-0.5"
   }, "Menganalisis\u2026"), p.error && /*#__PURE__*/React.createElement("div", {
     className: "absolute inset-0 flex items-center justify-center bg-black/70 rounded text-[9px] text-red-400 text-center p-0.5"
-  }, "Gagal")))), photoLibrary.length < 10 && /*#__PURE__*/React.createElement("div", {
+  }, "Gagal")))), photoLibrary.length < MAX_PHOTO_LIBRARY && /*#__PURE__*/React.createElement("div", {
     className: "aspect-square rounded border border-dashed border-[#333] flex items-center justify-center"
   }, /*#__PURE__*/React.createElement("label", {
     className: "text-[10px] text-gray-500 hover:text-gray-300 cursor-pointer text-center px-1"
@@ -3785,7 +3902,16 @@ const FeedCampaignGenerator = memo(() => {
     className: "border border-[#222226] rounded p-4 space-y-2 mt-2"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-sm font-bold text-white"
-  }, "Slot ", activeRole.id, " — ", activeRole.label), /*#__PURE__*/React.createElement("button", {
+  }, "Slot ", activeRole.id, " — ", activeRole.label), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Arahan AI (opsional, berlaku untuk semua 9 slot)"), /*#__PURE__*/React.createElement("textarea", {
+    className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded text-sm",
+    maxLength: 300,
+    rows: 2,
+    value: globalAiHint,
+    onChange: e => setGlobalAiHint(e.target.value),
+    placeholder: "Contoh: selalu pakai nuansa ceria, hindari warna merah menyala"
+  }), /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateSlot,
     disabled: slotGenBusy,
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg text-sm transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium disabled:opacity-60"
