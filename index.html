@@ -1538,6 +1538,17 @@ const MenuManager = memo(({
   });
   const [error, setError] = useState('');
   const [capacityWarning, setCapacityWarning] = useState('');
+  // Kemudahan pakai: isi contoh dalam 1 klik — pola sama seperti tab Promo.
+  // Foto & status Unggulan yang mungkin sudah diisi user TIDAK direset.
+  const fillExample = () => {
+    setNewItem(prev => ({
+      ...prev,
+      name: 'Es Kopi Susu',
+      price: '18000',
+      category: 'Coffee',
+      description: 'Kopi susu creamy dengan gula aren'
+    }));
+  };
   const handlePhoto = e => {
     const reader = new FileReader();
     reader.onload = ev => {
@@ -1618,7 +1629,15 @@ const MenuManager = memo(({
     className: "hud-corner hud-corner-br bottom-0 right-0 border-b-2 border-r-2"
   }), /*#__PURE__*/React.createElement("div", {
     className: "hud-scanline"
-  }), /*#__PURE__*/React.createElement("label", {
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400 font-bold uppercase"
+  }, "Tambah Menu"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: fillExample,
+    className: "text-[11px] text-blue-400 hover:text-blue-300 underline"
+  }, "Isi Contoh")), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Nama Menu"), /*#__PURE__*/React.createElement("input", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
@@ -3937,7 +3956,7 @@ const ContentPlanGenerator = memo(({
     className: "text-[11px] text-gray-500"
   }, "Upload foto asli (makanan, minuman, tampak resto, crew, dll). Begitu di-upload, tiap foto otomatis dianalisis, lalu saat generate gambar 1 hari, sistem otomatis mencocokkan & menggabungkan foto yang relevan \u2014 tanpa perlu pilih manual."), anyDayNeedsRealPhoto && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-yellow-500 bg-[#0A0A0D] border border-yellow-700 rounded p-2"
-  }, "\u26A0 Upload foto asli resto/tim/Menu Anda di bagian Foto Arahan AI ini, supaya AI tidak mengarang tempat/orang/bentuk makanan sendiri."), !isPro(plan) && /*#__PURE__*/React.createElement("p", {
+  }, "\u26A0 Upload foto asli resto/tim/menu Anda di bagian Foto Arahan AI ini, supaya AI tidak mengarang tempat/orang/bentuk makanan sendiri."), !isPro(plan) && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500"
   }, "Paket Anda maks ", MAX_PHOTO_LIBRARY, " foto. ", /*#__PURE__*/React.createElement("a", {
     href: SCALEV_PRO_UPGRADE_URL,
@@ -4137,6 +4156,16 @@ const FeedCampaignGenerator = memo(() => {
   const [includeLogo, setIncludeLogo] = useState(true);
   const [lastGenUrl, setLastGenUrl] = useState('');
   const [genError, setGenError] = useState('');
+  // Kemudahan pakai: isi contoh dalam 1 klik — pola sama seperti tab Promo.
+  const fillExample = () => {
+    setBrief({
+      productName: 'Es Kopi Susu',
+      fitur: 'Pakai kopi arabika asli, tanpa pengawet',
+      hargaPromo: 'Rp 15.000, Diskon 20%',
+      testimoni: 'Kopinya enak banget, jadi langganan!',
+      cta: 'Order Sekarang'
+    });
+  };
   // --- Foto Arahan AI (maks 10, sesi ini saja) — pola sama seperti
   // tab Promo & Konten 30 Hari: begitu di-upload otomatis dianalisis,
   // lalu saat generate 1 slot, otomatis dicocokkan & digabung ke
@@ -4305,9 +4334,15 @@ const FeedCampaignGenerator = memo(() => {
     className: "hud-corner hud-corner-br bottom-0 right-0 border-b-2 border-r-2"
   }), /*#__PURE__*/React.createElement("div", {
     className: "hud-scanline"
-  }), /*#__PURE__*/React.createElement("p", {
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-400 font-bold uppercase"
-  }, "9 Feed Konsisten (Instagram)"), /*#__PURE__*/React.createElement("p", {
+  }, "9 Feed Konsisten (Instagram)"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: fillExample,
+    className: "text-[11px] text-blue-400 hover:text-blue-300 underline"
+  }, "Isi Contoh")), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-500"
   }, "1 campaign, 9 feed 1:1 dengan peran berbeda (Hero, Fitur, Harga, Promo, Testimoni, CTA) — warna & font tetap serasi mengikuti brand Anda."), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
@@ -4491,6 +4526,19 @@ const BannerGenerator = memo(() => {
     ...prev,
     [key]: value
   }));
+  // Kemudahan pakai: isi contoh dalam 1 klik — pola sama seperti tab Promo.
+  const fillExample = () => {
+    setFields({
+      productName: 'Warung Sate Pak Budi',
+      headline: 'Diskon 20% Hari Ini!',
+      subheadline: 'Khusus akhir pekan',
+      cta: 'Kunjungi Sekarang',
+      badge: 'BARU BUKA',
+      alamat: 'Jl. Merdeka No. 10',
+      telepon: '0812-3456-7890',
+      jamBuka: '08.00 - 22.00 WIB'
+    });
+  };
   const handlePhoto = e => {
     const file = e.target.files[0];
     if (!file) return;
@@ -4715,9 +4763,15 @@ const BannerGenerator = memo(() => {
     className: "hud-scanline"
   }), /*#__PURE__*/React.createElement("div", {
     className: "border-t border-[#222226] pt-4 space-y-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-400 font-bold uppercase"
-  }, "Banner Cetak"), isPro(plan) ? formContent : /*#__PURE__*/React.createElement(ProLock, {
+  }, "Banner Cetak"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: fillExample,
+    className: "text-[11px] text-blue-400 hover:text-blue-300 underline"
+  }, "Isi Contoh")), isPro(plan) ? formContent : /*#__PURE__*/React.createElement(ProLock, {
     label: "Banner Cetak \u2014 Khusus Pro"
   }, formContent)));
 });
