@@ -1579,7 +1579,7 @@ const MenuManager = memo(({
   };
   const saveItem = () => {
     if (!newItem.name || !newItem.price || isNaN(Number(newItem.price)) || Number(newItem.price) <= 0) {
-      setError('Data tidak valid');
+      setError('Isi Nama Menu, dan Harga');
       return;
     }
     const item = {
@@ -2903,7 +2903,6 @@ const PromoGenerator = memo(() => {
   // 4 kontrol baru — disembunyikan di balik "+ Gaya Visual" (progressive disclosure)
   const [includeAction, setIncludeAction] = useState(true); // true = boleh ada momen aksi, false = Statis saja
   const [includeText, setIncludeText] = useState(true); // false = foto bersih tanpa teks sama sekali
-  const [customFontHeading, setCustomFontHeading] = useState(''); // kosong = pakai font Brand Identity
   const [textOrientation, setTextOrientation] = useState('lurus'); // 'lurus' | 'miring' | 'vertikal'
   const [showVisualStyle, setShowVisualStyle] = useState(false); // "+ Gaya Visual"
   const [showVisionAI, setShowVisionAI] = useState(false); // "+ Analisis Foto dengan AI"
@@ -2915,6 +2914,10 @@ const PromoGenerator = memo(() => {
   const [styleRefPhotoUrl, setStyleRefPhotoUrl] = useState(''); // Foto Referensi Gaya
   const [productPhotoDesc, setProductPhotoDesc] = useState(''); // hasil analisis otomatis, langsung dipakai
   const [stylePhotoDesc, setStylePhotoDesc] = useState(''); // hasil analisis otomatis, langsung dipakai
+  // Pilihan EKSPLISIT user (bukan otomatis lagi) — 'brand' = tetap
+  // pakai warna & font Brand Identity, 'reference' = total ikuti gaya
+  // dari foto referensi (warna & font brand dilepas untuk generate ini).
+  const [styleMode, setStyleMode] = useState('brand');
   const [visionAnalyzedForProduct, setVisionAnalyzedForProduct] = useState(''); // Nama Produk saat analisis foto terakhir berhasil
   const [voScript, setVoScript] = useState(''); // Naskah Voice Over untuk fitur Video 10 Detik (Pro)
   const [visionBusy, setVisionBusy] = useState(null); // null | 'product' | 'style'
@@ -3078,7 +3081,7 @@ const PromoGenerator = memo(() => {
   // Nama Produk (satu-satunya field wajib sekarang) masih kosong.
   const buildPromptData = () => {
     if (!adCopyDraft.productName || !adCopyDraft.productName.trim()) return null;
-    const styleRefApplied = !!stylePhotoDesc;
+    const styleRefApplied = styleMode === 'reference' && !!stylePhotoDesc;
     const brandHint = styleRefApplied ? `gaya sesuai brand ${brand.name} (untuk generate ini, abaikan warna default brand — WAJIB ikuti persis palet warna & gaya visual dari foto referensi yang sudah dijelaskan di bawah)` : `nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}`;
     const formatHint = FORMAT_DESCRIPTIONS[format];
     const posKey = brand.logoPosition || 'bottom-right';
@@ -3106,7 +3109,6 @@ const PromoGenerator = memo(() => {
       composition: visualVariant.composition,
       frameDepthContrast: visualVariant.frameDepthContrast,
       action: pickedAction,
-      fontHeading: customFontHeading || undefined,
       respectStyleRef: styleRefApplied
     });
     const full = `${SHAPE_AUTHENTICITY_GUARD} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${combinedHint ? ', ' + combinedHint : ''}${textInstruction}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}`;
@@ -3210,7 +3212,13 @@ const PromoGenerator = memo(() => {
     setGenError('');
     const data = buildPromptData();
     const voClause = voScript.trim() ? ` Sertakan narasi suara (voice over) berikut, diucapkan dengan jelas: "${voScript.trim()}".` : '';
-    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${data.full}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.`;
+    // Video AI (Veo 3.1) cenderung KURANG presisi mengikuti detail
+    // bentuk fisik (warna wadah, ada/tidak es, dll) dibanding model
+    // gambar — jadi detail dari Vision AI diulang TEGAS di awal & akhir
+    // prompt (bukan cuma sekali di tengah), supaya lebih diprioritaskan.
+    const visionEmphasis = data.visionHints.length > 0 ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${data.visionHints.join(' ')}.` : '';
+    const visionReminder = data.visionHints.length > 0 ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas (warna wadah dan ada/tidaknya es harus sama persis) di setiap frame video, jangan mengarang variasi baru.` : '';
+    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${data.full}${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}`;
     try {
       await navigator.clipboard.writeText(videoPrompt);
     } catch (e) {}
@@ -3368,9 +3376,19 @@ const PromoGenerator = memo(() => {
     className: "absolute top-1.5 right-1.5 w-7 h-7 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-500 text-white text-base font-bold shadow-lg border-2 border-white/80"
   }, "\u2715")), visionBusy === 'style' && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-blue-400 animate-pulse"
-  }, "Menganalisis foto\u2026"), stylePhotoDesc && /*#__PURE__*/React.createElement("p", {
+  }, "Menganalisis foto\u2026"), stylePhotoDesc && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-green-400"
-  }, "\u2713 Gaya visual otomatis ditambahkan ke prompt."), visionError && /*#__PURE__*/React.createElement("p", {
+  }, "\u2713 Gaya visual berhasil dianalisis. Pilih penerapannya:"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => setStyleMode('brand'),
+    className: `p-2.5 rounded text-xs font-bold text-left ${styleMode === 'brand' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, "1. Pakai Brand Identity (warna & font brand tetap dipakai)"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => setStyleMode('reference'),
+    className: `p-2.5 rounded text-xs font-bold text-left ${styleMode === 'reference' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, "2. Total Ikuti Gaya Foto Referensi (warna & font brand dilepas)")))), visionError && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-red-400"
   }, visionError)), /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -3417,14 +3435,7 @@ const PromoGenerator = memo(() => {
     key: o.key,
     onClick: () => setTextOrientation(o.key),
     className: `p-2 rounded text-xs font-bold ${textOrientation === o.key ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
-  }, o.label)))), /*#__PURE__*/React.createElement("label", {
-    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
-  }, "Gaya Font untuk Gambar Ini (opsional, kosongkan = pakai font Brand)"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
-    placeholder: `Kosong = pakai "${brand.fontHeading}" dari Brand Identity`,
-    value: customFontHeading,
-    onChange: e => setCustomFontHeading(e.target.value)
-  })), /*#__PURE__*/React.createElement("div", {
+  }, o.label)))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2"
   }, ['feed', 'story', 'youtube', 'gofood'].map(f => /*#__PURE__*/React.createElement("button", {
     key: f,
@@ -3476,7 +3487,7 @@ const PromoGenerator = memo(() => {
     type: "button",
     onClick: clearVisionData,
     className: "shrink-0 text-xs px-2 py-1 rounded bg-red-600 hover:bg-red-500 text-white whitespace-nowrap"
-  }, "Hapus Foto Acuan")), !!stylePhotoDesc && /*#__PURE__*/React.createElement("p", {
+  }, "Hapus Foto Acuan")), styleMode === 'reference' && !!stylePhotoDesc && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500 bg-[#0A0A0D] border border-amber-500/30 rounded p-2"
   }, "\u2139 Mode ikut Foto Referensi Gaya aktif untuk generate ini \u2014 warna & sudut kamera brand dilepas, mengikuti deskripsi referensi foto."), /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateAI,
@@ -3866,7 +3877,11 @@ const ContentPlanGenerator = memo(({
       const matched = await pickBestMatchingPhoto(settings.geminiApiKey, topicText, photoLibrary);
       const visionClause = matched ? `. [Foto acuan]: ${matched.detail}` : '';
       const voClause = voScript.trim() ? ` Sertakan narasi suara (voice over) berikut, diucapkan dengan jelas: "${voScript.trim()}".` : '';
-      const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}.${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.`;
+      // Video AI cenderung KURANG presisi mengikuti detail bentuk fisik
+      // dibanding model gambar — diulang tegas di awal & akhir prompt.
+      const visionEmphasis = matched ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${matched.detail}.` : '';
+      const visionReminder = matched ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas di setiap frame video, jangan mengarang variasi baru.` : '';
+      const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}.${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}`;
       try {
         await navigator.clipboard.writeText(videoPrompt);
       } catch (e) {}
