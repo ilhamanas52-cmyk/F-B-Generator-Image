@@ -387,6 +387,7 @@ const analyzeImageWithGemini = async (apiKey, imageDataUrl, instruction) => {
     } catch (e) {}
     if (resp.status === 400 || resp.status === 403) throw new Error(`API key ditolak (${resp.status}). Cek kembali API key di tab Brand. ${detail}`);
     if (resp.status === 429) throw new Error('Kuota Gemini API harian/menit habis. Coba lagi nanti.');
+    if (resp.status === 503) throw new Error('Server Gemini sedang sibuk (kelebihan permintaan sesaat) \u2014 ini biasanya sementara, coba lagi beberapa saat lagi.');
     throw new Error(`Gemini API error ${resp.status}. ${detail}`);
   }
   const data = await resp.json();
@@ -418,7 +419,12 @@ const askGeminiText = async (apiKey, instruction) => {
   } catch (e) {
     throw new Error('Gagal menghubungi Gemini API.');
   }
-  if (!resp.ok) throw new Error(`Gemini API error ${resp.status}`);
+  if (!resp.ok) {
+    if (resp.status === 400 || resp.status === 403) throw new Error(`API key ditolak (${resp.status}). Cek kembali API key di tab Brand.`);
+    if (resp.status === 429) throw new Error('Kuota Gemini API harian/menit habis. Coba lagi nanti.');
+    if (resp.status === 503) throw new Error('Server Gemini sedang sibuk (kelebihan permintaan sesaat) \u2014 ini biasanya sementara, coba lagi beberapa saat lagi.');
+    throw new Error(`Gemini API error ${resp.status}`);
+  }
   const data = await resp.json();
   const text = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text).filter(Boolean).join(' ').trim();
   if (!text) throw new Error('Gemini tidak mengembalikan hasil.');
@@ -2922,6 +2928,7 @@ const PromoGenerator = memo(() => {
   const [voScript, setVoScript] = useState(''); // Naskah Voice Over untuk fitur Video 10 Detik (Pro)
   const [visionBusy, setVisionBusy] = useState(null); // null | 'product' | 'style'
   const [visionError, setVisionError] = useState('');
+  const [visionErrorFor, setVisionErrorFor] = useState(''); // 'product' | 'style' \u2014 supaya error tampil di section yang benar
   const canvasRef = useRef();
   const productPhotoInputRef = useRef(null);
   const styleRefPhotoInputRef = useRef(null);
@@ -3036,6 +3043,7 @@ const PromoGenerator = memo(() => {
   });
   const runProductPhotoAnalysis = async dataUrl => {
     setVisionError('');
+    setVisionErrorFor('');
     setVisionBusy('product');
     setProductPhotoDesc('');
     try {
@@ -3044,12 +3052,14 @@ const PromoGenerator = memo(() => {
       setVisionAnalyzedForProduct(adCopyDraft.productName.trim());
     } catch (e) {
       setVisionError(e.message);
+      setVisionErrorFor('product');
     } finally {
       setVisionBusy(null);
     }
   };
   const runStyleRefAnalysis = async dataUrl => {
     setVisionError('');
+    setVisionErrorFor('');
     setVisionBusy('style');
     setStylePhotoDesc('');
     try {
@@ -3058,6 +3068,7 @@ const PromoGenerator = memo(() => {
       setVisionAnalyzedForProduct(adCopyDraft.productName.trim());
     } catch (e) {
       setVisionError(e.message);
+      setVisionErrorFor('style');
     } finally {
       setVisionBusy(null);
     }
@@ -3148,6 +3159,7 @@ const PromoGenerator = memo(() => {
     setStylePhotoDesc('');
     setVisionAnalyzedForProduct('');
     setVisionError('');
+    setVisionErrorFor('');
     if (productPhotoInputRef.current) productPhotoInputRef.current.value = '';
     if (styleRefPhotoInputRef.current) styleRefPhotoInputRef.current.value = '';
   };
@@ -3333,6 +3345,7 @@ const PromoGenerator = memo(() => {
       setProductPhotoUrl('');
       setProductPhotoDesc('');
       setVisionError('');
+      setVisionErrorFor('');
       if (productPhotoInputRef.current) productPhotoInputRef.current.value = '';
     },
     "aria-label": "Hapus foto produk asli",
@@ -3341,7 +3354,9 @@ const PromoGenerator = memo(() => {
     className: "text-[11px] text-blue-400 animate-pulse"
   }, "Menganalisis foto\u2026"), productPhotoDesc && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-green-400"
-  }, "\u2713 Bentuk asli produk otomatis ditambahkan ke prompt.")), /*#__PURE__*/React.createElement("button", {
+  }, "\u2713 Bentuk asli produk otomatis ditambahkan ke prompt."), visionError && visionErrorFor === 'product' && /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-red-400"
+  }, visionError)), /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: () => setShowVisionAI(!showVisionAI),
     className: "w-full flex items-center justify-between text-xs text-amber-500 hover:text-amber-400 bg-[#1a1508] hover:bg-[#211a0a] border border-amber-500/20 rounded-lg px-3 py-2 transition-colors"
@@ -3370,6 +3385,7 @@ const PromoGenerator = memo(() => {
       setStyleRefPhotoUrl('');
       setStylePhotoDesc('');
       setVisionError('');
+      setVisionErrorFor('');
       if (styleRefPhotoInputRef.current) styleRefPhotoInputRef.current.value = '';
     },
     "aria-label": "Hapus foto referensi gaya",
@@ -3388,7 +3404,7 @@ const PromoGenerator = memo(() => {
     type: "button",
     onClick: () => setStyleMode('reference'),
     className: `p-2.5 rounded text-xs font-bold text-left ${styleMode === 'reference' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
-  }, "2. Total Ikuti Gaya Foto Referensi (warna & font brand dilepas)"))), visionError && /*#__PURE__*/React.createElement("p", {
+  }, "2. Total Ikuti Gaya Foto Referensi (warna & font brand dilepas)"))), visionError && visionErrorFor === 'style' && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-red-400"
   }, visionError)), /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -3921,7 +3937,7 @@ const ContentPlanGenerator = memo(({
     className: "text-[11px] text-gray-500"
   }, "Upload foto asli (makanan, minuman, tampak resto, crew, dll). Begitu di-upload, tiap foto otomatis dianalisis, lalu saat generate gambar 1 hari, sistem otomatis mencocokkan & menggabungkan foto yang relevan \u2014 tanpa perlu pilih manual."), anyDayNeedsRealPhoto && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-yellow-500 bg-[#0A0A0D] border border-yellow-700 rounded p-2"
-  }, "\u26A0 Ada konten yang menyinggung tempat/orang asli (dapur, karyawan, koki, tampak depan, dll) \u2014 upload foto asli resto/tim Anda di bagian Foto Arahan AI ini, supaya AI tidak mengarang tempat/orang sendiri."), !isPro(plan) && /*#__PURE__*/React.createElement("p", {
+  }, "\u26A0 Upload foto asli resto/tim/Menu Anda di bagian Foto Arahan AI ini, supaya AI tidak mengarang tempat/orang/bentuk makanan sendiri."), !isPro(plan) && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500"
   }, "Paket Anda maks ", MAX_PHOTO_LIBRARY, " foto. ", /*#__PURE__*/React.createElement("a", {
     href: SCALEV_PRO_UPGRADE_URL,
@@ -4660,7 +4676,7 @@ const BannerGenerator = memo(() => {
     className: "text-gray-300"
   }, promptData.textParts.join('; '))))), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500 bg-[#0A0A0D] border border-amber-500/40 rounded p-2 leading-relaxed"
-  }, "\u26A0 Foto latar dari AI resolusinya terbatas \u2014 untuk hasil cetak terbaik, tanyakan dulu ke percetakan Anda apakah mereka sanggup memperbesar foto ini dengan baik, SEBELUM cetak dalam jumlah banyak/ukuran besar."), /*#__PURE__*/React.createElement("button", {
+  }, "\u26A0 Foto latar dari AI resolusinya terbatas \u2014 untuk hasil cetak terbaik, tanyakan dulu ke percetakan Anda apakah mereka sanggup memperbesar foto ini dengan baik (sebagian percetakan biasanya punya software khusus untuk memperbesar resolusi hingga layak cetak, tapi tidak semua \u2014 pastikan dulu sebelum cetak dalam jumlah banyak/ukuran besar)."), /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerate,
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
   }, "Buat Gambar dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
