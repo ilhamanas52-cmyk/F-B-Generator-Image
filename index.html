@@ -3225,13 +3225,11 @@ const PromoGenerator = memo(() => {
     className: "text-[11px] text-green-400"
   }, "\u2713 Bentuk asli produk otomatis ditambahkan ke prompt.")), /*#__PURE__*/React.createElement("button", {
     type: "button",
-    onClick: () => {
-      if (isPro(plan)) setShowVisionAI(!showVisionAI);
-    },
-    className: `w-full flex items-center justify-between text-xs text-amber-500 hover:text-amber-400 bg-[#1a1508] hover:bg-[#211a0a] border border-amber-500/20 rounded-lg px-3 py-2 transition-colors ${!isPro(plan) ? 'opacity-50 cursor-not-allowed' : ''}`
-  }, /*#__PURE__*/React.createElement("span", null, "Foto Referensi Gaya (Vision, opsional)", !isPro(plan) && ' \uD83D\uDD12 Khusus Pro'), /*#__PURE__*/React.createElement("span", {
+    onClick: () => setShowVisionAI(!showVisionAI),
+    className: "w-full flex items-center justify-between text-xs text-amber-500 hover:text-amber-400 bg-[#1a1508] hover:bg-[#211a0a] border border-amber-500/20 rounded-lg px-3 py-2 transition-colors"
+  }, /*#__PURE__*/React.createElement("span", null, "Foto Referensi Gaya (Vision, opsional)"), /*#__PURE__*/React.createElement("span", {
     className: "text-[10px]"
-  }, showVisionAI && isPro(plan) ? '\u25B4 Tutup' : '\u25BE Buka')), showVisionAI && isPro(plan) && /*#__PURE__*/React.createElement("div", {
+  }, showVisionAI ? '\u25B4 Tutup' : '\u25BE Buka')), showVisionAI && /*#__PURE__*/React.createElement("div", {
     className: "space-y-2 border border-[#222226] rounded p-3"
   }, !settings.geminiApiKey && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-amber-500"
@@ -3393,10 +3391,14 @@ const PromoGenerator = memo(() => {
   }, /*#__PURE__*/React.createElement("button", {
     onClick: download,
     className: "bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold text-sm"
-  }, "Download Promo Final"), /*#__PURE__*/React.createElement("button", {
-    onClick: shareToWhatsApp,
-    className: "bg-gradient-to-r from-[#25D366] to-[#1DA851] hover:from-[#2EE873] hover:to-[#25D366] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#25D366]/30 font-semibold text-sm"
-  }, "Bagikan ke WhatsApp")), /*#__PURE__*/React.createElement(CompositionCanvas, {
+  }, "Download Promo Final"), /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (isPro(plan)) shareToWhatsApp();
+    },
+    className: `w-full p-2.5 rounded-lg transition-all font-semibold text-sm ${isPro(plan) ? 'bg-gradient-to-r from-[#25D366] to-[#1DA851] hover:from-[#2EE873] hover:to-[#25D366] text-white hover:scale-[1.02] hover:shadow-lg hover:shadow-[#25D366]/30' : 'bg-[#222226] text-gray-500 cursor-not-allowed'}`
+  }, "Bagikan ke WhatsApp"), !isPro(plan) && /*#__PURE__*/React.createElement(ProBadgeCorner, null))), /*#__PURE__*/React.createElement(CompositionCanvas, {
     ref: canvasRef,
     productImage: photoUrl,
     width: dims.w,
@@ -4509,26 +4511,16 @@ const LoginPage = ({
   }, "Belum punya akun? Hubungi tempat Anda membeli aplikasi ini untuk mendapatkan link pendaftaran.")));
 };
 
-// Membuat profil (users/{uid}) + (kalau klien reseller) catatan
-// ringan di resellers/{resellerId}/clients/{uid} — SEKADAR nama,
-// BUKAN akses ke data bisnis.
-async function createUserProfile(firebaseUser, plan, resellerId) {
+// Membuat profil (users/{uid}) saat pendaftaran baru.
+async function createUserProfile(firebaseUser, plan) {
   await setDoc(doc(db, 'users', firebaseUser.uid), {
     email: firebaseUser.email,
     plan,
-    resellerId: resellerId || null,
     createdAt: serverTimestamp()
   });
-  if (plan === 'reseller_client' && resellerId) {
-    await setDoc(doc(db, 'resellers', resellerId, 'clients', firebaseUser.uid), {
-      email: firebaseUser.email,
-      createdAt: serverTimestamp()
-    });
-  }
 }
 const RegisterForm = ({
   plan,
-  resellerId,
   planLabel,
   onRegistered
 }) => {
@@ -4546,7 +4538,7 @@ const RegisterForm = ({
     setLoading(true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      await createUserProfile(cred.user, plan, resellerId);
+      await createUserProfile(cred.user, plan);
       onRegistered(cred.user);
     } catch (err) {
       setError(err.code === 'auth/email-already-in-use' ? 'Email ini sudah terdaftar — coba masuk (login) saja.' : 'Gagal mendaftar. Coba lagi.');
@@ -4561,7 +4553,7 @@ const RegisterForm = ({
       const provider = new GoogleAuthProvider();
       const cred = await signInWithPopup(auth, provider);
       const existing = await getDoc(doc(db, 'users', cred.user.uid));
-      if (!existing.exists()) await createUserProfile(cred.user, plan, resellerId);
+      if (!existing.exists()) await createUserProfile(cred.user, plan);
       onRegistered(cred.user);
     } catch (err) {
       setError('Gagal daftar dengan Google. Coba lagi.');
@@ -4615,107 +4607,6 @@ const RegisterForm = ({
     className: "text-amber-500 hover:underline"
   }, "Masuk di sini"))));
 };
-const ResellerPanel = ({
-  user,
-  profile
-}) => {
-  const [clients, setClients] = useState([]);
-  const [brandName, setBrandName] = useState('');
-  const [logoUrl, setLogoUrl] = useState('');
-  const [saved, setSaved] = useState(false);
-  useEffect(() => {
-    const loadData = async () => {
-      const clientsSnap = await getDocs(collection(db, 'resellers', user.uid, 'clients'));
-      setClients(clientsSnap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      })));
-      const brandSnap = await getDoc(doc(db, 'resellers', user.uid));
-      if (brandSnap.exists()) {
-        setBrandName(brandSnap.data().brandName || '');
-        setLogoUrl(brandSnap.data().logoUrl || '');
-      }
-    };
-    loadData();
-  }, [user]);
-  const saveBrand = async () => {
-    await setDoc(doc(db, 'resellers', user.uid), {
-      brandName,
-      logoUrl
-    }, {
-      merge: true
-    });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
-  const inviteLink = `${window.location.origin}/undangan/${user.uid}`;
-  if (profile?.plan !== 'reseller') {
-    return /*#__PURE__*/React.createElement("div", {
-      className: "min-h-screen flex items-center justify-center bg-[#0c0c10] text-gray-400"
-    }, "Halaman ini cuma untuk akun paket Reseller. ", /*#__PURE__*/React.createElement("a", {
-      href: "/",
-      className: "text-amber-500 ml-2 hover:underline"
-    }, "Kembali"));
-  }
-  return /*#__PURE__*/React.createElement("div", {
-    className: "min-h-screen bg-[#0c0c10] p-6"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "max-w-2xl mx-auto space-y-6"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("h1", {
-    className: "text-2xl font-semibold text-white"
-  }, "Panel Reseller"), /*#__PURE__*/React.createElement("a", {
-    href: "/",
-    className: "text-sm text-gray-400 hover:text-white"
-  }, "← Kembali ke Dashboard")), /*#__PURE__*/React.createElement("div", {
-    className: "bg-[#15151b] border border-[#242430] rounded-2xl p-6 space-y-3"
-  }, /*#__PURE__*/React.createElement("h2", {
-    className: "text-white font-medium"
-  }, "Link Undangan Klien"), /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-gray-400"
-  }, "Bagikan link ini ke calon klien Anda sebanyak apapun — mereka atur akun sendiri, otomatis tercatat sebagai klien Anda."), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2"
-  }, /*#__PURE__*/React.createElement("input", {
-    readOnly: true,
-    value: inviteLink,
-    className: "flex-1 p-3 bg-[#0D0D12] border border-[#242430] text-gray-300 rounded-lg text-sm"
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: () => navigator.clipboard.writeText(inviteLink),
-    className: "px-4 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-sm font-medium"
-  }, "Salin"))), /*#__PURE__*/React.createElement("div", {
-    className: "bg-[#15151b] border border-[#242430] rounded-2xl p-6 space-y-3"
-  }, /*#__PURE__*/React.createElement("h2", {
-    className: "text-white font-medium"
-  }, "Brand Anda (White-Label)"), /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-gray-400"
-  }, "Nama & logo ini akan tampil ke klien-klien Anda, menggantikan nama aplikasi asli."), /*#__PURE__*/React.createElement("input", {
-    value: brandName,
-    onChange: e => setBrandName(e.target.value),
-    placeholder: "Nama Brand Anda",
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg"
-  }), /*#__PURE__*/React.createElement("input", {
-    value: logoUrl,
-    onChange: e => setLogoUrl(e.target.value),
-    placeholder: "URL Logo (opsional)",
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg"
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: saveBrand,
-    className: "bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-medium"
-  }, saved ? 'Tersimpan ✓' : 'Simpan')), /*#__PURE__*/React.createElement("div", {
-    className: "bg-[#15151b] border border-[#242430] rounded-2xl p-6 space-y-3"
-  }, /*#__PURE__*/React.createElement("h2", {
-    className: "text-white font-medium"
-  }, "Klien Anda (", clients.length, ")"), clients.length === 0 ? /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-gray-500"
-  }, "Belum ada klien yang bergabung. Bagikan link undangan di atas.") : /*#__PURE__*/React.createElement("ul", {
-    className: "space-y-2"
-  }, clients.map(c => /*#__PURE__*/React.createElement("li", {
-    key: c.id,
-    className: "text-sm text-gray-300 border-b border-[#242430] pb-2"
-  }, c.email))))));
-};
-
 // ROUTER UTAMA — baca window.location.pathname (tidak pakai
 // react-router, cukup pengecekan string biasa) untuk menentukan
 // halaman mana yang ditampilkan. vercel.json (terpisah) yang
@@ -4757,33 +4648,20 @@ export default function AppRoot() {
   });
   if (path === '/daftar/single') return /*#__PURE__*/React.createElement(RegisterForm, {
     plan: "single",
-    planLabel: "Paket Single",
+    planLabel: "Paket Reguler",
     onRegistered: goHome
   });
   if (path === '/daftar/reseller') return /*#__PURE__*/React.createElement(RegisterForm, {
     plan: "reseller",
-    planLabel: "Paket Reseller",
+    planLabel: "Paket Pro",
     onRegistered: goHome
   });
-  if (path.startsWith('/undangan/')) {
-    const resellerId = path.split('/undangan/')[1];
-    return /*#__PURE__*/React.createElement(RegisterForm, {
-      plan: "reseller_client",
-      resellerId: resellerId,
-      planLabel: "Klien Baru",
-      onRegistered: goHome
-    });
-  }
 
   // Halaman di bawah ini WAJIB login dulu
   if (!user) {
     window.location.href = '/login';
     return null;
   }
-  if (path === '/reseller') return /*#__PURE__*/React.createElement(ResellerPanel, {
-    user: user,
-    profile: profile
-  });
   return /*#__PURE__*/React.createElement(MainDashboard, {
     user: user,
     profile: profile,
