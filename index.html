@@ -236,6 +236,8 @@ const hudStyles = `
   .nav-underline { transition: transform 0.25s ease; }
   @keyframes attentionBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
   .attention-blink { animation: attentionBlink 1.1s ease-in-out infinite; }
+  @keyframes proGlow { 0%, 100% { box-shadow: 0 0 10px rgba(37,150,190,0.5), 0 0 2px rgba(37,150,190,0.7); } 50% { box-shadow: 0 0 22px rgba(37,150,190,0.9), 0 0 6px rgba(37,150,190,0.9); } }
+  .pro-glow { animation: proGlow 2.2s ease-in-out infinite; }
 `;
 
 // Batas aman panjang teks untuk dimasukkan ke URL ChatGPT. Kalau
@@ -1118,9 +1120,16 @@ function MainDashboard({
     key: t,
     onClick: () => setActiveTab(t),
     className: `relative px-3 sm:px-4 py-1.5 rounded-lg transition-all whitespace-nowrap text-sm font-medium ${activeTab === t ? 'text-white bg-[#1a1a22]' : 'text-gray-500 hover:text-gray-300'}`
-  }, t === 'konten' ? 'KONTEN 30 HARI' : t === 'feed9' ? '9 FEED KONSISTEN' : t === 'banner' ? 'BANNER CETAK' : t.toUpperCase(), /*#__PURE__*/React.createElement("div", {
+  }, t === 'konten' ? 'KONTEN 30 HARI' : t === 'feed9' ? '9 FEED KONSISTEN' : t === 'banner' ? 'BANNER CETAK' : t.toUpperCase(), t === 'banner' && !isPro(profile && profile.plan) && /*#__PURE__*/React.createElement("span", {
+    className: "ml-1 text-amber-500 text-[10px]"
+  }, "\uD83D\uDD12"), /*#__PURE__*/React.createElement("div", {
     className: `nav-underline absolute bottom-0 left-0 w-full h-0.5 bg-[#E8102B] ${activeTab === t ? 'scale-x-100' : 'scale-x-0'}`
-  }))), /*#__PURE__*/React.createElement("div", {
+  }))), !isPro(profile && profile.plan) && /*#__PURE__*/React.createElement("a", {
+    href: SCALEV_PRO_UPGRADE_URL,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "ml-1 text-[10px] font-bold bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white px-2.5 py-1 rounded-full whitespace-nowrap"
+  }, "\u2B06 Upgrade"), /*#__PURE__*/React.createElement("div", {
     className: "relative ml-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowProfileMenu(!showProfileMenu),
@@ -3548,8 +3557,15 @@ const PromoGenerator = memo(() => {
   }, /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateVideo,
     disabled: !isPro(plan),
-    className: `w-full p-2.5 rounded-lg text-sm font-medium transition-all ${isPro(plan) ? 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white hover:scale-[1.02]' : 'bg-[#222226] text-gray-500 cursor-not-allowed'}`
-  }, "Buat Video 10 Detik"), !isPro(plan) && /*#__PURE__*/React.createElement(ProBadgeCorner, null)), /*#__PURE__*/React.createElement("p", {
+    className: `w-full p-3 rounded-lg text-base font-bold transition-all bg-gradient-to-r from-blue-600 to-cyan-600 text-white ${isPro(plan) ? 'hover:from-blue-500 hover:to-cyan-500 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-600/40' : 'cursor-not-allowed pro-glow'}`
+  }, "\uD83C\uDFAC Buat Video 10 Detik"), !isPro(plan) && /*#__PURE__*/React.createElement(ProBadgeCorner, null)), !isPro(plan) && /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500 text-center"
+  }, "Fitur eksklusif Pro \u2014 ", /*#__PURE__*/React.createElement("a", {
+    href: SCALEV_PRO_UPGRADE_URL,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "underline font-semibold"
+  }, "Upgrade Pro - Hanya 49Rb")), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500"
   }, "\uD83D\uDCA1 Pilih model Veo 3.1 di Google Flow untuk akses gratis. Prompt sudah tersalin otomatis \u2014 tinggal paste. Prompt ini juga bisa dipakai di platform video AI lain yang Anda punya akses \u2014 tidak terkunci ke satu platform saja.")), genError && /*#__PURE__*/React.createElement("p", {
     className: "text-red-500 text-sm"
@@ -3567,13 +3583,18 @@ const PromoGenerator = memo(() => {
     onClick: download,
     className: "bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold text-sm"
   }, "Download Promo Final"), /*#__PURE__*/React.createElement("div", {
-    className: "relative"
+    className: "relative flex flex-col gap-1"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       if (isPro(plan)) shareToWhatsApp();
     },
-    className: `w-full p-2.5 rounded-lg transition-all font-semibold text-sm ${isPro(plan) ? 'bg-gradient-to-r from-[#25D366] to-[#1DA851] hover:from-[#2EE873] hover:to-[#25D366] text-white hover:scale-[1.02] hover:shadow-lg hover:shadow-[#25D366]/30' : 'bg-[#222226] text-gray-500 cursor-not-allowed'}`
-  }, "Bagikan ke WhatsApp"), !isPro(plan) && /*#__PURE__*/React.createElement(ProBadgeCorner, null))), /*#__PURE__*/React.createElement(CompositionCanvas, {
+    className: `w-full p-2.5 rounded-lg transition-all font-semibold text-sm bg-gradient-to-r from-[#25D366] to-[#1DA851] text-white ${isPro(plan) ? 'hover:from-[#2EE873] hover:to-[#25D366] hover:scale-[1.02] hover:shadow-lg hover:shadow-[#25D366]/30' : 'cursor-not-allowed pro-glow'}`
+  }, "Bagikan ke WhatsApp"), !isPro(plan) && /*#__PURE__*/React.createElement(ProBadgeCorner, null), !isPro(plan) && /*#__PURE__*/React.createElement("a", {
+    href: SCALEV_PRO_UPGRADE_URL,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "text-[10px] text-amber-500 underline text-center"
+  }, "Upgrade Pro - Hanya 49Rb"))), /*#__PURE__*/React.createElement(CompositionCanvas, {
     ref: canvasRef,
     productImage: photoUrl,
     width: dims.w,
@@ -3585,7 +3606,11 @@ const CompositionCanvas = forwardRef(({
   productImage,
   width,
   height,
-  showLogo = true
+  showLogo = true,
+  useGeometricScale = false // true khusus Banner: basis skala logo/tagline pakai
+  // rata-rata geometris √(lebar×tinggi), bukan Math.min(lebar,tinggi) — supaya
+  // proporsional di rasio LEBAR (2:1, 3:1, dll), bukan cuma rasio persegi
+  // seperti feed Instagram. Math.min() terlalu mengecilkan di rasio lebar.
 }, ref) => {
   const canvasRef = useRef(null);
   const brand = useContext(BrandContext);
@@ -3614,18 +3639,24 @@ const CompositionCanvas = forwardRef(({
         // Logo + tagline brand — jaring pengaman presisi, ditempel
         // langsung di atas hasil gambar AI, di pojok yang dipilih
         // di tab Brand (prompt AI sudah diminta menyisakan ruang di situ).
+        // scaleBasis: Math.min(lebar,tinggi) pas untuk format persegi/near-
+        // persegi (feed IG dll), TAPI terlalu mengecilkan untuk rasio LEBAR
+        // (banner 2:1/3:1/3:2) — untuk itu pakai rata-rata geometris
+        // √(lebar×tinggi), representasi ukuran yang lebih adil untuk rasio apa pun.
+        const scaleBasis = useGeometricScale ? Math.sqrt(width * height) : Math.min(width, height);
         const posKey = brand.logoPosition || 'bottom-right';
         const isTop = posKey.startsWith('top');
         const isLeft = posKey.endsWith('left');
-        const pad = Math.round(Math.min(width, height) * 0.04);
+        const pad = Math.round(scaleBasis * 0.04);
         let cursorY = isTop ? pad : height - pad;
+        let logoGap = 10; // jarak logo-tagline; diganti proporsional di bawah kalau ada logo
         if (brand.logoUrl) {
           try {
             const logoImg = new Image();
             logoImg.src = brand.logoUrl;
             await new Promise(r => logoImg.onload = r);
             if (cancelled) return;
-            const badgeMax = Math.round(Math.min(width, height) * 0.187);
+            const badgeMax = Math.round(scaleBasis * 0.187);
             let lw = badgeMax,
               lh = badgeMax;
             const ratio = logoImg.width / logoImg.height;
@@ -3637,12 +3668,15 @@ const CompositionCanvas = forwardRef(({
             // (efek stiker), bukan kotak pembatas.
             const outlineWidth = Math.max(1.5, badgeMax * 0.015);
             drawImageWithOutline(ctx, logoImg, boxX, boxY, lw, lh, 'rgba(255,255,255,0.9)', outlineWidth);
-            cursorY = isTop ? boxY + lh + 10 : boxY - 10;
+            // Jarak logo-tagline PROPORSIONAL (8% ukuran logo), bukan
+            // angka tetap — supaya di banner besar jaraknya ikut wajar.
+            logoGap = Math.max(6, Math.round(badgeMax * 0.08));
+            cursorY = isTop ? boxY + lh + logoGap : boxY - logoGap;
           } catch (e) {}
         }
         if (cancelled) return;
         if (brand.tagline) {
-          const fontSize = Math.max(14, Math.round(Math.min(width, height) * 0.028));
+          const fontSize = Math.max(14, Math.round(scaleBasis * 0.028));
           await document.fonts.load(`${fontSize}px "${brand.fontBody}"`);
           if (cancelled) return;
           ctx.font = `${fontSize}px "${brand.fontBody}"`;
@@ -3664,7 +3698,7 @@ const CompositionCanvas = forwardRef(({
     return () => {
       cancelled = true;
     };
-  }, [brand, productImage, width, height, showLogo]);
+  }, [brand, productImage, width, height, showLogo, useGeometricScale]);
   return /*#__PURE__*/React.createElement("div", {
     className: "bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] rounded-xl p-4 max-w-full overflow-x-auto mt-4 shadow-lg shadow-black/30"
   }, /*#__PURE__*/React.createElement("canvas", {
@@ -4100,8 +4134,15 @@ const ContentPlanGenerator = memo(({
   }, /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateDayVideo,
     disabled: !isPro(plan) || dayGenBusy,
-    className: `w-full p-2.5 rounded-lg text-sm font-medium transition-all ${isPro(plan) ? 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white hover:scale-[1.02] disabled:opacity-60' : 'bg-[#222226] text-gray-500 cursor-not-allowed'}`
-  }, "Buat Video 10 Detik"), !isPro(plan) && /*#__PURE__*/React.createElement(ProBadgeCorner, null)), /*#__PURE__*/React.createElement("p", {
+    className: `w-full p-3 rounded-lg text-base font-bold transition-all bg-gradient-to-r from-blue-600 to-cyan-600 text-white disabled:opacity-60 ${isPro(plan) ? 'hover:from-blue-500 hover:to-cyan-500 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-600/40' : 'cursor-not-allowed pro-glow'}`
+  }, "\uD83C\uDFAC Buat Video 10 Detik"), !isPro(plan) && /*#__PURE__*/React.createElement(ProBadgeCorner, null)), !isPro(plan) && /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500 text-center"
+  }, "Fitur eksklusif Pro \u2014 ", /*#__PURE__*/React.createElement("a", {
+    href: SCALEV_PRO_UPGRADE_URL,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "underline font-semibold"
+  }, "Upgrade Pro - Hanya 49Rb")), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500"
   }, "\uD83D\uDCA1 Pilih model Veo 3.1 di Google Flow untuk akses gratis. Prompt sudah tersalin otomatis \u2014 tinggal paste. Prompt ini juga bisa dipakai di platform video AI lain yang Anda punya akses \u2014 tidak terkunci ke satu platform saja.")), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
@@ -4724,10 +4765,20 @@ const BannerGenerator = memo(() => {
     className: "text-gray-300"
   }, promptData.textParts.join('; '))))), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500 bg-[#0A0A0D] border border-amber-500/40 rounded p-2 leading-relaxed"
-  }, "\u26A0 Foto latar dari AI resolusinya terbatas \u2014 untuk hasil cetak terbaik, tanyakan dulu ke percetakan Anda apakah mereka sanggup memperbesar foto ini dengan baik (sebagian percetakan biasanya punya software khusus untuk memperbesar resolusi hingga layak cetak, tapi tidak semua \u2014 pastikan dulu sebelum cetak dalam jumlah banyak/ukuran besar)."), /*#__PURE__*/React.createElement("button", {
+  }, "\u26A0 Foto latar dari AI resolusinya terbatas \u2014 untuk hasil cetak terbaik, tanyakan dulu ke percetakan Anda apakah mereka sanggup memperbesar foto ini dengan baik (sebagian percetakan biasanya punya software khusus untuk memperbesar resolusi hingga layak cetak, tapi tidak semua \u2014 pastikan dulu sebelum cetak dalam jumlah banyak/ukuran besar)."), /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerate,
-    className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
-  }, "Buat Gambar dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
+    disabled: !isPro(plan),
+    className: `w-full p-3 rounded-lg text-base font-bold transition-all bg-gradient-to-r from-purple-600 to-purple-700 text-white ${isPro(plan) ? 'hover:from-purple-500 hover:to-purple-600 hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30' : 'cursor-not-allowed pro-glow'}`
+  }, "Buat Gambar dengan ChatGPT (Gratis)"), !isPro(plan) && /*#__PURE__*/React.createElement(ProBadgeCorner, null)), !isPro(plan) && /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500 text-center"
+  }, "Fitur eksklusif Pro \u2014 ", /*#__PURE__*/React.createElement("a", {
+    href: SCALEV_PRO_UPGRADE_URL,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "underline font-semibold"
+  }, "Upgrade Pro - Hanya 49Rb")), lastGenUrl && /*#__PURE__*/React.createElement("a", {
     href: lastGenUrl,
     target: "_blank",
     rel: "noopener noreferrer",
@@ -4747,7 +4798,8 @@ const BannerGenerator = memo(() => {
     ref: canvasRef,
     productImage: photoUrl,
     width: sizeCfg.canvasW,
-    height: sizeCfg.canvasH
+    height: sizeCfg.canvasH,
+    useGeometricScale: true
   }));
   return /*#__PURE__*/React.createElement("div", {
     className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-lg mx-auto space-y-4"
@@ -4771,9 +4823,7 @@ const BannerGenerator = memo(() => {
     type: "button",
     onClick: fillExample,
     className: "text-[11px] text-blue-400 hover:text-blue-300 underline"
-  }, "Isi Contoh")), isPro(plan) ? formContent : /*#__PURE__*/React.createElement(ProLock, {
-    label: "Banner Cetak \u2014 Khusus Pro"
-  }, formContent)));
+  }, "Isi Contoh")), formContent));
 });
 
 const TestCompose = ({
