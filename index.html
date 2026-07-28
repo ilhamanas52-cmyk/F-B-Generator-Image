@@ -92,27 +92,38 @@ const defaultAppData = {
     geminiApiKey: ''
   }
 };
-// 11 pasangan font khusus F&B (berdasar riset tren tipografi 2026 —
+// 15 pasangan font khusus F&B (berdasar riset tren tipografi 2026 —
 // serif "juicy"/bouncy, bold/brutalist signage, playful, tulisan
 // tangan tebal & elegan, heritage serif, condensed diner, dan modern bersih).
+// 7 PERTAMA = Reguler (paling serbaguna & dikenali luas), SISANYA
+// (8) = khusus Pro (lebih niche/berkarakter khas) — lihat FREE_FONT_COUNT.
 const fontOptions = [{
   heading: 'Fraunces',
   body: 'Inter'
 }, {
-  heading: 'Archivo Black',
-  body: 'Inter'
+  heading: 'Montserrat',
+  body: 'Lato'
 }, {
   heading: 'Poppins',
   body: 'Nunito'
+}, {
+  heading: 'Archivo Black',
+  body: 'Inter'
+}, {
+  heading: 'Playfair Display',
+  body: 'Poppins'
+}, {
+  heading: 'Libre Baskerville',
+  body: 'Nunito'
+}, {
+  heading: 'Baloo 2',
+  body: 'Mulish'
 }, {
   heading: 'Permanent Marker',
   body: 'Open Sans'
 }, {
   heading: 'Merriweather',
   body: 'EB Garamond'
-}, {
-  heading: 'Montserrat',
-  body: 'Lato'
 }, {
   heading: 'Bebas Neue',
   body: 'Roboto Condensed'
@@ -123,14 +134,19 @@ const fontOptions = [{
   heading: 'Great Vibes',
   body: 'Lato'
 }, {
-  heading: 'Baloo 2',
-  body: 'Mulish'
-}, {
   heading: 'Cormorant Garamond',
   body: 'Work Sans'
+}, {
+  heading: 'Satisfy',
+  body: 'Quicksand'
+}, {
+  heading: 'Prata',
+  body: 'Work Sans'
 }];
+// 7 pertama di atas = gratis untuk paket Reguler, sisanya khusus Pro.
+const FREE_FONT_COUNT = 7;
 const loadGoogleFonts = () => {
-  const fonts = ['Fraunces', 'Inter', 'Archivo+Black', 'Poppins', 'Nunito', 'Permanent+Marker', 'Open+Sans', 'Merriweather', 'EB+Garamond', 'Montserrat', 'Lato', 'Bebas+Neue', 'Roboto+Condensed', 'Pacifico', 'Quicksand', 'Great+Vibes', 'Baloo+2', 'Mulish', 'Cormorant+Garamond', 'Work+Sans', 'Space+Grotesk', 'JetBrains+Mono'];
+  const fonts = ['Fraunces', 'Inter', 'Archivo+Black', 'Poppins', 'Nunito', 'Permanent+Marker', 'Open+Sans', 'Merriweather', 'EB+Garamond', 'Montserrat', 'Lato', 'Bebas+Neue', 'Roboto+Condensed', 'Pacifico', 'Quicksand', 'Great+Vibes', 'Baloo+2', 'Mulish', 'Cormorant+Garamond', 'Work+Sans', 'Space+Grotesk', 'JetBrains+Mono', 'Playfair+Display', 'Libre+Baskerville', 'Satisfy', 'Prata'];
   const link = document.createElement('link');
   link.href = `https://fonts.googleapis.com/css2?family=${fonts.join(':wght@400;700&family=')}&display=swap`;
   link.rel = 'stylesheet';
@@ -1152,6 +1168,7 @@ const BrandSettings = memo(({
   settings,
   saveAppData
 }) => {
+  const plan = useContext(PlanContext);
   const [local, setLocal] = useState({
     name: brand.name,
     tagline: brand.tagline,
@@ -1367,13 +1384,31 @@ const BrandSettings = memo(({
         fontBody: f.body
       });
     }
-  }, fontOptions.map((o, idx) => /*#__PURE__*/React.createElement("option", {
+  }, /*#__PURE__*/React.createElement("optgroup", {
+    label: "Font"
+  }, fontOptions.slice(0, FREE_FONT_COUNT).map((o, idx) => /*#__PURE__*/React.createElement("option", {
     key: idx,
     value: idx,
     style: {
       fontFamily: `"${o.heading}", "${o.body}", sans-serif`
     }
-  }, o.heading, " + ", o.body))), /*#__PURE__*/React.createElement("label", {
+  }, o.heading, " + ", o.body))), /*#__PURE__*/React.createElement("optgroup", {
+    label: "\uD83D\uDD12 Font Khusus Pro"
+  }, fontOptions.slice(FREE_FONT_COUNT).map((o, idx) => /*#__PURE__*/React.createElement("option", {
+    key: idx + FREE_FONT_COUNT,
+    value: idx + FREE_FONT_COUNT,
+    disabled: !isPro(plan),
+    style: {
+      fontFamily: `"${o.heading}", "${o.body}", sans-serif`
+    }
+  }, o.heading, " + ", o.body)))), !isPro(plan) && /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500"
+  }, "8 font tambahan (heritage, script, retro) \u2014 ", /*#__PURE__*/React.createElement("a", {
+    href: SCALEV_PRO_UPGRADE_URL,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "underline"
+  }, "Upgrade Pro - Hanya 49Rb"), " untuk buka semua."), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Logo"), /*#__PURE__*/React.createElement("input", {
     type: "file",
@@ -2825,6 +2860,7 @@ const PromoGenerator = memo(() => {
   const [productPhotoDesc, setProductPhotoDesc] = useState(''); // hasil analisis otomatis, langsung dipakai
   const [stylePhotoDesc, setStylePhotoDesc] = useState(''); // hasil analisis otomatis, langsung dipakai
   const [visionAnalyzedForProduct, setVisionAnalyzedForProduct] = useState(''); // Nama Produk saat analisis foto terakhir berhasil
+  const [voScript, setVoScript] = useState(''); // Naskah Voice Over untuk fitur Video 10 Detik (Pro)
   const [visionBusy, setVisionBusy] = useState(null); // null | 'product' | 'style'
   const [visionError, setVisionError] = useState('');
   const canvasRef = useRef();
@@ -3106,6 +3142,24 @@ const PromoGenerator = memo(() => {
       if (e.name !== 'AbortError') setGenError('Gagal membagikan: ' + e.message);
     }
   };
+  // --- Fitur Video 10 Detik (khusus Pro) — tidak ada URL prefill resmi
+  // seperti ChatGPT untuk Google Flow, jadi alurnya: salin prompt ke
+  // clipboard otomatis + buka tab baru Flow, user tinggal paste manual.
+  const handleGenerateVideo = async () => {
+    if (!isPro(plan)) return;
+    if (!adCopyDraft.productName || !adCopyDraft.productName.trim()) {
+      setGenError('Isi Nama Produk dulu.');
+      return;
+    }
+    setGenError('');
+    const data = buildPromptData();
+    const voClause = voScript.trim() ? ` Sertakan narasi suara (voice over) berikut, diucapkan dengan jelas: "${voScript.trim()}".` : '';
+    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${data.full}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.`;
+    try {
+      await navigator.clipboard.writeText(videoPrompt);
+    } catch (e) {}
+    window.open('https://labs.google/flow', '_blank');
+  };
   const promptData = adCopyDraft.productName.trim() ? buildPromptData() : null;
   return /*#__PURE__*/React.createElement("div", {
     className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-lg mx-auto space-y-4"
@@ -3376,7 +3430,26 @@ const PromoGenerator = memo(() => {
     target: "_blank",
     rel: "noopener noreferrer",
     className: "block text-center text-xs text-purple-400 hover:text-purple-300 underline"
-  }, "Tab tidak otomatis terbuka? Klik di sini"), genError && /*#__PURE__*/React.createElement("p", {
+  }, "Tab tidak otomatis terbuka? Klik di sini"), /*#__PURE__*/React.createElement("div", {
+    className: "border-t border-[#222226] pt-3 space-y-2"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Video 10 Detik \u2014 Naskah Voice Over (opsional)"), /*#__PURE__*/React.createElement("textarea", {
+    className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded text-sm",
+    maxLength: 200,
+    rows: 2,
+    value: voScript,
+    onChange: e => setVoScript(e.target.value),
+    placeholder: "Contoh: Rasakan kelezatan kopi susu terbaik, hanya di sini!"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: handleGenerateVideo,
+    disabled: !isPro(plan),
+    className: `w-full p-2.5 rounded-lg text-sm font-medium transition-all ${isPro(plan) ? 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white hover:scale-[1.02]' : 'bg-[#222226] text-gray-500 cursor-not-allowed'}`
+  }, "Buat Video 10 Detik"), !isPro(plan) && /*#__PURE__*/React.createElement(ProBadgeCorner, null)), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500"
+  }, "\uD83D\uDCA1 Pilih model Veo 3.1 di Google Flow untuk akses gratis. Prompt sudah tersalin otomatis \u2014 tinggal paste. Prompt ini juga bisa dipakai di platform video AI lain yang Anda punya akses \u2014 tidak terkunci ke satu platform saja.")), genError && /*#__PURE__*/React.createElement("p", {
     className: "text-red-500 text-sm"
   }, genError), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-500"
@@ -3533,6 +3606,7 @@ const ContentPlanGenerator = memo(({
   // Arahan AI GLOBAL (1 kotak, berlaku untuk SEMUA hari sekaligus) —
   // bukan per-hari, supaya tidak perlu isi 30 kotak terpisah.
   const [globalAiHint, setGlobalAiHint] = useState('');
+  const [voScript, setVoScript] = useState(''); // Naskah Voice Over global untuk fitur Video 10 Detik (Pro)
   const photoLibraryInputRef = useRef(null);
   const brand = useContext(BrandContext);
   const settings = useContext(SettingsContext);
@@ -3728,6 +3802,23 @@ const ContentPlanGenerator = memo(({
       setDayGenBusy(false);
     }
   };
+  const handleGenerateDayVideo = async () => {
+    if (!activeDay || !isPro(plan)) return;
+    setDayGenBusy(true);
+    try {
+      const topicText = `${activeDay.tema} ${activeDay.konsep} ${activeDay.konsepFoto}`;
+      const matched = await pickBestMatchingPhoto(settings.geminiApiKey, topicText, photoLibrary);
+      const visionClause = matched ? `. [Foto acuan]: ${matched.detail}` : '';
+      const voClause = voScript.trim() ? ` Sertakan narasi suara (voice over) berikut, diucapkan dengan jelas: "${voScript.trim()}".` : '';
+      const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}.${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.`;
+      try {
+        await navigator.clipboard.writeText(videoPrompt);
+      } catch (e) {}
+      window.open('https://labs.google/flow', '_blank');
+    } finally {
+      setDayGenBusy(false);
+    }
+  };
   const dims = CONTENT_RATIOS[ratio];
   return /*#__PURE__*/React.createElement("div", {
     className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-2xl mx-auto space-y-4"
@@ -3887,7 +3978,26 @@ const ContentPlanGenerator = memo(({
     target: "_blank",
     rel: "noopener noreferrer",
     className: "block text-center text-xs text-purple-400 hover:text-purple-300 underline"
-  }, "Tab tidak otomatis terbuka? Klik di sini"), /*#__PURE__*/React.createElement("label", {
+  }, "Tab tidak otomatis terbuka? Klik di sini"), /*#__PURE__*/React.createElement("div", {
+    className: "border-t border-[#222226] pt-3 space-y-2"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Video 10 Detik \u2014 Naskah Voice Over (opsional, berlaku semua hari)"), /*#__PURE__*/React.createElement("textarea", {
+    className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded text-sm",
+    maxLength: 200,
+    rows: 2,
+    value: voScript,
+    onChange: e => setVoScript(e.target.value),
+    placeholder: "Contoh: Rasakan kelezatan menu spesial hari ini!"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: handleGenerateDayVideo,
+    disabled: !isPro(plan) || dayGenBusy,
+    className: `w-full p-2.5 rounded-lg text-sm font-medium transition-all ${isPro(plan) ? 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white hover:scale-[1.02] disabled:opacity-60' : 'bg-[#222226] text-gray-500 cursor-not-allowed'}`
+  }, "Buat Video 10 Detik"), !isPro(plan) && /*#__PURE__*/React.createElement(ProBadgeCorner, null)), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500"
+  }, "\uD83D\uDCA1 Pilih model Veo 3.1 di Google Flow untuk akses gratis. Prompt sudah tersalin otomatis \u2014 tinggal paste. Prompt ini juga bisa dipakai di platform video AI lain yang Anda punya akses \u2014 tidak terkunci ke satu platform saja.")), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Upload Hasil Gambar"), /*#__PURE__*/React.createElement("input", {
     type: "file",
