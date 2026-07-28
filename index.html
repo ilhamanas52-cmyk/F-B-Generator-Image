@@ -516,6 +516,62 @@ const FORMAT_DESCRIPTIONS = {
   gofood: "format landscape untuk banner GoFood/GrabFood"
 };
 
+// 3 pilihan ukuran fisik banner (landscape) — mempengaruhi rasio
+// gambar yang diminta ke AI. Ukuran fisik sungguhan (meter) cuma
+// relevan untuk keperluan cetak nanti, TIDAK mengubah resolusi
+// piksel gambar dari AI (lihat peringatan resolusi di UI).
+const BANNER_SIZES = {
+  '2x1': {
+    label: '2 x 1 meter',
+    desc: 'Cocok untuk toko kecil, ruko minimalis, atau ruang terbatas.',
+    ratio: '2:1',
+    canvasW: 1600,
+    canvasH: 800
+  },
+  '3x1': {
+    label: '3 x 1 meter',
+    desc: 'Ukuran paling umum dan paling aman untuk promosi di pinggir jalan raya.',
+    ratio: '3:1',
+    canvasW: 1800,
+    canvasH: 600
+  },
+  '3x2': {
+    label: '3 x 2 meter',
+    desc: 'Sering dipakai untuk latar belakang (backdrop) panggung atau acara.',
+    ratio: '3:2',
+    canvasW: 1800,
+    canvasH: 1200
+  }
+};
+
+// Dropdown "Tujuan Banner" — otomatis menyesuaikan ARAH GAYA DESAIN
+// (berdasar riset kebutuhan umum banner F&B), supaya user tidak perlu
+// atur gaya visual manual seperti di tab Promo.
+const BANNER_PURPOSES = {
+  promo: {
+    label: 'Promo / Diskon',
+    styleHint: 'gaya BOLD & KONTRAS TINGGI — blok warna solid besar, angka diskon/harga ditulis RAKSASA dan sangat menonjol, minim elemen foto, dirancang supaya terbaca jelas dari kendaraan yang lewat dalam hitungan detik'
+  },
+  menuAndalan: {
+    label: 'Menu Andalan',
+    styleHint: 'gaya FOTO BESAR & MENGGIURKAN — foto makanan/minuman mendominasi 60-70% bidang gambar, tampak menggugah selera, nama produk & harga sebagai overlay simpel di salah satu sisi'
+  },
+  identitas: {
+    label: 'Identitas / Depan Toko',
+    styleHint: 'gaya CLEAN & ELEGAN — logo/nama brand jadi pusat perhatian, banyak ruang kosong bersih, tagline singkat saja, kesan permanen/branding jangka panjang (bukan promo sesaat)'
+  },
+  event: {
+    label: 'Grand Opening / Event',
+    styleHint: 'gaya MERIAH & DRAMATIS — warna semarak, efek glow/spotlight, komposisi meriah cocok jadi latar foto (backdrop), tetap terbaca jelas walau ramai elemen visual'
+  }
+};
+
+// Panduan desain khusus BANNER FISIK (beda dari DESIGN_GUIDELINE_PROMPT
+// yang dipakai tab Promo — itu untuk feed Instagram/FB, ini untuk
+// dibaca dari jarak 2-5 meter, kadang dari kendaraan yang bergerak).
+const BANNER_DESIGN_GUIDELINE = "gunakan kaidah desain grafis banner/spanduk luar ruang (outdoor) — tulisan HARUS besar dan terbaca jelas dari jarak 2-5 meter, bahkan dari kendaraan yang sedang bergerak. Kontras warna tinggi, hindari detail kecil yang tidak terbaca dari jauh, komposisi sederhana tidak berantakan. Pastikan margin aman 10-15% di semua sisi.";
+
+
 // Posisi logo & tagline — dipilih sekali di tab Brand, berlaku
 // konsisten untuk semua promo. Dipakai untuk instruksi prompt AI
 // (sisakan ruang kosong) DAN untuk posisi gambar logo/tagline
@@ -1052,11 +1108,11 @@ function MainDashboard({
     className: "text-xl font-bold font-['Space_Grotesk'] bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent tracking-tight"
   }, "F&B Design Studio"), /*#__PURE__*/React.createElement("nav", {
     className: "flex gap-2 sm:gap-4 overflow-x-auto items-center"
-  }, ['brands', 'menu', 'promo', 'konten', 'feed9'].map(t => /*#__PURE__*/React.createElement("button", {
+  }, ['brands', 'menu', 'promo', 'konten', 'feed9', 'banner'].map(t => /*#__PURE__*/React.createElement("button", {
     key: t,
     onClick: () => setActiveTab(t),
     className: `relative px-3 sm:px-4 py-1.5 rounded-lg transition-all whitespace-nowrap text-sm font-medium ${activeTab === t ? 'text-white bg-[#1a1a22]' : 'text-gray-500 hover:text-gray-300'}`
-  }, t === 'konten' ? 'KONTEN 30 HARI' : t === 'feed9' ? '9 FEED KONSISTEN' : t.toUpperCase(), /*#__PURE__*/React.createElement("div", {
+  }, t === 'konten' ? 'KONTEN 30 HARI' : t === 'feed9' ? '9 FEED KONSISTEN' : t === 'banner' ? 'BANNER CETAK' : t.toUpperCase(), /*#__PURE__*/React.createElement("div", {
     className: `nav-underline absolute bottom-0 left-0 w-full h-0.5 bg-[#E8102B] ${activeTab === t ? 'scale-x-100' : 'scale-x-0'}`
   }))), /*#__PURE__*/React.createElement("div", {
     className: "relative ml-2"
@@ -1099,7 +1155,7 @@ function MainDashboard({
     contentPlan: appData.contentPlan || [],
     rawText: appData.contentPlanRawText || '',
     saveAppData: saveAppData
-  }), activeTab === 'feed9' && /*#__PURE__*/React.createElement(FeedCampaignGenerator, null))))));
+  }), activeTab === 'feed9' && /*#__PURE__*/React.createElement(FeedCampaignGenerator, null), activeTab === 'banner' && /*#__PURE__*/React.createElement(BannerGenerator, null))))));
 }
 const CanvasEditor = memo(() => {
   const canvasRef = useRef(null);
@@ -4381,6 +4437,260 @@ const FeedCampaignGenerator = memo(() => {
     className: "w-full bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold"
   }, "Download Slot ", activeRole.id)));
 });
+const BannerGenerator = memo(() => {
+  const plan = useContext(PlanContext);
+  const brand = useContext(BrandContext);
+  const [size, setSize] = useState('3x1');
+  const [purpose, setPurpose] = useState('promo');
+  const [fields, setFields] = useState({
+    productName: '',
+    headline: '',
+    subheadline: '',
+    cta: '',
+    badge: '',
+    alamat: '',
+    telepon: '',
+    jamBuka: ''
+  });
+  const [genError, setGenError] = useState('');
+  const [lastGenUrl, setLastGenUrl] = useState('');
+  const [photoUrl, setPhotoUrl] = useState('');
+  const canvasRef = useRef();
+  const updateField = (key, value) => setFields(prev => ({
+    ...prev,
+    [key]: value
+  }));
+  const handlePhoto = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1400;
+        let w = img.width,
+          h = img.height;
+        if (w > h) {
+          if (w > maxDim) {
+            h *= maxDim / w;
+            w = maxDim;
+          }
+        } else {
+          if (h > maxDim) {
+            w *= maxDim / h;
+            h = maxDim;
+          }
+        }
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        setPhotoUrl(c.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  const buildBannerPromptData = () => {
+    if (!fields.productName || !fields.productName.trim()) return null;
+    const sizeCfg = BANNER_SIZES[size];
+    const purposeCfg = BANNER_PURPOSES[purpose];
+    const posKey = brand.logoPosition || 'bottom-right';
+    const posPhrase = LOGO_POSITIONS[posKey].promptPhrase;
+    const textParts = [];
+    if (fields.headline) textParts.push(`Headline: "${fields.headline}" (paling besar & menonjol)`);
+    if (fields.subheadline) textParts.push(`Sub-headline: "${fields.subheadline}"`);
+    if (fields.cta) textParts.push(`CTA: "${fields.cta}"`);
+    if (fields.badge) textParts.push(`Badge: "${fields.badge}"`);
+    if (fields.alamat) textParts.push(`Alamat: "${fields.alamat}"`);
+    if (fields.telepon) textParts.push(`No. Telepon/WhatsApp: "${fields.telepon}"`);
+    if (fields.jamBuka) textParts.push(`Jam Buka: "${fields.jamBuka}"`);
+    const textInstruction = textParts.length > 0 ? `. Sertakan teks berikut, pastikan ejaan persis: ${textParts.join(', ')}` : '';
+    const logoSpaceInstruction = `. Sisakan ruang kosong bersih di ${posPhrase} gambar untuk logo brand (ditempel terpisah)`;
+    const full = `Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}${textInstruction}${logoSpaceInstruction}. ${BANNER_DESIGN_GUIDELINE}`;
+    return {
+      productSubject: fields.productName.trim(),
+      sizeLabel: sizeCfg.label,
+      purposeLabel: purposeCfg.label,
+      textParts,
+      full
+    };
+  };
+  const promptData = fields.productName.trim() ? buildBannerPromptData() : null;
+  const handleGenerate = () => {
+    if (!isPro(plan)) return;
+    if (!fields.productName || !fields.productName.trim()) {
+      setGenError('Isi Nama Produk / Judul Utama dulu.');
+      return;
+    }
+    setGenError('');
+    const data = buildBannerPromptData();
+    const url = openChatGPTGenerate(data.full);
+    setLastGenUrl(url);
+  };
+  const download = () => {
+    const data = canvasRef.current.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = data;
+    a.download = 'banner.png';
+    a.click();
+  };
+  const sizeCfg = BANNER_SIZES[size];
+  const formContent = /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Ukuran Banner"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 gap-2"
+  }, Object.entries(BANNER_SIZES).map(([key, val]) => /*#__PURE__*/React.createElement("button", {
+    key: key,
+    onClick: () => setSize(key),
+    className: `p-2.5 rounded text-left text-xs ${size === key ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-bold block"
+  }, val.label), /*#__PURE__*/React.createElement("span", {
+    className: "block opacity-80"
+  }, val.desc)))), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Tujuan Banner"), /*#__PURE__*/React.createElement("select", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
+    value: purpose,
+    onChange: e => setPurpose(e.target.value)
+  }, Object.entries(BANNER_PURPOSES).map(([key, val]) => /*#__PURE__*/React.createElement("option", {
+    key: key,
+    value: key
+  }, val.label))), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Nama Produk / Judul Utama ", /*#__PURE__*/React.createElement("span", {
+    className: "text-red-500"
+  }, "*")), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
+    placeholder: "Contoh: Warung Sate Pak Budi",
+    value: fields.productName,
+    onChange: e => updateField('productName', e.target.value)
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Headline (opsional)"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
+    placeholder: "Contoh: Diskon 20% Hari Ini!",
+    value: fields.headline,
+    onChange: e => updateField('headline', e.target.value)
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Sub-Headline (opsional)"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
+    placeholder: "Contoh: Khusus akhir pekan",
+    value: fields.subheadline,
+    onChange: e => updateField('subheadline', e.target.value)
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "CTA (opsional)"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
+    placeholder: "Contoh: Kunjungi Sekarang",
+    value: fields.cta,
+    onChange: e => updateField('cta', e.target.value)
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Badge (opsional)"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
+    placeholder: "Contoh: BARU BUKA",
+    value: fields.badge,
+    onChange: e => updateField('badge', e.target.value)
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Alamat (opsional)"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
+    placeholder: "Contoh: Jl. Merdeka No. 10",
+    value: fields.alamat,
+    onChange: e => updateField('alamat', e.target.value)
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "No. Telepon/WhatsApp (opsional)"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
+    placeholder: "Contoh: 0812-3456-7890",
+    value: fields.telepon,
+    onChange: e => updateField('telepon', e.target.value)
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Jam Buka (opsional)"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
+    placeholder: "Contoh: 08.00 - 22.00 WIB",
+    value: fields.jamBuka,
+    onChange: e => updateField('jamBuka', e.target.value)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1 border border-[#242430] rounded-lg p-3 bg-[#0A0A0D]"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block"
+  }, "Preview Prompt"), !promptData ? /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-600 italic"
+  }, "Isi Nama Produk / Judul Utama untuk melihat preview.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-amber-500 font-semibold"
+  }, "Judul: "), /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-300"
+  }, promptData.productSubject)), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-amber-500 font-semibold"
+  }, "Ukuran: "), /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-300"
+  }, promptData.sizeLabel), " \u2022 ", /*#__PURE__*/React.createElement("span", {
+    className: "text-amber-500 font-semibold"
+  }, "Tujuan: "), /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-300"
+  }, promptData.purposeLabel)), promptData.textParts.length > 0 && /*#__PURE__*/React.createElement("p", {
+    className: "text-sm"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-amber-500 font-semibold"
+  }, "Teks di Banner: "), /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-300"
+  }, promptData.textParts.join('; '))))), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500 bg-[#0A0A0D] border border-amber-500/40 rounded p-2 leading-relaxed"
+  }, "\u26A0 Foto latar dari AI resolusinya terbatas \u2014 untuk hasil cetak terbaik, tanyakan dulu ke percetakan Anda apakah mereka sanggup memperbesar foto ini dengan baik, SEBELUM cetak dalam jumlah banyak/ukuran besar."), /*#__PURE__*/React.createElement("button", {
+    onClick: handleGenerate,
+    className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
+  }, "Buat Gambar dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
+    href: lastGenUrl,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "block text-center text-xs text-purple-400 hover:text-purple-300 underline"
+  }, "Tab tidak otomatis terbuka? Klik di sini"), genError && /*#__PURE__*/React.createElement("p", {
+    className: "text-red-500 text-sm"
+  }, genError), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Upload Hasil Gambar AI"), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    onChange: handlePhoto,
+    className: "text-gray-400 text-sm"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: download,
+    className: "w-full bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold text-sm"
+  }, "Download Banner Final"), /*#__PURE__*/React.createElement(CompositionCanvas, {
+    ref: canvasRef,
+    productImage: photoUrl,
+    width: sizeCfg.canvasW,
+    height: sizeCfg.canvasH
+  }));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-lg mx-auto space-y-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 left-0 border-t-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner top-0 right-0 border-t-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner bottom-0 left-0 border-b-2 border-l-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-corner hud-corner-br bottom-0 right-0 border-b-2 border-r-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hud-scanline"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "border-t border-[#222226] pt-4 space-y-3"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400 font-bold uppercase"
+  }, "Banner Cetak"), isPro(plan) ? formContent : /*#__PURE__*/React.createElement(ProLock, {
+    label: "Banner Cetak \u2014 Khusus Pro"
+  }, formContent)));
+});
+
 const TestCompose = ({
   menu
 }) => {
