@@ -203,7 +203,7 @@ const isPro = plan => plan === 'reseller' || plan === 'reseller_client';
 // Link "Upgrade ke Pro" — SEMENTARA placeholder ('#') sampai user
 // menyediakan URL Scalev sungguhan. HANYA di sini nilainya diisi,
 // supaya nanti tinggal ganti 1 baris ini saat linknya sudah siap.
-const SCALEV_PRO_UPGRADE_URL = '#';
+const SCALEV_PRO_UPGRADE_URL = 'https://superstrikeshop.myscalev.com/upgrade-paket-pro';
 const PlanContext = createContext('single');
 
 // Komponen kunci "Khusus Pro" — dipakai BERULANG di semua fitur
@@ -254,15 +254,10 @@ const ProLock = ({
   }, "Upgrade Pro - Hanya 49Rb")));
 };
 const hudStyles = `
-  @keyframes hudScan { 0% { transform: translateY(-100%); opacity: 0; } 15% { opacity: 0.1; } 85% { opacity: 0.1; } 100% { transform: translateY(2000%); opacity: 0; } }
-  @keyframes hudPulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
   .hud-panel { position: relative; overflow: hidden; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
-  .hud-panel:hover { border-color: #2a2a36; }
-  .hud-corner { position: absolute; width: 14px; height: 14px; border-color: #4A0C16; transition: border-color 0.4s ease, box-shadow 0.4s ease; pointer-events: none; z-index: 2; }
-  .hud-panel:hover .hud-corner { border-color: #E8102B; box-shadow: 0 0 10px rgba(232,16,43,0.5); }
-  .hud-corner-br { animation: hudPulse 2.6s ease-in-out infinite; }
-  .hud-scanline { position: absolute; left: 0; width: 100%; height: 1px; background: linear-gradient(90deg, transparent, #E8102B, transparent); animation: hudScan 5s linear infinite; pointer-events: none; z-index: 1; opacity: 0; }
-  .hud-panel:hover .hud-scanline { opacity: 0.8; }
+  .hud-panel:hover { border-color: #4F46E5; box-shadow: 0 0 20px rgba(79,70,229,0.12); }
+  .hud-corner { display: none; }
+  .hud-scanline { display: none; }
   .nav-underline { transition: transform 0.25s ease; }
   @keyframes attentionBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
   .attention-blink { animation: attentionBlink 1.1s ease-in-out infinite; }
@@ -1214,7 +1209,7 @@ function MainDashboard({
   }, t === 'konten' ? 'KONTEN 30 HARI' : t === 'feed9' ? '9 FEED KONSISTEN' : t === 'banner' ? 'BANNER CETAK' : t.toUpperCase(), t === 'banner' && !isPro(profile && profile.plan) && /*#__PURE__*/React.createElement("span", {
     className: "ml-1 text-amber-500 text-[10px]"
   }, "\uD83D\uDD12"), /*#__PURE__*/React.createElement("div", {
-    className: `nav-underline absolute bottom-0 left-0 w-full h-0.5 bg-[#E8102B] ${activeTab === t ? 'scale-x-100' : 'scale-x-0'}`
+    className: `nav-underline absolute bottom-0 left-0 w-full h-0.5 bg-[#4F46E5] ${activeTab === t ? 'scale-x-100' : 'scale-x-0'}`
   }))), !isPro(profile && profile.plan) && /*#__PURE__*/React.createElement("a", {
     href: SCALEV_PRO_UPGRADE_URL,
     target: "_blank",
@@ -1438,12 +1433,12 @@ const BrandSettings = memo(({
     href: "https://aistudio.google.com/apikey",
     target: "_blank",
     rel: "noopener noreferrer",
-    className: "text-xs text-[#E8102B] underline block"
+    className: "text-xs text-[#4F46E5] underline block"
   }, "Cara dapat API key gratis dari Google AI Studio \u2192"), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2"
   }, /*#__PURE__*/React.createElement("input", {
     type: showApiKey ? 'text' : 'password',
-    className: "flex-1 p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600 text-sm",
+    className: "flex-1 p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600 text-sm",
     placeholder: "Tempel API key Gemini di sini",
     value: apiKeyInput,
     onChange: e => setApiKeyInput(e.target.value),
@@ -1476,7 +1471,7 @@ const BrandSettings = memo(({
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Nama Brand"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Nama Brand",
     value: local.name,
     onChange: e => setLocal({
@@ -1489,7 +1484,7 @@ const BrandSettings = memo(({
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Tagline"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Tagline",
     value: local.tagline,
     onChange: e => setLocal({
@@ -1502,7 +1497,7 @@ const BrandSettings = memo(({
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Deskripsi"), /*#__PURE__*/React.createElement("textarea", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Deskripsi",
     value: local.description,
     onChange: e => setLocal({
@@ -1537,7 +1532,7 @@ const BrandSettings = memo(({
       accentColor: e.target.value
     })
   })), /*#__PURE__*/React.createElement("select", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     value: fontOptions.findIndex(o => o.heading === brand.fontHeading),
     onChange: e => {
       const f = fontOptions[e.target.value];
@@ -1605,11 +1600,11 @@ const BrandSettings = memo(({
       };
       reader.readAsDataURL(e.target.files[0]);
     },
-    className: "text-sm file:bg-[#E8102B] file:text-white file:border-none file:px-4 file:py-2"
+    className: "text-sm file:bg-[#4F46E5] file:text-white file:border-none file:px-4 file:py-2"
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Posisi Logo & Tagline (di semua promo)"), /*#__PURE__*/React.createElement("select", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     value: brand.logoPosition || 'bottom-right',
     onChange: e => updateBrand({
       logoPosition: e.target.value
@@ -1740,7 +1735,7 @@ const MenuManager = memo(({
   }, "Isi Contoh")), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Nama Menu"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Nama Menu",
     value: newItem.name,
     onChange: e => setNewItem({
@@ -1751,7 +1746,7 @@ const MenuManager = memo(({
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Deskripsi (maks 40 karakter)"), /*#__PURE__*/React.createElement("input", {
     maxLength: 40,
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Contoh: Es kopi susu creamy",
     value: newItem.description,
     onChange: e => setNewItem({
@@ -1762,7 +1757,7 @@ const MenuManager = memo(({
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Harga"), /*#__PURE__*/React.createElement("input", {
     type: "number",
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Harga",
     value: newItem.price,
     onChange: e => setNewItem({
@@ -1772,7 +1767,7 @@ const MenuManager = memo(({
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Kategori"), /*#__PURE__*/React.createElement("select", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     value: newItem.category,
     onChange: e => setNewItem({
       ...newItem,
@@ -1797,7 +1792,7 @@ const MenuManager = memo(({
     })
   }), "Menu Unggulan (tampil lebih besar di Halaman Menu, maks. 6 item ditampilkan)"), /*#__PURE__*/React.createElement("button", {
     onClick: saveItem,
-    className: "w-full bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white px-4 py-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold"
+    className: "w-full bg-gradient-to-r from-[#4F46E5] to-[#4338CA] hover:from-[#6366F1] hover:to-[#4F46E5] text-white px-4 py-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#4F46E5]/30 font-semibold"
   }, "Tambah Menu"), error && /*#__PURE__*/React.createElement("p", {
     className: "text-red-500 text-sm"
   }, error), /*#__PURE__*/React.createElement("ul", {
@@ -1817,7 +1812,7 @@ const MenuManager = memo(({
     className: "text-sm font-['JetBrains_Mono']"
   }, "Rp ", i.price)), /*#__PURE__*/React.createElement("button", {
     onClick: () => removeItem(i.id),
-    className: "ml-auto text-[#E8102B] hover:text-red-400"
+    className: "ml-auto text-[#4F46E5] hover:text-red-400"
   }, "Hapus")))));
 });
 
@@ -1945,14 +1940,14 @@ const MenuPageGenerator = memo(({
       onClick: () => {
         if (!locked) setSelectedStyle(key);
       },
-      className: `p-3 ${locked ? 'pr-12' : ''} rounded text-xs font-bold text-left w-full ${selectedStyle === key ? 'bg-[#E8102B] text-white' : locked ? 'bg-[#222226] text-gray-500' : 'bg-[#222226] text-gray-400'}`
+      className: `p-3 ${locked ? 'pr-12' : ''} rounded text-xs font-bold text-left w-full ${selectedStyle === key ? 'bg-[#4F46E5] text-white' : locked ? 'bg-[#222226] text-gray-500' : 'bg-[#222226] text-gray-400'}`
     }, val.label), locked && /*#__PURE__*/React.createElement(ProBadgeCorner, null));
   })), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-500"
   }, "Kapasitas per halaman A4 beda tiap gaya (", MENU_STYLE_PRESETS[selectedStyle].itemCap, " item untuk gaya ", MENU_STYLE_PRESETS[selectedStyle].label, ") — gunakan filter kategori kalau menu lebih banyak."), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Filter Kategori"), /*#__PURE__*/React.createElement("select", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     value: categoryFilter,
     onChange: e => setCategoryFilter(e.target.value)
   }, /*#__PURE__*/React.createElement("option", {
@@ -1984,15 +1979,15 @@ const MenuPageGenerator = memo(({
     className: "grid grid-cols-2 gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setQuality('screen'),
-    className: `p-2 rounded text-xs font-bold ${quality === 'screen' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    className: `p-2 rounded text-xs font-bold ${quality === 'screen' ? 'bg-[#4F46E5] text-white' : 'bg-[#222226] text-gray-400'}`
   }, "Untuk Layar (Ringan)"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setQuality('print'),
-    className: `p-2 rounded text-xs font-bold ${quality === 'print' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    className: `p-2 rounded text-xs font-bold ${quality === 'print' ? 'bg-[#4F46E5] text-white' : 'bg-[#222226] text-gray-400'}`
   }, "Untuk Cetak A4 (Tajam)")), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: download,
-    className: "bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold text-sm"
+    className: "bg-gradient-to-r from-[#4F46E5] to-[#4338CA] hover:from-[#6366F1] hover:to-[#4F46E5] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#4F46E5]/30 font-semibold text-sm"
   }, "Download Halaman Menu"), /*#__PURE__*/React.createElement("div", {
     className: "relative flex flex-col gap-1"
   }, /*#__PURE__*/React.createElement("button", {
@@ -3393,7 +3388,7 @@ const PromoGenerator = memo(() => {
   }, "Nama Produk ", /*#__PURE__*/React.createElement("span", {
     className: "text-red-500"
   }, "*")), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Contoh: Es Teh Manis",
     value: adCopyDraft.productName,
     onChange: e => setAdCopyDraft({
@@ -3403,7 +3398,7 @@ const PromoGenerator = memo(() => {
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Headline (opsional)"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Contoh: Rasakan Sensasi Barunya!",
     value: adCopyDraft.headline,
     onChange: e => setAdCopyDraft({
@@ -3413,7 +3408,7 @@ const PromoGenerator = memo(() => {
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "CTA (Call to Action)"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Contoh: Order Sekarang",
     value: adCopyDraft.cta,
     onChange: e => setAdCopyDraft({
@@ -3423,7 +3418,7 @@ const PromoGenerator = memo(() => {
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Sub-Headline"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Contoh: Khusus hari ini",
     value: adCopyDraft.subheadline,
     onChange: e => setAdCopyDraft({
@@ -3433,7 +3428,7 @@ const PromoGenerator = memo(() => {
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Badge Promo (opsional)"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Contoh: DISKON 10%",
     value: adCopyDraft.badge,
     onChange: e => setAdCopyDraft({
@@ -3528,11 +3523,11 @@ const PromoGenerator = memo(() => {
   }, /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: () => setStyleMode('brand'),
-    className: `p-2.5 rounded text-xs font-bold text-left ${styleMode === 'brand' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    className: `p-2.5 rounded text-xs font-bold text-left ${styleMode === 'brand' ? 'bg-[#4F46E5] text-white' : 'bg-[#222226] text-gray-400'}`
   }, "1. Pakai Brand Identity (warna & font brand tetap dipakai)"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: () => setStyleMode('reference'),
-    className: `p-2.5 rounded text-xs font-bold text-left ${styleMode === 'reference' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    className: `p-2.5 rounded text-xs font-bold text-left ${styleMode === 'reference' ? 'bg-[#4F46E5] text-white' : 'bg-[#222226] text-gray-400'}`
   }, "2. Total Ikuti Gaya Foto Referensi (warna & font brand dilepas)"))), visionError && visionErrorFor === 'style' && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-red-400"
   }, visionError)), /*#__PURE__*/React.createElement("button", {
@@ -3549,20 +3544,20 @@ const PromoGenerator = memo(() => {
     className: "grid grid-cols-2 gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setIncludeAction(false),
-    className: `p-2 rounded text-xs font-bold ${!includeAction ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    className: `p-2 rounded text-xs font-bold ${!includeAction ? 'bg-[#4F46E5] text-white' : 'bg-[#222226] text-gray-400'}`
   }, "Statis Elegan"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setIncludeAction(true),
-    className: `p-2 rounded text-xs font-bold ${includeAction ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    className: `p-2 rounded text-xs font-bold ${includeAction ? 'bg-[#4F46E5] text-white' : 'bg-[#222226] text-gray-400'}`
   }, "Ada Momen Aksi")), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Teks di Gambar"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setIncludeText(true),
-    className: `p-2 rounded text-xs font-bold ${includeText ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    className: `p-2 rounded text-xs font-bold ${includeText ? 'bg-[#4F46E5] text-white' : 'bg-[#222226] text-gray-400'}`
   }, "Ada Teks"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setIncludeText(false),
-    className: `p-2 rounded text-xs font-bold ${!includeText ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    className: `p-2 rounded text-xs font-bold ${!includeText ? 'bg-[#4F46E5] text-white' : 'bg-[#222226] text-gray-400'}`
   }, "Foto Bersih (Tanpa Teks)")), includeText && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Orientasi Teks"), /*#__PURE__*/React.createElement("div", {
@@ -3579,13 +3574,13 @@ const PromoGenerator = memo(() => {
   }].map(o => /*#__PURE__*/React.createElement("button", {
     key: o.key,
     onClick: () => setTextOrientation(o.key),
-    className: `p-2 rounded text-xs font-bold ${textOrientation === o.key ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    className: `p-2 rounded text-xs font-bold ${textOrientation === o.key ? 'bg-[#4F46E5] text-white' : 'bg-[#222226] text-gray-400'}`
   }, o.label))))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2"
   }, ['feed', 'story', 'youtube', 'gofood'].map(f => /*#__PURE__*/React.createElement("button", {
     key: f,
     onClick: () => setFormat(f),
-    className: `p-2 rounded uppercase text-xs font-bold ${format === f ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    className: `p-2 rounded uppercase text-xs font-bold ${format === f ? 'bg-[#4F46E5] text-white' : 'bg-[#222226] text-gray-400'}`
   }, f))), /*#__PURE__*/React.createElement("div", {
     className: "space-y-2 border border-[#242430] rounded-lg p-3 bg-[#0A0A0D]"
   }, /*#__PURE__*/React.createElement("label", {
@@ -3682,7 +3677,7 @@ const PromoGenerator = memo(() => {
     className: "grid grid-cols-2 gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: download,
-    className: "bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold text-sm"
+    className: "bg-gradient-to-r from-[#4F46E5] to-[#4338CA] hover:from-[#6366F1] hover:to-[#4F46E5] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#4F46E5]/30 font-semibold text-sm"
   }, "Download Promo Final"), /*#__PURE__*/React.createElement("div", {
     className: "relative flex flex-col gap-1"
   }, /*#__PURE__*/React.createElement("button", {
@@ -4092,7 +4087,7 @@ const ContentPlanGenerator = memo(({
   }, CONTENT_THEMES.map(t => /*#__PURE__*/React.createElement("button", {
     key: t,
     onClick: () => toggleTheme(t),
-    className: `p-2 rounded text-xs font-bold text-left ${selectedThemes.includes(t) ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    className: `p-2 rounded text-xs font-bold text-left ${selectedThemes.includes(t) ? 'bg-[#4F46E5] text-white' : 'bg-[#222226] text-gray-400'}`
   }, t))), /*#__PURE__*/React.createElement("div", {
     className: "space-y-2 border border-[#242430] rounded-lg p-3 bg-[#0A0A0D]"
   }, /*#__PURE__*/React.createElement("label", {
@@ -4189,7 +4184,7 @@ const ContentPlanGenerator = memo(({
   }, contentPlan.map((d, idx) => /*#__PURE__*/React.createElement("button", {
     key: `day-${idx}-${d.day}`,
     onClick: () => setSelectedDay(d.day),
-    className: `w-9 h-9 rounded text-xs font-bold ${selectedDay === d.day ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    className: `w-9 h-9 rounded text-xs font-bold ${selectedDay === d.day ? 'bg-[#4F46E5] text-white' : 'bg-[#222226] text-gray-400'}`
   }, d.day))), activeDay && /*#__PURE__*/React.createElement("div", {
     className: "border border-[#222226] rounded p-4 space-y-3 mt-2"
   }, /*#__PURE__*/React.createElement("p", {
@@ -4270,7 +4265,7 @@ const ContentPlanGenerator = memo(({
   }, Object.entries(CONTENT_RATIOS).map(([key, val]) => /*#__PURE__*/React.createElement("button", {
     key: key,
     onClick: () => setRatio(key),
-    className: `p-2 rounded text-xs font-bold ${ratio === key ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    className: `p-2 rounded text-xs font-bold ${ratio === key ? 'bg-[#4F46E5] text-white' : 'bg-[#222226] text-gray-400'}`
   }, val.label))), /*#__PURE__*/React.createElement("label", {
     className: "flex items-center gap-2 text-sm text-gray-400"
   }, /*#__PURE__*/React.createElement("input", {
@@ -4287,7 +4282,7 @@ const ContentPlanGenerator = memo(({
     className: "grid grid-cols-2 gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: handleDownload,
-    className: "bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold text-sm"
+    className: "bg-gradient-to-r from-[#4F46E5] to-[#4338CA] hover:from-[#6366F1] hover:to-[#4F46E5] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#4F46E5]/30 font-semibold text-sm"
   }, "Download Hari ", activeDay.day), /*#__PURE__*/React.createElement("div", {
     className: "relative flex flex-col gap-1"
   }, /*#__PURE__*/React.createElement("button", {
@@ -4524,7 +4519,7 @@ const FeedCampaignGenerator = memo(() => {
   }, "1 campaign, 9 feed 1:1 dengan peran berbeda (Hero, Fitur, Harga, Promo, Testimoni, CTA) — warna & font tetap serasi mengikuti brand Anda."), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Nama Produk"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Contoh: Es Kopi Susu",
     value: brief.productName,
     onChange: e => setBrief({
@@ -4534,7 +4529,7 @@ const FeedCampaignGenerator = memo(() => {
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Keunggulan/Fitur"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Contoh: Pakai kopi arabika asli, tanpa pengawet",
     value: brief.fitur,
     onChange: e => setBrief({
@@ -4544,7 +4539,7 @@ const FeedCampaignGenerator = memo(() => {
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Harga/Promo"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Contoh: Rp 15.000, Diskon 20%",
     value: brief.hargaPromo,
     onChange: e => setBrief({
@@ -4554,7 +4549,7 @@ const FeedCampaignGenerator = memo(() => {
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Testimoni Pelanggan"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Contoh: Kopinya enak banget, jadi langganan!",
     value: brief.testimoni,
     onChange: e => setBrief({
@@ -4564,7 +4559,7 @@ const FeedCampaignGenerator = memo(() => {
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "CTA"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#E8102B]/60 focus:ring-2 focus:ring-[#E8102B]/15 outline-none transition-all placeholder:text-gray-600",
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
     placeholder: "Contoh: Order Sekarang",
     value: brief.cta,
     onChange: e => setBrief({
@@ -4578,7 +4573,7 @@ const FeedCampaignGenerator = memo(() => {
   }, FEED_ROLES.map(role => /*#__PURE__*/React.createElement("button", {
     key: role.id,
     onClick: () => setSelectedSlot(role.id),
-    className: `aspect-square rounded overflow-hidden border-2 ${selectedSlot === role.id ? 'border-[#E8102B]' : 'border-[#222226]'} relative`
+    className: `aspect-square rounded overflow-hidden border-2 ${selectedSlot === role.id ? 'border-[#4F46E5]' : 'border-[#222226]'} relative`
   }, slotPhotos[role.id] ? /*#__PURE__*/React.createElement("img", {
     src: slotPhotos[role.id],
     className: "w-full h-full object-cover",
@@ -4681,7 +4676,7 @@ const FeedCampaignGenerator = memo(() => {
     className: "grid grid-cols-2 gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: handleDownload,
-    className: "bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold text-sm"
+    className: "bg-gradient-to-r from-[#4F46E5] to-[#4338CA] hover:from-[#6366F1] hover:to-[#4F46E5] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#4F46E5]/30 font-semibold text-sm"
   }, "Download Slot ", activeRole.id), /*#__PURE__*/React.createElement("div", {
     className: "relative flex flex-col gap-1"
   }, /*#__PURE__*/React.createElement("button", {
@@ -4825,7 +4820,7 @@ const BannerGenerator = memo(() => {
   }, Object.entries(BANNER_SIZES).map(([key, val]) => /*#__PURE__*/React.createElement("button", {
     key: key,
     onClick: () => setSize(key),
-    className: `p-2.5 rounded text-left text-xs ${size === key ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    className: `p-2.5 rounded text-left text-xs ${size === key ? 'bg-[#4F46E5] text-white' : 'bg-[#222226] text-gray-400'}`
   }, /*#__PURE__*/React.createElement("span", {
     className: "font-bold block"
   }, val.label), /*#__PURE__*/React.createElement("span", {
@@ -4957,7 +4952,7 @@ const BannerGenerator = memo(() => {
     className: "grid grid-cols-2 gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: download,
-    className: "bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold text-sm"
+    className: "bg-gradient-to-r from-[#4F46E5] to-[#4338CA] hover:from-[#6366F1] hover:to-[#4F46E5] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#4F46E5]/30 font-semibold text-sm"
   }, "Download Banner Final"), /*#__PURE__*/React.createElement("div", {
     className: "relative flex flex-col gap-1"
   }, /*#__PURE__*/React.createElement("button", {
@@ -5126,7 +5121,7 @@ const TestCompose = ({
   }, ['feed', 'story', 'youtube', 'gofood'].map(f => /*#__PURE__*/React.createElement("button", {
     key: f,
     onClick: () => setFormat(f),
-    className: `p-2 rounded uppercase text-xs font-bold ${format === f ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+    className: `p-2 rounded uppercase text-xs font-bold ${format === f ? 'bg-[#4F46E5] text-white' : 'bg-[#222226] text-gray-400'}`
   }, f))), selected && /*#__PURE__*/React.createElement(CompositionCanvas, {
     ref: canvasRef,
     productImage: aiPhotoUrl || selected.photoUrl,
@@ -5153,7 +5148,7 @@ const TestCompose = ({
     }]
   }), selected && /*#__PURE__*/React.createElement("button", {
     onClick: download,
-    className: "w-full bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-3 rounded-lg mt-4 transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold"
+    className: "w-full bg-gradient-to-r from-[#4F46E5] to-[#4338CA] hover:from-[#6366F1] hover:to-[#4F46E5] text-white p-3 rounded-lg mt-4 transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#4F46E5]/30 font-semibold"
   }, "Download Menu"));
 };
 
