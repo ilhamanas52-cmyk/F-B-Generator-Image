@@ -90,6 +90,15 @@ const defaultAppData = {
   // Firestore Rules yang ada (tidak perlu Rules baru).
   settings: {
     geminiApiKey: ''
+  },
+  // Penghitung jumlah generate GAMBAR per bulan (bukan video, bukan
+  // rencana teks) — dipakai untuk toast selebrasi milestone (10/25/
+  // 50/100). yearMonth format "YYYY-MM", otomatis mulai dari 1 lagi
+  // kalau bulan berjalan sudah beda dari yang tersimpan (dicek saat
+  // generate, bukan dijadwalkan). Ini murni selebrasi, TIDAK membatasi.
+  generationStats: {
+    yearMonth: '',
+    count: 0
   }
 };
 // 15 pasangan font khusus F&B (berdasar riset tren tipografi 2026 —
@@ -157,6 +166,27 @@ const BrandContext = createContext(defaultAppData.brand);
 // tapi soal pengaturan/API key) — dibaca komponen manapun yang butuh
 // akses Gemini API key untuk fitur Vision AI.
 const SettingsContext = createContext(defaultAppData.settings);
+
+// ============================================================
+// TOAST MILESTONE GENERATE GAMBAR — murni selebrasi (tidak membatasi
+// apa pun). Context ini menyediakan 1 fungsi incrementGenerationCount()
+// yang dipanggil tiap kali user berhasil klik "Buat Gambar dengan
+// ChatGPT" (Promo, Menu, Konten 30 Hari, 9 Feed, Banner) — TIDAK
+// dipanggil untuk Video 10 Detik atau "Buat Rencana 30 Hari" (itu teks,
+// bukan gambar). Nilai default no-op supaya aman dipakai walau
+// Provider belum terpasang (misal saat testing komponen sendiri).
+// ============================================================
+const GenerationStatsContext = createContext(() => {});
+const GENERATION_MILESTONE_MESSAGES = {
+  10: '🎉 10 gambar sudah dibuat bulan ini! Terus lanjutkan.',
+  25: '🔥 25 gambar bulan ini! Brand Anda makin konsisten.',
+  50: '🚀 50 gambar bulan ini! Luar biasa produktif.',
+  100: '👑 100 gambar bulan ini! Anda benar-benar juara konten.'
+};
+const getCurrentYearMonth = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
 
 // ============================================================
 // SISTEM PAKET REGULER & PRO
@@ -1042,6 +1072,12 @@ function MainDashboard({
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [dbError, setDbError] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [generationToast, setGenerationToast] = useState('');
+  useEffect(() => {
+    if (!generationToast) return;
+    const t = setTimeout(() => setGenerationToast(''), 4000);
+    return () => clearTimeout(t);
+  }, [generationToast]);
   useEffect(() => {
     loadGoogleFonts();
   }, []);
@@ -1130,13 +1166,38 @@ function MainDashboard({
     if (!user) return;
     deleteDoc(doc(menuCollRef(), id)).catch(e => setDbError(`Gagal menghapus menu: ${e.message}`));
   };
+  // Dipanggil tiap kali user berhasil klik "Buat Gambar dengan ChatGPT"
+  // (bukan Video, bukan Rencana 30 Hari) — murni selebrasi, TIDAK
+  // membatasi apa pun. Bulan berjalan beda dari yang tersimpan →
+  // hitungan otomatis mulai dari 1 lagi.
+  const incrementGenerationCount = () => {
+    const currentYM = getCurrentYearMonth();
+    const stats = appData.generationStats || {
+      yearMonth: '',
+      count: 0
+    };
+    const newCount = stats.yearMonth === currentYM ? (stats.count || 0) + 1 : 1;
+    saveAppData({
+      generationStats: {
+        yearMonth: currentYM,
+        count: newCount
+      }
+    });
+    if (GENERATION_MILESTONE_MESSAGES[newCount]) {
+      setGenerationToast(GENERATION_MILESTONE_MESSAGES[newCount]);
+    }
+  };
   return /*#__PURE__*/React.createElement(BrandContext.Provider, {
     value: appData.brand
   }, /*#__PURE__*/React.createElement(SettingsContext.Provider, {
     value: appData.settings
   }, /*#__PURE__*/React.createElement(PlanContext.Provider, {
     value: (profile && profile.plan) || 'single'
-  }, /*#__PURE__*/React.createElement("style", null, hudStyles), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(GenerationStatsContext.Provider, {
+    value: incrementGenerationCount
+  }, /*#__PURE__*/React.createElement("style", null, hudStyles), generationToast && /*#__PURE__*/React.createElement("div", {
+    className: "fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-[#15151b] border border-amber-500/50 text-white text-sm font-semibold px-5 py-3 rounded-full shadow-2xl shadow-black/50 max-w-[92vw] text-center"
+  }, generationToast), /*#__PURE__*/React.createElement("div", {
     className: "min-h-screen bg-gradient-to-b from-[#0c0c10] to-[#08080a] text-gray-200 flex flex-col font-['Inter'] pt-14 overflow-x-hidden"
   }, dbError && /*#__PURE__*/React.createElement("div", {
     className: "bg-red-900 text-red-200 p-2 text-center text-xs font-mono"
@@ -1200,7 +1261,7 @@ function MainDashboard({
     contentPlan: appData.contentPlan || [],
     rawText: appData.contentPlanRawText || '',
     saveAppData: saveAppData
-  }), activeTab === 'feed9' && /*#__PURE__*/React.createElement(FeedCampaignGenerator, null), activeTab === 'banner' && /*#__PURE__*/React.createElement(BannerGenerator, null))))));
+  }), activeTab === 'feed9' && /*#__PURE__*/React.createElement(FeedCampaignGenerator, null), activeTab === 'banner' && /*#__PURE__*/React.createElement(BannerGenerator, null)))))));
 }
 const CanvasEditor = memo(() => {
   const canvasRef = useRef(null);
@@ -1789,6 +1850,7 @@ const MenuPageGenerator = memo(({
   const canvasRef = useRef();
   const brand = useContext(BrandContext);
   const plan = useContext(PlanContext);
+  const incrementGenerationCount = useContext(GenerationStatsContext);
   // Reguler dapat 2 gaya (Klasik & Elegan, Blok Warna Berani), Pro dapat semua 4.
   const FREE_MENU_STYLES = ['classic', 'colorBlock', 'heroGlow'];
   const lightingLastRef = useRef(-1);
@@ -1839,6 +1901,7 @@ const MenuPageGenerator = memo(({
     const lighting = pickVariant(LIGHTING_VARIANTS, lightingLastRef);
     const url = openChatGPTGenerate(`background suasana untuk halaman menu restoran/cafe ${brand.name}, ${styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, seluruh area kosong bersih tanpa teks/watermark/elemen desain apapun (akan ditambahkan daftar menu secara terpisah), format vertikal poster. ${lighting} ${QUALITY_PROHIBITION_LAYER}`);
     setLastGenUrl(url);
+    incrementGenerationCount();
   };
   const download = () => {
     const data = canvasRef.current.toDataURL('image/png');
@@ -3015,6 +3078,7 @@ const PromoGenerator = memo(() => {
   const brand = useContext(BrandContext);
   const settings = useContext(SettingsContext);
   const plan = useContext(PlanContext);
+  const incrementGenerationCount = useContext(GenerationStatsContext);
   const lightingLastRef = useRef(-1);
   const compositionLastRef = useRef(-1);
   const frameLastRef = useRef(-1);
@@ -3253,6 +3317,7 @@ const PromoGenerator = memo(() => {
     const url = openChatGPTGenerate(data.full);
     setLastGenUrl(url);
     rerollVisualVariant();
+    incrementGenerationCount();
   };
   const download = () => {
     const data = canvasRef.current.toDataURL('image/png');
@@ -3783,6 +3848,7 @@ const ContentPlanGenerator = memo(({
   const brand = useContext(BrandContext);
   const settings = useContext(SettingsContext);
   const plan = useContext(PlanContext);
+  const incrementGenerationCount = useContext(GenerationStatsContext);
   const MAX_PHOTO_LIBRARY = isPro(plan) ? 10 : 3;
   const canvasRef = useRef();
   const rawTextSaveTimer = useRef(null);
@@ -3978,6 +4044,7 @@ const ContentPlanGenerator = memo(({
       const hintClause = globalAiHint.trim() ? `. [Arahan AI]: ${globalAiHint.trim()}` : '';
       const url = openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}${hintClause}. ${QUALITY_PROHIBITION_LAYER}`);
       setLastGenUrl(url);
+      incrementGenerationCount();
     } finally {
       setDayGenBusy(false);
     }
@@ -4279,6 +4346,7 @@ const FeedCampaignGenerator = memo(() => {
   const brand = useContext(BrandContext);
   const settings = useContext(SettingsContext);
   const plan = useContext(PlanContext);
+  const incrementGenerationCount = useContext(GenerationStatsContext);
   const MAX_PHOTO_LIBRARY = isPro(plan) ? 10 : 3;
   const canvasRef = useRef();
   const activeRole = FEED_ROLES.find(r => r.id === selectedSlot);
@@ -4303,6 +4371,7 @@ const FeedCampaignGenerator = memo(() => {
       const hintClause = globalAiHint.trim() ? `. [Arahan AI]: ${globalAiHint.trim()}` : '';
       const url = openChatGPTGenerate(`${basePrompt}${hintClause}`);
       setLastGenUrl(url);
+      incrementGenerationCount();
     } finally {
       setSlotGenBusy(false);
     }
@@ -4630,6 +4699,7 @@ const FeedCampaignGenerator = memo(() => {
 const BannerGenerator = memo(() => {
   const plan = useContext(PlanContext);
   const brand = useContext(BrandContext);
+  const incrementGenerationCount = useContext(GenerationStatsContext);
   const [size, setSize] = useState('3x1');
   const [purpose, setPurpose] = useState('promo');
   const [fields, setFields] = useState({
@@ -4730,6 +4800,7 @@ const BannerGenerator = memo(() => {
     const data = buildBannerPromptData();
     const url = openChatGPTGenerate(data.full);
     setLastGenUrl(url);
+    incrementGenerationCount();
   };
   const download = () => {
     const data = canvasRef.current.toDataURL('image/png');
