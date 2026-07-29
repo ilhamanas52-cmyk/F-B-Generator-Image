@@ -3030,7 +3030,7 @@ const MenuPageCanvas = forwardRef(({
     };
   }, [brand, backgroundImage, items, styleConfig, renderScale]);
   return /*#__PURE__*/React.createElement("div", {
-    className: "bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] rounded-xl p-4 max-w-full overflow-x-auto mt-4 shadow-lg shadow-black/30"
+    className: "bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] rounded-xl p-2 sm:p-4 max-w-full overflow-x-auto mt-4 shadow-lg shadow-black/30"
   }, /*#__PURE__*/React.createElement("canvas", {
     ref: canvasRef,
     className: "w-full h-auto bg-white"
@@ -3478,7 +3478,7 @@ const PromoGenerator = memo(() => {
       if (productPhotoInputRef.current) productPhotoInputRef.current.value = '';
     },
     "aria-label": "Hapus foto produk asli",
-    className: "absolute top-1.5 right-1.5 w-7 h-7 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-500 text-white text-base font-bold shadow-lg border-2 border-white/80"
+    className: "absolute top-1 right-1 w-9 h-9 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-500 text-white text-lg font-bold shadow-lg border-2 border-white/80"
   }, "\u2715")), visionBusy === 'product' && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-blue-400 animate-pulse"
   }, "Menganalisis foto\u2026"), productPhotoDesc && /*#__PURE__*/React.createElement("p", {
@@ -3518,7 +3518,7 @@ const PromoGenerator = memo(() => {
       if (styleRefPhotoInputRef.current) styleRefPhotoInputRef.current.value = '';
     },
     "aria-label": "Hapus foto referensi gaya",
-    className: "absolute top-1.5 right-1.5 w-7 h-7 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-500 text-white text-base font-bold shadow-lg border-2 border-white/80"
+    className: "absolute top-1 right-1 w-9 h-9 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-500 text-white text-lg font-bold shadow-lg border-2 border-white/80"
   }, "\u2715")), visionBusy === 'style' && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-blue-400 animate-pulse"
   }, "Menganalisis foto\u2026"), stylePhotoDesc && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
@@ -3801,7 +3801,7 @@ const CompositionCanvas = forwardRef(({
     };
   }, [brand, productImage, width, height, showLogo, useGeometricScale]);
   return /*#__PURE__*/React.createElement("div", {
-    className: "bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] rounded-xl p-4 max-w-full overflow-x-auto mt-4 shadow-lg shadow-black/30"
+    className: "bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] rounded-xl p-2 sm:p-4 max-w-full overflow-x-auto mt-4 shadow-lg shadow-black/30"
   }, /*#__PURE__*/React.createElement("canvas", {
     ref: canvasRef,
     width: width,
@@ -4122,7 +4122,7 @@ const ContentPlanGenerator = memo(({
     type: "button",
     onClick: () => removeLibraryPhoto(p.id),
     "aria-label": "Hapus foto",
-    className: "absolute -top-1.5 -right-1.5 w-5 h-5 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow border-2 border-white/80"
+    className: "absolute -top-2 -right-2 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-500 text-white text-sm font-bold shadow border-2 border-white/80"
   }, "\u2715"), p.analyzing && /*#__PURE__*/React.createElement("div", {
     className: "absolute inset-0 flex items-center justify-center bg-black/60 rounded text-[9px] text-blue-300 animate-pulse text-center p-0.5"
   }, "Menganalisis\u2026"), p.error && /*#__PURE__*/React.createElement("div", {
@@ -4612,7 +4612,7 @@ const FeedCampaignGenerator = memo(() => {
     type: "button",
     onClick: () => removeLibraryPhoto(p.id),
     "aria-label": "Hapus foto",
-    className: "absolute -top-1.5 -right-1.5 w-5 h-5 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow border-2 border-white/80"
+    className: "absolute -top-2 -right-2 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-500 text-white text-sm font-bold shadow border-2 border-white/80"
   }, "\u2715"), p.analyzing && /*#__PURE__*/React.createElement("div", {
     className: "absolute inset-0 flex items-center justify-center bg-black/60 rounded text-[9px] text-blue-300 animate-pulse text-center p-0.5"
   }, "Menganalisis\u2026"), p.error && /*#__PURE__*/React.createElement("div", {
