@@ -293,7 +293,14 @@ const DESIGN_GUIDELINE_PROMPT = "gunakan kaidah desain grafis yang kontras dan k
 // Penjaga bentuk autentik — supaya detail makanan/minuman (butir
 // nasi, helai mie, buih, dll) tidak berubah bentuk jadi generik,
 // walau boleh menggumpal/menumpuk secara alami.
-const SHAPE_AUTHENTICITY_GUARD = "Sebelum menggambar, eksplorasi dan cermati dulu bentuk fisik AUTENTIK dari hidangan/minuman yang diminta secara spesifik — bukan interpretasi generik bergaya ilustrasi AI pada umumnya. Prinsip utama: TIDAK BOLEH ADA DISTORSI BENTUK pada elemen individual apapun (butir nasi, helai mie, potongan buah, es batu, gelembung/buih, serat, dll). Elemen-elemen itu BOLEH menggumpal, saling menempel, tumpang tindih, atau tersusun rapat (itu wajar dan alami) — TAPI bentuk asli tiap elemen individual harus tetap konsisten, tidak berubah hanya karena menggumpal atau bertumpuk. SELAIN bentuk, KEADAAN OLAHAN/TEKSTUR tiap elemen juga harus autentik sesuai cara masaknya — nasi yang dimasak (termasuk nasi sushi) harus terlihat MATANG: sedikit lengket saling menempel, agak mengkilap/lembap, BUKAN kering/terpisah seperti beras mentah. Prinsip yang sama berlaku untuk bahan matang lainnya (mie matang harus terlihat kenyal-mengkilap bukan kaku-kering, daging matang harus terlihat juicy bukan kering, sayur rebus/tumis harus terlihat segar-lembap bukan layu-kering).";
+const SHAPE_AUTHENTICITY_GUARD = "Sebelum menggambar, cermati dulu bentuk fisik AUTENTIK dari hidangan/minuman yang diminta secara spesifik — bukan interpretasi generik bergaya ilustrasi AI pada umumnya. TIDAK BOLEH ADA DISTORSI BENTUK pada elemen individual apapun (butir nasi, helai mie, potongan buah, es batu, gelembung/buih, serat, dll) — elemen BOLEH menggumpal/menempel/tumpang tindih (itu wajar), TAPI bentuk asli tiap elemen individual harus tetap konsisten. SELAIN bentuk, KEADAAN OLAHAN/TEKSTUR juga harus autentik sesuai cara masaknya: nasi matang (termasuk nasi sushi) harus terlihat lengket-mengkilap-lembap, BUKAN kering/terpisah seperti beras mentah; mie matang harus kenyal-mengkilap bukan kaku-kering; daging matang harus juicy bukan kering; sayur rebus/tumis harus segar-lembap bukan layu-kering.";
+
+// Recap singkat di akhir prompt — prinsip GENERIK berlaku untuk semua
+// jenis makanan/minuman apa pun (bukan cuma 1 bahan tertentu seperti
+// contoh nasi sushi), sengaja DIULANG di posisi akhir supaya tidak
+// tenggelam di antara banyak instruksi lain (SHAPE_AUTHENTICITY_GUARD
+// sendiri cuma disisipkan 1x di paling awal prompt).
+const SHAPE_AUTHENTICITY_RECAP = "Sekali lagi ditegaskan: bentuk & tekstur SEMUA elemen makanan/minuman di gambar ini WAJIB autentik sesuai kondisi aslinya (matang/segar/sesuai jenisnya) — berlaku untuk APA PUN jenis makanan/minumannya, tidak terbatas ke satu bahan tertentu. JANGAN ada elemen yang terlihat mentah/kering/palsu/plastik kalau seharusnya matang/segar/lembap.";
 
 // SOP kebersihan — otomatis disisipkan setiap kali bank momen aksi
 // yang dipilih melibatkan tangan manusia (bukan pilihan, demi
@@ -521,7 +528,11 @@ const buildEnrichedPromptExtras = (brand, {
     // "dituang saus") bertabrakan dengan aksi asli di foto referensi
     // (mis. "melayang"). Sekarang aksi acak TIDAK PERNAH disisipkan
     // sama sekali kalau respectStyleRef aktif.
-    parts.push('PENTING \u2014 TARGET KEMIRIPAN 98%: Instruksi di atas SUDAH menyertakan deskripsi gaya visual, gerakan/aksi, DAN orientasi/arah kemiringan (pencahayaan, komposisi, sudut kamera, palet warna, gerakan seperti melayang/dituang/jatuh, dan arah orientasi objek persis apa adanya) dari foto referensi yang diberikan user. Foto referensi ini SENGAJA dipilih user karena ekspresinya TEGAS, BERANI, dan JELAS \u2014 JANGAN dilembutkan, JANGAN ragu-ragu, JANGAN kompromi/setengah-setengah, JANGAN menghasilkan versi "aman" yang lebih halus dari referensi. Buat SEDEKAT MUNGKIN (98%) identik dengan referensi tersebut untuk pencahayaan, komposisi, sudut pengambilan gambar, palet warna, gerakan/aksi, ORIENTASI/ARAH (JANGAN dibalik atau diputar ke arah lain \u2014 ikuti arah kemiringan/orientasi apa adanya di referensi), JUMLAH & SUSUNAN elemen dalam komposisi, ekspresi, DAN tingkat keberanian/ketegasan visualnya \u2014 JANGAN gunakan variasi komposisi/sudut/warna/aksi/orientasi/jumlah lain di luar yang sudah dijelaskan di sana, dan JANGAN memakai warna brand default. SATU-SATUNYA yang boleh beda adalah wujud/isi produknya sendiri, yang WAJIB 100% sesuai produk asli yang diminta di atas \u2014 dan seluruh elemen gambar lain (bahan pendukung, garnish, properti) WAJIB relate/masuk akal dengan produk asli itu, JANGAN meminjam atau menambahkan bahan/garnish/elemen benda apa pun dari foto referensi yang tidak relevan dengan produk asli ini. CATATAN: kalau ada foto produk asli yang juga dilampirkan terpisah, foto itu HANYA acuan bentuk/warna/tekstur produk itu sendiri (misal 1 potongan tunggal) \u2014 BUKAN acuan jumlah atau susunan keseluruhan komposisi, yang tetap harus ikut foto referensi gaya.');
+    parts.push('PENTING \u2014 TARGET KEMIRIPAN 98%: instruksi di atas SUDAH menyertakan deskripsi gaya visual, gerakan/aksi, jumlah objek, DAN orientasi/arah kemiringan dari foto referensi yang diberikan user.');
+    parts.push('Foto referensi ini SENGAJA dipilih user karena ekspresinya TEGAS, BERANI, dan JELAS \u2014 JANGAN dilembutkan, JANGAN ragu-ragu, JANGAN kompromi/setengah-setengah, JANGAN menghasilkan versi "aman" yang lebih halus dari referensi.');
+    parts.push('Buat SEDEKAT MUNGKIN (98%) identik dengan referensi tersebut untuk: pencahayaan, komposisi, sudut pengambilan gambar, PALET WARNA, gerakan/aksi, ORIENTASI/ARAH (jangan dibalik/diputar ke arah lain), JUMLAH & SUSUNAN elemen dalam komposisi (ikuti angka persis yang sudah disebutkan di atas), ekspresi, dan tingkat keberanian/ketegasan visualnya \u2014 JANGAN gunakan variasi lain di luar yang sudah dijelaskan, dan JANGAN memakai warna brand default.');
+    parts.push('SATU-SATUNYA yang boleh beda adalah wujud/isi produknya sendiri, yang WAJIB 100% sesuai produk asli yang diminta di atas \u2014 seluruh elemen gambar lain (bahan pendukung, garnish, properti) WAJIB relate/masuk akal dengan produk asli itu, JANGAN meminjam elemen benda dari foto referensi yang tidak relevan dengan produk asli.');
+    parts.push('CATATAN: kalau ada foto produk asli yang juga dilampirkan terpisah, foto itu HANYA acuan bentuk/warna/tekstur produk itu sendiri (misal 1 potongan tunggal) \u2014 BUKAN acuan jumlah/susunan keseluruhan komposisi, yang tetap ikut foto referensi gaya.');
   } else {
     parts.push(lighting, composition, frameDepthContrast);
     if (action) {
@@ -544,6 +555,12 @@ const buildEnrichedPromptExtras = (brand, {
     parts.push('Kalau ada teks (dari foto referensi atau diminta eksplisit), ikuti gaya tipografi yang terlihat di foto referensi — JANGAN memaksakan font brand default.');
   }
   parts.push(QUALITY_PROHIBITION_LAYER);
+  if (respectStyleRef) {
+    // Recap singkat KHUSUS WARNA, sengaja ditaruh paling akhir (bukan
+    // ditumpuk di blok 98% yang panjang) supaya jadi kalimat penutup
+    // yang tidak tenggelam — sama pola dengan SHAPE_AUTHENTICITY_RECAP.
+    parts.push('Sekali lagi ditegaskan: WARNA di gambar ini WAJIB 98% identik dengan palet warna foto referensi yang sudah dijelaskan di atas — JANGAN kembali ke warna bias/umum AI sendiri, JANGAN memakai warna brand default.');
+  }
   return parts.join(' ');
 };
 
@@ -820,7 +837,7 @@ const buildFeedSlotPrompt = (brand, brief, role, style, visionHint) => {
     action: null
   });
   const visionClause = visionHint ? `, [Foto acuan]: ${visionHint}` : '';
-  return `${SHAPE_AUTHENTICITY_GUARD} Foto promosi Instagram untuk produk: ${brief.productName || 'produk ini'}, ${role.hint}${contentHint}, ${brandHint}${visionClause}, format persegi (1:1) untuk feed Instagram. ${enrichedExtras} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
+  return `${SHAPE_AUTHENTICITY_GUARD} Foto promosi Instagram untuk produk: ${brief.productName || 'produk ini'}, ${role.hint}${contentHint}, ${brandHint}${visionClause}, format persegi (1:1) untuk feed Instagram. ${enrichedExtras} ${NO_UNSOLICITED_TEXT_CLAUSE} ${SHAPE_AUTHENTICITY_RECAP}`;
 };
 const buildContentPlanPrompt = (brand, themes) => {
   const themeList = themes.length > 0 ? themes.join(', ') : 'bebas sesuai kreativitas, variatif';
@@ -3078,7 +3095,7 @@ const PromoGenerator = memo(() => {
     setVisionBusy('style');
     setStylePhotoDesc('');
     try {
-      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA gaya visual DAN gerakan/aksi foto ini untuk keperluan prompt AI image generation: komposisi, sudut pengambilan, pencahayaan, palet warna, mood/suasana, gerakan/aksi yang terlihat kalau ada (misalnya elemen melayang, jatuh, dituang, mengepul, dipotong — sebutkan gerakannya secara abstrak), dan ORIENTASI/ARAH KEMIRINGAN objek utama persis apa adanya seperti yang tampak di foto (condong/miring ke arah mana persisnya) — sebutkan arahnya sesuai yang benar-benar terlihat, jangan diabaikan. JANGAN sebutkan jenis makanan/minuman, bahan, buah, garnish, atau objek spesifik apa pun yang terlihat di foto ini — foto referensi ini kemungkinan besar produk yang BERBEDA dari produk yang akan dibuat nanti, jadi fokus HANYA pada teknik visual, gerakan, dan orientasi secara abstrak, JANGAN sebutkan wujud bendanya. JANGAN sebutkan, kutip, atau tuliskan ulang teks/tulisan apa pun yang terlihat di foto ini walau ada — abaikan total semua teks di foto. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
+      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan gaya visual DAN gerakan/aksi foto ini untuk keperluan prompt AI image generation. Sebutkan: komposisi, sudut pengambilan, pencahayaan, palet warna, mood/suasana. Sebutkan gerakan/aksi yang terlihat kalau ada (misalnya elemen melayang, jatuh, dituang, mengepul, dipotong — sebutkan gerakannya secara abstrak). HITUNG dan SEBUTKAN JUMLAH PERSIS objek utama yang terlihat (misal: "terlihat 6 potongan melayang") — jangan pakai kata ambigu seperti "beberapa/banyak", wajib angka pasti. Sebutkan ORIENTASI/ARAH KEMIRINGAN objek utama persis apa adanya seperti yang tampak di foto (condong/miring ke arah mana persisnya), jangan diabaikan. JANGAN sebutkan jenis makanan/minuman, bahan, buah, garnish, atau objek spesifik apa pun yang terlihat di foto ini — foto referensi ini kemungkinan besar produk yang BERBEDA dari produk yang akan dibuat nanti, jadi fokus HANYA pada teknik visual, gerakan, jumlah, dan orientasi secara abstrak, JANGAN sebutkan wujud bendanya. JANGAN sebutkan, kutip, atau tuliskan ulang teks/tulisan apa pun yang terlihat di foto ini walau ada — abaikan total semua teks di foto. Jawab dalam 3-5 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
       setStylePhotoDesc(text);
       setVisionAnalyzedForProduct(adCopyDraft.productName.trim());
     } catch (e) {
@@ -3139,7 +3156,7 @@ const PromoGenerator = memo(() => {
     });
     const negativeInstruction = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
     const designGuideline = styleRefApplied ? '' : ` ${DESIGN_GUIDELINE_PROMPT}.`;
-    const full = `${SHAPE_AUTHENTICITY_GUARD} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${combinedHint ? ', ' + combinedHint : ''}${textInstruction}${logoSpaceInstruction}.${designGuideline} ${enrichedExtras} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction}`;
+    const full = `${SHAPE_AUTHENTICITY_GUARD} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${combinedHint ? ', ' + combinedHint : ''}${textInstruction}${logoSpaceInstruction}.${designGuideline} ${enrichedExtras} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction} ${SHAPE_AUTHENTICITY_RECAP}`;
     return {
       productSubject,
       textParts,
@@ -3248,7 +3265,7 @@ const PromoGenerator = memo(() => {
     // prompt (bukan cuma sekali di tengah), supaya lebih diprioritaskan.
     const visionEmphasis = data.visionHints.length > 0 ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${data.visionHints.join(' ')}.` : '';
     const visionReminder = data.visionHints.length > 0 ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas (warna wadah dan ada/tidaknya es harus sama persis) di setiap frame video, jangan mengarang variasi baru.` : '';
-    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_INTRO} ${data.full}${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder} ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_OUTRO}`;
+    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_INTRO} ${data.full}${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder} ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_OUTRO} ${SHAPE_AUTHENTICITY_RECAP}`;
     try {
       await navigator.clipboard.writeText(videoPrompt);
     } catch (e) {}
@@ -3944,7 +3961,7 @@ const ContentPlanGenerator = memo(({
       const visionClause = matched ? `. [Foto acuan]: ${matched.detail}` : '';
       const hintClause = globalAiHint.trim() ? `. [Arahan AI]: ${globalAiHint.trim()}` : '';
       const negativeClause = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
-      const url = openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}${hintClause}. ${QUALITY_PROHIBITION_LAYER} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeClause}`);
+      const url = openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}${hintClause}. ${QUALITY_PROHIBITION_LAYER} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeClause} ${SHAPE_AUTHENTICITY_RECAP}`);
       setLastGenUrl(url);
     } finally {
       setDayGenBusy(false);
@@ -3963,7 +3980,7 @@ const ContentPlanGenerator = memo(({
       const visionEmphasis = matched ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${matched.detail}.` : '';
       const visionReminder = matched ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas di setiap frame video, jangan mengarang variasi baru.` : '';
       const negativeClauseVideo = negativePrompt.trim() ? ` Hindari: ${negativePrompt.trim()}.` : '';
-      const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_INTRO} ${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}.${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder} ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_OUTRO}${negativeClauseVideo}`;
+      const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_INTRO} ${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}.${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder} ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_OUTRO}${negativeClauseVideo} ${SHAPE_AUTHENTICITY_RECAP}`;
       try {
         await navigator.clipboard.writeText(videoPrompt);
       } catch (e) {}
@@ -4752,7 +4769,7 @@ const BannerGenerator = memo(() => {
     const logoSpaceInstruction = `. Sisakan ruang kosong bersih di ${posPhrase} gambar untuk logo brand (ditempel terpisah)`;
     const photoInstruction = productPhotoDesc ? `. Foto asli produk sebagai acuan bentuk (JANGAN mengarang bentuk baru): ${productPhotoDesc}` : '';
     const negativeInstruction = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
-    const full = `Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}${textInstruction}${photoInstruction}${logoSpaceInstruction}. ${BANNER_DESIGN_GUIDELINE} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction}`;
+    const full = `${SHAPE_AUTHENTICITY_GUARD} Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}${textInstruction}${photoInstruction}${logoSpaceInstruction}. ${BANNER_DESIGN_GUIDELINE} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction} ${SHAPE_AUTHENTICITY_RECAP}`;
     return {
       productSubject: fields.productName.trim(),
       sizeLabel: sizeCfg.label,
