@@ -586,6 +586,29 @@ const BANNER_PURPOSES = {
   }
 };
 
+// Dropdown BARU "Pola Desain" — terpisah dari "Tujuan Banner" di atas,
+// keduanya dikombinasikan bebas (Tujuan = ARAH ISI/PESAN, Pola Desain
+// = STRUKTUR TATA LETAK visualnya).
+const BANNER_PATTERNS = {
+  grid: {
+    label: 'Grid Rapi & Simetris',
+    styleHint: 'tata letak GRID RAPI & SIMETRIS — elemen tersusun dalam garis bantu yang seimbang kiri-kanan/atas-bawah, kesan terstruktur, rapi, dan mudah dibaca'
+  },
+  fotoBesar: {
+    label: 'Foto Besar Dominan',
+    styleHint: 'tata letak FOTO BESAR DOMINAN — 1 foto produk/suasana mengisi 60-80% bidang gambar, teks jadi overlay minim di salah satu sisi saja'
+  },
+  minimalis: {
+    label: 'Minimalis & Clean',
+    styleHint: 'tata letak MINIMALIS & CLEAN — banyak ruang kosong bersih, elemen visual sedikit tapi tegas, kesan premium dan tenang'
+  },
+  kolase: {
+    label: 'Kolase Dinamis',
+    styleHint: 'tata letak KOLASE DINAMIS — beberapa foto/elemen kecil disusun tumpang-tindih dan sedikit miring, kesan energik dan penuh gerakan'
+  }
+};
+
+
 // Panduan desain khusus BANNER FISIK (beda dari DESIGN_GUIDELINE_PROMPT
 // yang dipakai tab Promo — itu untuk feed Instagram/FB, ini untuk
 // dibaca dari jarak 2-5 meter, kadang dari kendaraan yang bergerak).
@@ -758,7 +781,7 @@ const FEED_ROLES = [{
   label: 'CTA 2',
   hint: 'ajakan order penutup campaign, gaya berbeda dari CTA 1, kesan closing/urgency'
 }];
-const buildFeedSlotPrompt = (brand, brief, role, variantRefs, visionHint) => {
+const buildFeedSlotPrompt = (brand, brief, role, style, visionHint) => {
   const brandHint = `gaya sesuai brand ${brand.name}`;
   let contentHint = '';
   if (role.label.startsWith('Fitur') && brief.fitur) contentHint = `, tonjolkan keunggulan: ${brief.fitur}`;
@@ -766,13 +789,14 @@ const buildFeedSlotPrompt = (brand, brief, role, variantRefs, visionHint) => {
   if (role.label === 'Promo' && brief.hargaPromo) contentHint = `, sertakan teks promo/diskon mencolok: "${brief.hargaPromo}"`;
   if (role.label.startsWith('Testimoni') && brief.testimoni) contentHint = `, sertakan kutipan testimoni di gambar: "${brief.testimoni}"`;
   if (role.label.startsWith('CTA') && brief.cta) contentHint = `, sertakan teks CTA di gambar: "${brief.cta}"`;
-  const lighting = pickVariant(LIGHTING_VARIANTS, variantRefs.lightingRef);
-  const composition = pickVariant(COMPOSITION_VARIANTS, variantRefs.compositionRef);
-  const frameDepthContrast = pickVariant(FRAME_DEPTH_CONTRAST_VARIANTS, variantRefs.frameRef);
+  // "style" (lighting/composition/frameDepthContrast) SUDAH ditentukan
+  // di luar fungsi ini (dikunci 1x oleh FeedCampaignGenerator, dipakai
+  // sama untuk semua 9 slot) — supaya seluruh feed terasa 1 keluarga
+  // visual yang senada, bukan diacak ulang tiap slot.
   const enrichedExtras = buildEnrichedPromptExtras(brand, {
-    lighting,
-    composition,
-    frameDepthContrast,
+    lighting: style.lighting,
+    composition: style.composition,
+    frameDepthContrast: style.frameDepthContrast,
     action: null
   });
   const visionClause = visionHint ? `, [Foto acuan]: ${visionHint}` : '';
@@ -794,6 +818,7 @@ Konsep: [konsep singkat 1 kalimat]
 Ide Konten: [penjelasan ide, 1-2 kalimat]
 Konsep Foto/Desain: [deskripsi visual singkat]
 Prompt Gambar: [prompt siap pakai untuk generate gambar AI, deskriptif, dalam Bahasa Indonesia]
+Caption Instagram: [teks caption siap posting, mulai dengan hook menarik di kalimat pertama, 2-4 kalimat, gaya menyesuaikan tema hari itu (Promo=mendesak/CTA kuat, Testimoni=hangat/personal, Tips=informatif, dst), diikuti 5 hashtag relevan ke tema & brand di baris yang sama]
 ###
 
 Ulangi format persis ini untuk seluruh 30 hari, tiap hari diakhiri tanda "###".`;
@@ -815,7 +840,10 @@ const parseContentPlan = text => {
     // Prompt Gambar berhenti SEBELUM "HARI <angka>" berikutnya muncul
     // lagi — jaring pengaman supaya tidak "menelan" isi hari-hari
     // sesudahnya kalau kebetulan masih tergabung dalam 1 blok.
-    const promptMatch = block.match(/Prompt Gambar:\s*([\s\S]+?)(?=\n\s*HARI\s+\d+|$)/i);
+    const promptMatch = block.match(/Prompt Gambar:\s*([\s\S]+?)(?=\n\s*Caption Instagram:|\n\s*HARI\s+\d+|$)/i);
+    // Caption berhenti SEBELUM "HARI <angka>" berikutnya, sama seperti
+    // Prompt Gambar — jaring pengaman kalau AI lupa tanda "###".
+    const captionMatch = block.match(/Caption Instagram:\s*([\s\S]+?)(?=\n\s*HARI\s+\d+|$)/i);
     days.push({
       day: days.length + 1,
       // selalu urut sesuai posisi asli, bukan angka yang ditulis ChatGPT — supaya tidak pernah dobel
@@ -823,7 +851,8 @@ const parseContentPlan = text => {
       konsep: konsepMatch ? konsepMatch[1].trim() : '',
       ide: ideMatch ? ideMatch[1].trim() : '',
       konsepFoto: fotoMatch ? fotoMatch[1].trim() : '',
-      promptGambar: promptMatch ? promptMatch[1].trim() : ''
+      promptGambar: promptMatch ? promptMatch[1].trim() : '',
+      captionInstagram: captionMatch ? captionMatch[1].trim() : ''
     });
   });
   return days;
@@ -3691,6 +3720,15 @@ const ContentPlanGenerator = memo(({
   // seperti tab Promo).
   const [photoLibrary, setPhotoLibrary] = useState([]);
   const [dayGenBusy, setDayGenBusy] = useState(false);
+  const [captionCopied, setCaptionCopied] = useState(false);
+  const handleCopyCaption = async () => {
+    if (!activeDay || !activeDay.captionInstagram) return;
+    try {
+      await navigator.clipboard.writeText(activeDay.captionInstagram);
+      setCaptionCopied(true);
+      setTimeout(() => setCaptionCopied(false), 2000);
+    } catch (e) {}
+  };
   // Arahan AI GLOBAL (1 kotak, berlaku untuk SEMUA hari sekaligus) —
   // bukan per-hari, supaya tidak perlu isi 30 kotak terpisah.
   const [globalAiHint, setGlobalAiHint] = useState('');
@@ -4071,7 +4109,17 @@ const ContentPlanGenerator = memo(({
     className: "text-xs text-gray-400 leading-relaxed"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-amber-500 font-semibold"
-  }, "Prompt Gambar: "), activeDay.promptGambar), photoLibrary.length > 0 && /*#__PURE__*/React.createElement("p", {
+  }, "Prompt Gambar: "), activeDay.promptGambar), activeDay.captionInstagram && /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1.5 border border-[#242430] rounded p-2.5 bg-[#0A0A0D]"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-300 leading-relaxed whitespace-pre-wrap"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-amber-500 font-semibold"
+  }, "Caption Instagram: "), activeDay.captionInstagram), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: handleCopyCaption,
+    className: "text-[11px] font-semibold px-2.5 py-1 rounded bg-[#242430] text-gray-300 hover:bg-[#2f2f3d]"
+  }, captionCopied ? '\u2713 Tersalin!' : 'Salin Caption')), photoLibrary.length > 0 && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-gray-500"
   }, "Foto Arahan AI: ", photoLibrary.length, " foto tersedia, dicocokkan otomatis saat generate.")), /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateDayImage,
@@ -4190,6 +4238,12 @@ const FeedCampaignGenerator = memo(() => {
   const lightingLastRef = useRef(-1);
   const compositionLastRef = useRef(-1);
   const frameLastRef = useRef(-1);
+  // Gaya visual (cahaya/komposisi/frame) DIKUNCI sekali di generate
+  // PERTAMA, lalu dipakai sama untuk semua 9 slot berikutnya — supaya
+  // seluruh feed terasa 1 keluarga visual yang senada (bukan diacak
+  // ulang tiap slot seperti sebelumnya).
+  const [lockedVisualStyle, setLockedVisualStyle] = useState(null);
+  const resetVisualStyle = () => setLockedVisualStyle(null);
   const handleGenerateSlot = async () => {
     if (!brief.productName) {
       setGenError('Isi Nama Produk dulu.');
@@ -4198,13 +4252,18 @@ const FeedCampaignGenerator = memo(() => {
     setGenError('');
     setSlotGenBusy(true);
     try {
+      let style = lockedVisualStyle;
+      if (!style) {
+        style = {
+          lighting: pickVariant(LIGHTING_VARIANTS, lightingLastRef),
+          composition: pickVariant(COMPOSITION_VARIANTS, compositionLastRef),
+          frameDepthContrast: pickVariant(FRAME_DEPTH_CONTRAST_VARIANTS, frameLastRef)
+        };
+        setLockedVisualStyle(style);
+      }
       const topicText = `${activeRole.label} ${activeRole.hint} ${brief.productName}`;
       const matched = await pickBestMatchingPhoto(settings.geminiApiKey, topicText, photoLibrary);
-      const basePrompt = buildFeedSlotPrompt(brand, brief, activeRole, {
-        lightingRef: lightingLastRef,
-        compositionRef: compositionLastRef,
-        frameRef: frameLastRef
-      }, matched ? matched.detail : null);
+      const basePrompt = buildFeedSlotPrompt(brand, brief, activeRole, style, matched ? matched.detail : null);
       const hintClause = globalAiHint.trim() ? `. [Arahan AI]: ${globalAiHint.trim()}` : '';
       const negativeClause = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
       const url = openChatGPTGenerate(`${basePrompt}${hintClause}${negativeClause}`);
@@ -4467,7 +4526,16 @@ const FeedCampaignGenerator = memo(() => {
     className: "border border-[#222226] rounded p-4 space-y-2 mt-2"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-sm font-bold text-white"
-  }, "Slot ", activeRole.id, " — ", activeRole.label), /*#__PURE__*/React.createElement("label", {
+  }, "Slot ", activeRole.id, " — ", activeRole.label), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between gap-2 bg-[#0A0A0D] border border-[#222226] rounded p-2"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-gray-400"
+  }, lockedVisualStyle ? '\u2713 Gaya visual sudah dikunci \u2014 semua slot pakai gaya yang sama' : 'Gaya visual belum dikunci \u2014 akan ditentukan saat slot pertama di-generate'), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: resetVisualStyle,
+    disabled: !lockedVisualStyle,
+    className: "text-[11px] font-semibold px-2 py-1 rounded bg-[#242430] text-gray-300 hover:bg-[#2f2f3d] disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+  }, "Acak Ulang Gaya Visual")), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Arahan AI (opsional, berlaku untuk semua 9 slot)"), /*#__PURE__*/React.createElement("textarea", {
     className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded text-sm",
@@ -4525,6 +4593,7 @@ const BannerGenerator = memo(() => {
   const settings = useContext(SettingsContext);
   const [size, setSize] = useState('3x1');
   const [purpose, setPurpose] = useState('promo');
+  const [pattern, setPattern] = useState('grid');
   const [fields, setFields] = useState({
     productName: '',
     headline: '',
@@ -4647,6 +4716,7 @@ const BannerGenerator = memo(() => {
     if (!fields.productName || !fields.productName.trim()) return null;
     const sizeCfg = BANNER_SIZES[size];
     const purposeCfg = BANNER_PURPOSES[purpose];
+    const patternCfg = BANNER_PATTERNS[pattern];
     const posKey = brand.logoPosition || 'bottom-right';
     const posPhrase = LOGO_POSITIONS[posKey].promptPhrase;
     const textParts = [];
@@ -4662,11 +4732,12 @@ const BannerGenerator = memo(() => {
     const logoSpaceInstruction = `. Sisakan ruang kosong bersih di ${posPhrase} gambar untuk logo brand (ditempel terpisah)`;
     const photoInstruction = productPhotoDesc ? `. Foto asli produk sebagai acuan bentuk (JANGAN mengarang bentuk baru): ${productPhotoDesc}` : '';
     const negativeInstruction = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
-    const full = `Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}${textInstruction}${photoInstruction}${logoSpaceInstruction}. ${BANNER_DESIGN_GUIDELINE} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction}`;
+    const full = `Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}${textInstruction}${photoInstruction}${logoSpaceInstruction}. ${BANNER_DESIGN_GUIDELINE} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction}`;
     return {
       productSubject: fields.productName.trim(),
       sizeLabel: sizeCfg.label,
       purposeLabel: purposeCfg.label,
+      patternLabel: patternCfg.label,
       textParts,
       hasProductPhoto: !!productPhotoDesc,
       full
@@ -4711,6 +4782,15 @@ const BannerGenerator = memo(() => {
     value: purpose,
     onChange: e => setPurpose(e.target.value)
   }, Object.entries(BANNER_PURPOSES).map(([key, val]) => /*#__PURE__*/React.createElement("option", {
+    key: key,
+    value: key
+  }, val.label))), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Pola Desain"), /*#__PURE__*/React.createElement("select", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
+    value: pattern,
+    onChange: e => setPattern(e.target.value)
+  }, Object.entries(BANNER_PATTERNS).map(([key, val]) => /*#__PURE__*/React.createElement("option", {
     key: key,
     value: key
   }, val.label))), /*#__PURE__*/React.createElement("label", {
@@ -4828,7 +4908,11 @@ const BannerGenerator = memo(() => {
     className: "text-amber-500 font-semibold"
   }, "Tujuan: "), /*#__PURE__*/React.createElement("span", {
     className: "text-gray-300"
-  }, promptData.purposeLabel)), promptData.textParts.length > 0 && /*#__PURE__*/React.createElement("p", {
+  }, promptData.purposeLabel), " \u2022 ", /*#__PURE__*/React.createElement("span", {
+    className: "text-amber-500 font-semibold"
+  }, "Pola: "), /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-300"
+  }, promptData.patternLabel)), promptData.textParts.length > 0 && /*#__PURE__*/React.createElement("p", {
     className: "text-sm"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-amber-500 font-semibold"
