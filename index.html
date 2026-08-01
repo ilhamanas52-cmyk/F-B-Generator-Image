@@ -532,9 +532,17 @@ const buildEnrichedPromptExtras = (brand, {
   if (!respectStyleRef) {
     const colorLock = `Palet warna WAJIB sesuai brand — ${brand.primaryColor} untuk aksen tegas, ${brand.secondaryColor} untuk kontras kuat, ${brand.accentColor} untuk menonjolkan elemen promo/CTA, gunakan PERSIS kode HEX ini (bukan pendekatan warna lain).`;
     parts.push(colorLock);
+    // Font brand (typography) HANYA dipaksa saat mode "Pakai Brand
+    // Identity" — saat mode "Total Ikuti Gaya Foto Referensi" aktif,
+    // tombolnya sendiri sudah menjanjikan "warna & font brand dilepas",
+    // jadi font TIDAK BOLEH ikut disisipkan di sini (sebelumnya bocor,
+    // selalu masuk apa pun mode-nya — bug yang sama persis seperti
+    // "Momen Aksi acak" yang sudah diperbaiki lebih dulu).
+    const typography = `Kalau ada teks, pakai gaya font tebal besar bergaya "${fh}" untuk judul/headline (dengan tekstur/finishing yang sesuai gaya font-nya, bukan flat polos), gaya bersih "${fb}" untuk isi. Badge (kalau ada) sedikit dimiringkan/dirotasi, jangan sejajar sempurna.`;
+    parts.push(typography);
+  } else {
+    parts.push('Kalau ada teks (dari foto referensi atau diminta eksplisit), ikuti gaya tipografi yang terlihat di foto referensi — JANGAN memaksakan font brand default.');
   }
-  const typography = `Kalau ada teks, pakai gaya font tebal besar bergaya "${fh}" untuk judul/headline (dengan tekstur/finishing yang sesuai gaya font-nya, bukan flat polos), gaya bersih "${fb}" untuk isi. Badge (kalau ada) sedikit dimiringkan/dirotasi, jangan sejajar sempurna.`;
-  parts.push(typography);
   parts.push(QUALITY_PROHIBITION_LAYER);
   return parts.join(' ');
 };
