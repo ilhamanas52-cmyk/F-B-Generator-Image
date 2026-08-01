@@ -31,7 +31,7 @@
 <script type="module">
 
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { getFirestore, doc, onSnapshot, setDoc, getDoc, deleteDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore';
 const { useState, useEffect, useRef, createContext, useContext, memo, forwardRef, useImperativeHandle } = React;
 
@@ -293,7 +293,7 @@ const DESIGN_GUIDELINE_PROMPT = "gunakan kaidah desain grafis yang kontras dan k
 // Penjaga bentuk autentik — supaya detail makanan/minuman (butir
 // nasi, helai mie, buih, dll) tidak berubah bentuk jadi generik,
 // walau boleh menggumpal/menumpuk secara alami.
-const SHAPE_AUTHENTICITY_GUARD = "Sebelum menggambar, eksplorasi dan cermati dulu bentuk fisik AUTENTIK dari hidangan/minuman yang diminta secara spesifik — bukan interpretasi generik bergaya ilustrasi AI pada umumnya. Prinsip utama: TIDAK BOLEH ADA DISTORSI BENTUK pada elemen individual apapun (butir nasi, helai mie, potongan buah, es batu, gelembung/buih, serat, dll). Elemen-elemen itu BOLEH menggumpal, saling menempel, tumpang tindih, atau tersusun rapat (itu wajar dan alami) — TAPI bentuk asli tiap elemen individual harus tetap konsisten, tidak berubah hanya karena menggumpal atau bertumpuk.";
+const SHAPE_AUTHENTICITY_GUARD = "Sebelum menggambar, eksplorasi dan cermati dulu bentuk fisik AUTENTIK dari hidangan/minuman yang diminta secara spesifik — bukan interpretasi generik bergaya ilustrasi AI pada umumnya. Prinsip utama: TIDAK BOLEH ADA DISTORSI BENTUK pada elemen individual apapun (butir nasi, helai mie, potongan buah, es batu, gelembung/buih, serat, dll). Elemen-elemen itu BOLEH menggumpal, saling menempel, tumpang tindih, atau tersusun rapat (itu wajar dan alami) — TAPI bentuk asli tiap elemen individual harus tetap konsisten, tidak berubah hanya karena menggumpal atau bertumpuk. SELAIN bentuk, KEADAAN OLAHAN/TEKSTUR tiap elemen juga harus autentik sesuai cara masaknya — nasi yang dimasak (termasuk nasi sushi) harus terlihat MATANG: sedikit lengket saling menempel, agak mengkilap/lembap, BUKAN kering/terpisah seperti beras mentah. Prinsip yang sama berlaku untuk bahan matang lainnya (mie matang harus terlihat kenyal-mengkilap bukan kaku-kering, daging matang harus terlihat juicy bukan kering, sayur rebus/tumis harus terlihat segar-lembap bukan layu-kering).";
 
 // SOP kebersihan — otomatis disisipkan setiap kali bank momen aksi
 // yang dipilih melibatkan tangan manusia (bukan pilihan, demi
@@ -308,7 +308,19 @@ const QUALITY_PROHIBITION_LAYER = "High quality, food/beverage photography edito
 // (Headline, CTA, harga, dll) tetap boleh muncul karena instruksi itu
 // disebutkan TERPISAH sebelum klausa ini; klausa ini hanya melarang
 // AI menambah sendiri apapun DI LUAR yang eksplisit diminta.
-const NO_UNSOLICITED_TEXT_CLAUSE = "JANGAN tambahkan teks, tulisan, watermark, logo, subtitle, atau karakter/simbol apa pun di luar yang secara eksplisit diminta di atas.";
+const NO_UNSOLICITED_TEXT_CLAUSE = "JANGAN tambahkan teks, tulisan, watermark, logo, subtitle, ikon, elemen UI/interface, stiker, atau karakter/simbol apa pun di luar yang secara eksplisit diminta di atas.";
+
+// Versi KHUSUS VIDEO — video generator (Veo) secara alami lebih rentan
+// menambah teks/watermark/ikon (dilatih dari jutaan video dunia nyata
+// yang penuh caption/logo stasiun/ikon UI). Klausa ini SENGAJA ditaruh
+// di 2 titik (awal & akhir prompt) dan menyebut secara eksplisit foto
+// referensi yang mungkin dilampirkan LANGSUNG di kolom chat Google Flow
+// (bukan cuma dijelaskan lewat teks) — karena kalau foto itu sendiri
+// ada watermark/teks/ikon, model bisa meniru apa yang "dilihatnya"
+// walau instruksi teks bilang sebaliknya.
+const NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_INTRO = "PENTING soal teks/ikon: JANGAN tambahkan teks, tulisan, watermark, logo, subtitle, ikon, elemen UI/interface, atau stiker apa pun di video ini di luar yang eksplisit diminta. Kalau ada foto referensi terlampir di chat ini: foto itu HANYA acuan komposisi, sudut, pencahayaan, gerakan, dan orientasi/kemiringan objek — ABAIKAN TOTAL teks, tulisan, watermark, logo, ikon, atau simbol apa pun yang mungkin terlihat DI DALAM foto referensi tersebut, JANGAN direproduksi ke video hasil, cukup tiru gaya visual & komposisinya saja.";
+const NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_OUTRO = "Sekali lagi ditegaskan: TIDAK ADA teks, tulisan, watermark, logo, ikon, elemen UI, atau stiker apa pun di video ini kecuali yang eksplisit diminta di atas — termasuk yang mungkin terlihat di foto referensi terlampir, JANGAN ditiru.";
+
 
 // Bank variasi PENCAHAYAAN (Lapis 2)
 const LIGHTING_VARIANTS = ["Pencahayaan jendela alami hangat, sinar keemasan masuk dari samping, menciptakan bayangan lembut dan highlight alami di permukaan produk.", "Pencahayaan studio 3 titik dramatis, key light dari kiri atas, fill light lembut, rim light tipis di tepi produk memisahkan objek dari latar gelap.", "Cahaya mendung lembut merata (soft overcast), tanpa bayangan tajam, warna natural tidak berlebihan kontras.", "Pencahayaan backlit dramatis dari belakang, siluet tipis di tepi objek, uap/embun terlihat jelas terkena cahaya."];
@@ -509,7 +521,7 @@ const buildEnrichedPromptExtras = (brand, {
     // "dituang saus") bertabrakan dengan aksi asli di foto referensi
     // (mis. "melayang"). Sekarang aksi acak TIDAK PERNAH disisipkan
     // sama sekali kalau respectStyleRef aktif.
-    parts.push('PENTING \u2014 TARGET KEMIRIPAN 98%: Instruksi di atas SUDAH menyertakan deskripsi gaya visual DAN gerakan/aksi (pencahayaan, komposisi, sudut kamera, palet warna, gerakan seperti melayang/dituang/jatuh kalau ada) dari foto referensi yang diberikan user. Foto referensi ini SENGAJA dipilih user karena ekspresinya TEGAS, BERANI, dan JELAS \u2014 JANGAN dilembutkan, JANGAN ragu-ragu, JANGAN kompromi/setengah-setengah, JANGAN menghasilkan versi "aman" yang lebih halus dari referensi. Buat SEDEKAT MUNGKIN (98%) identik dengan referensi tersebut untuk pencahayaan, komposisi, sudut pengambilan gambar, palet warna, gerakan/aksi, ekspresi, DAN tingkat keberanian/ketegasan visualnya \u2014 JANGAN gunakan variasi komposisi/sudut/warna/aksi lain di luar yang sudah dijelaskan di sana, dan JANGAN memakai warna brand default. SATU-SATUNYA yang boleh beda adalah wujud/isi produknya sendiri, yang WAJIB 100% sesuai produk asli yang diminta di atas \u2014 dan seluruh elemen gambar lain (bahan pendukung, garnish, properti) WAJIB relate/masuk akal dengan produk asli itu, JANGAN meminjam atau menambahkan bahan/garnish/elemen benda apa pun dari foto referensi yang tidak relevan dengan produk asli ini.');
+    parts.push('PENTING \u2014 TARGET KEMIRIPAN 98%: Instruksi di atas SUDAH menyertakan deskripsi gaya visual, gerakan/aksi, DAN orientasi/arah kemiringan (pencahayaan, komposisi, sudut kamera, palet warna, gerakan seperti melayang/dituang/jatuh, dan arah orientasi objek persis apa adanya) dari foto referensi yang diberikan user. Foto referensi ini SENGAJA dipilih user karena ekspresinya TEGAS, BERANI, dan JELAS \u2014 JANGAN dilembutkan, JANGAN ragu-ragu, JANGAN kompromi/setengah-setengah, JANGAN menghasilkan versi "aman" yang lebih halus dari referensi. Buat SEDEKAT MUNGKIN (98%) identik dengan referensi tersebut untuk pencahayaan, komposisi, sudut pengambilan gambar, palet warna, gerakan/aksi, ORIENTASI/ARAH (JANGAN dibalik atau diputar ke arah lain \u2014 ikuti arah kemiringan/orientasi apa adanya di referensi), JUMLAH & SUSUNAN elemen dalam komposisi, ekspresi, DAN tingkat keberanian/ketegasan visualnya \u2014 JANGAN gunakan variasi komposisi/sudut/warna/aksi/orientasi/jumlah lain di luar yang sudah dijelaskan di sana, dan JANGAN memakai warna brand default. SATU-SATUNYA yang boleh beda adalah wujud/isi produknya sendiri, yang WAJIB 100% sesuai produk asli yang diminta di atas \u2014 dan seluruh elemen gambar lain (bahan pendukung, garnish, properti) WAJIB relate/masuk akal dengan produk asli itu, JANGAN meminjam atau menambahkan bahan/garnish/elemen benda apa pun dari foto referensi yang tidak relevan dengan produk asli ini. CATATAN: kalau ada foto produk asli yang juga dilampirkan terpisah, foto itu HANYA acuan bentuk/warna/tekstur produk itu sendiri (misal 1 potongan tunggal) \u2014 BUKAN acuan jumlah atau susunan keseluruhan komposisi, yang tetap harus ikut foto referensi gaya.');
   } else {
     parts.push(lighting, composition, frameDepthContrast);
     if (action) {
@@ -3042,7 +3054,7 @@ const PromoGenerator = memo(() => {
     setVisionBusy('product');
     setProductPhotoDesc('');
     try {
-      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA bentuk fisik, warna, tekstur, dan cara penyajian (plating) makanan/minuman yang terlihat di foto ini secara presisi dan detail, untuk jadi acuan AI image generator supaya tidak mengarang/mendistorsi bentuk aslinya. JANGAN berkomentar soal gaya foto, pencahayaan, atau latar belakang. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
+      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA bentuk fisik, warna, dan tekstur SATU POTONGAN/SAJIAN TUNGGAL makanan/minuman yang terlihat di foto ini secara presisi dan detail (misal: irisan melintang, isian, warna, tekstur permukaan) — untuk jadi acuan AI image generator supaya tidak mengarang/mendistorsi bentuk aslinya. JANGAN sebutkan atau deskripsikan JUMLAH potongan, cara penyusunan, atau komposisi keseluruhan di foto ini — itu BUKAN urusan foto ini, cukup fokus ke bentuk/warna/tekstur 1 potongan/sajian saja. JANGAN berkomentar soal gaya foto, pencahayaan, atau latar belakang. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
       setProductPhotoDesc(text);
       setVisionAnalyzedForProduct(adCopyDraft.productName.trim());
     } catch (e) {
@@ -3058,7 +3070,7 @@ const PromoGenerator = memo(() => {
     setVisionBusy('style');
     setStylePhotoDesc('');
     try {
-      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA gaya visual DAN gerakan/aksi foto ini untuk keperluan prompt AI image generation: komposisi, sudut pengambilan, pencahayaan, palet warna, mood/suasana, dan gerakan/aksi yang terlihat kalau ada (misalnya elemen melayang, jatuh, dituang, mengepul, dipotong — sebutkan gerakannya secara abstrak). JANGAN sebutkan jenis makanan/minuman, bahan, buah, garnish, atau objek spesifik apa pun yang terlihat di foto ini — foto referensi ini kemungkinan besar produk yang BERBEDA dari produk yang akan dibuat nanti, jadi fokus HANYA pada teknik visual dan gerakan secara abstrak, JANGAN sebutkan wujud bendanya. JANGAN sebutkan, kutip, atau tuliskan ulang teks/tulisan apa pun yang terlihat di foto ini walau ada — abaikan total semua teks di foto. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
+      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA gaya visual DAN gerakan/aksi foto ini untuk keperluan prompt AI image generation: komposisi, sudut pengambilan, pencahayaan, palet warna, mood/suasana, gerakan/aksi yang terlihat kalau ada (misalnya elemen melayang, jatuh, dituang, mengepul, dipotong — sebutkan gerakannya secara abstrak), dan ORIENTASI/ARAH KEMIRINGAN objek utama persis apa adanya seperti yang tampak di foto (condong/miring ke arah mana persisnya) — sebutkan arahnya sesuai yang benar-benar terlihat, jangan diabaikan. JANGAN sebutkan jenis makanan/minuman, bahan, buah, garnish, atau objek spesifik apa pun yang terlihat di foto ini — foto referensi ini kemungkinan besar produk yang BERBEDA dari produk yang akan dibuat nanti, jadi fokus HANYA pada teknik visual, gerakan, dan orientasi secara abstrak, JANGAN sebutkan wujud bendanya. JANGAN sebutkan, kutip, atau tuliskan ulang teks/tulisan apa pun yang terlihat di foto ini walau ada — abaikan total semua teks di foto. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
       setStylePhotoDesc(text);
       setVisionAnalyzedForProduct(adCopyDraft.productName.trim());
     } catch (e) {
@@ -3228,7 +3240,7 @@ const PromoGenerator = memo(() => {
     // prompt (bukan cuma sekali di tengah), supaya lebih diprioritaskan.
     const visionEmphasis = data.visionHints.length > 0 ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${data.visionHints.join(' ')}.` : '';
     const visionReminder = data.visionHints.length > 0 ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas (warna wadah dan ada/tidaknya es harus sama persis) di setiap frame video, jangan mengarang variasi baru.` : '';
-    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${data.full}${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}`;
+    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_INTRO} ${data.full}${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder} ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_OUTRO}`;
     try {
       await navigator.clipboard.writeText(videoPrompt);
     } catch (e) {}
@@ -3943,7 +3955,7 @@ const ContentPlanGenerator = memo(({
       const visionEmphasis = matched ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${matched.detail}.` : '';
       const visionReminder = matched ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas di setiap frame video, jangan mengarang variasi baru.` : '';
       const negativeClauseVideo = negativePrompt.trim() ? ` Hindari: ${negativePrompt.trim()}.` : '';
-      const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}.${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeClauseVideo}`;
+      const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_INTRO} ${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}.${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder} ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_OUTRO}${negativeClauseVideo}`;
       try {
         await navigator.clipboard.writeText(videoPrompt);
       } catch (e) {}
@@ -4649,7 +4661,7 @@ const BannerGenerator = memo(() => {
     setVisionBusy(true);
     setProductPhotoDesc('');
     try {
-      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA bentuk fisik, warna, tekstur, dan cara penyajian (plating) makanan/minuman yang terlihat di foto ini secara presisi dan detail, untuk jadi acuan AI image generator supaya tidak mengarang/mendistorsi bentuk aslinya. JANGAN berkomentar soal gaya foto, pencahayaan, atau latar belakang. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
+      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA bentuk fisik, warna, dan tekstur SATU POTONGAN/SAJIAN TUNGGAL makanan/minuman yang terlihat di foto ini secara presisi dan detail (misal: irisan melintang, isian, warna, tekstur permukaan) — untuk jadi acuan AI image generator supaya tidak mengarang/mendistorsi bentuk aslinya. JANGAN sebutkan atau deskripsikan JUMLAH potongan, cara penyusunan, atau komposisi keseluruhan di foto ini — itu BUKAN urusan foto ini, cukup fokus ke bentuk/warna/tekstur 1 potongan/sajian saja. JANGAN berkomentar soal gaya foto, pencahayaan, atau latar belakang. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
       setProductPhotoDesc(text);
     } catch (e) {
       setVisionError(e.message);
@@ -5168,6 +5180,22 @@ const LoginPage = ({
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // Lupa Password — kirim email reset mandiri, tidak perlu lagi minta
+  // admin reset manual lewat Firebase Console.
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetStatus, setResetStatus] = useState(''); // '' | 'sending' | 'sent' | 'error'
+  const handleSendResetEmail = async e => {
+    e.preventDefault();
+    if (!resetEmail.trim()) return;
+    setResetStatus('sending');
+    try {
+      await sendPasswordResetEmail(auth, resetEmail.trim());
+      setResetStatus('sent');
+    } catch (err) {
+      setResetStatus('error');
+    }
+  };
   const handleEmailLogin = async e => {
     e.preventDefault();
     setError('');
@@ -5223,7 +5251,35 @@ const LoginPage = ({
     type: "submit",
     disabled: loading,
     className: "w-full bg-amber-600 hover:bg-amber-500 text-white p-3 rounded-lg font-medium transition-colors disabled:opacity-50"
-  }, loading ? 'Memproses...' : 'Masuk')), /*#__PURE__*/React.createElement("div", {
+  }, loading ? 'Memproses...' : 'Masuk')), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => {
+      setShowForgotPassword(v => !v);
+      setResetEmail(email);
+      setResetStatus('');
+    },
+    className: "text-center text-xs text-gray-400 hover:text-white underline w-full"
+  }, "Lupa Password?"), showForgotPassword && /*#__PURE__*/React.createElement("form", {
+    onSubmit: handleSendResetEmail,
+    className: "space-y-2 bg-[#0D0D12] border border-[#242430] rounded-lg p-3"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400"
+  }, "Masukkan email akun Anda, kami kirim link untuk atur password baru."), /*#__PURE__*/React.createElement("input", {
+    type: "email",
+    required: true,
+    placeholder: "Email",
+    value: resetEmail,
+    onChange: e => setResetEmail(e.target.value),
+    className: "w-full p-2.5 bg-[#15151b] border border-[#242430] text-white rounded-lg outline-none text-sm"
+  }), resetStatus === 'sent' ? /*#__PURE__*/React.createElement("p", {
+    className: "text-green-400 text-xs"
+  }, "\u2713 Email reset sudah dikirim, cek inbox (atau folder Spam) Anda.") : /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    disabled: resetStatus === 'sending',
+    className: "w-full bg-[#242430] hover:bg-[#2f2f3d] text-white p-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
+  }, resetStatus === 'sending' ? 'Mengirim...' : 'Kirim Email Reset'), resetStatus === 'error' && /*#__PURE__*/React.createElement("p", {
+    className: "text-red-400 text-xs"
+  }, "Gagal mengirim. Pastikan email benar, lalu coba lagi.")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3 text-gray-500 text-xs"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex-1 h-px bg-[#242430]"
