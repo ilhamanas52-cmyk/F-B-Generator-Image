@@ -315,7 +315,7 @@ const QUALITY_PROHIBITION_LAYER = "High quality, food/beverage photography edito
 // (Headline, CTA, harga, dll) tetap boleh muncul karena instruksi itu
 // disebutkan TERPISAH sebelum klausa ini; klausa ini hanya melarang
 // AI menambah sendiri apapun DI LUAR yang eksplisit diminta.
-const NO_UNSOLICITED_TEXT_CLAUSE = "JANGAN tambahkan teks, tulisan, watermark, logo, subtitle, ikon, elemen UI/interface, stiker, atau karakter/simbol apa pun di luar yang secara eksplisit diminta di atas.";
+const NO_UNSOLICITED_TEXT_CLAUSE = "JANGAN tambahkan teks, tulisan, watermark, logo, subtitle, ikon, elemen UI/interface, stiker, atau karakter/simbol apa pun di luar yang secara eksplisit diminta di atas. JANGAN membuat/menambahkan badge penghargaan, rating, sertifikasi, cap/stempel, atau label semacam itu atas inisiatif sendiri — walau tidak ada di foto referensi sekalipun, itu bukan alasan untuk menciptakannya sendiri.";
 
 // Versi KHUSUS VIDEO — video generator (Veo) secara alami lebih rentan
 // menambah teks/watermark/ikon (dilatih dari jutaan video dunia nyata
@@ -559,7 +559,7 @@ const buildEnrichedPromptExtras = (brand, {
     // Recap singkat KHUSUS WARNA, sengaja ditaruh paling akhir (bukan
     // ditumpuk di blok 98% yang panjang) supaya jadi kalimat penutup
     // yang tidak tenggelam — sama pola dengan SHAPE_AUTHENTICITY_RECAP.
-    parts.push('Sekali lagi ditegaskan: WARNA di gambar ini WAJIB 98% identik dengan palet warna foto referensi yang sudah dijelaskan di atas — JANGAN kembali ke warna bias/umum AI sendiri, JANGAN memakai warna brand default.');
+    parts.push('Sekali lagi ditegaskan: WARNA di gambar ini WAJIB 98% identik dengan palet warna foto referensi yang sudah dijelaskan di atas — JANGAN kembali ke warna bias/umum AI sendiri, JANGAN memakai warna brand default. KHUSUS untuk warna TEKS: kalau foto referensi TIDAK punya teks sama sekali untuk dijadikan acuan warna font, JANGAN menebak warna sendiri (jangan pakai coklat/tan/pastel sembarangan) — pakai warna KONTRAS TINGGI (putih bersih atau warna netral tegas) terhadap latar belakang, supaya tetap terbaca jelas.');
   }
   return parts.join(' ');
 };
@@ -3157,7 +3157,12 @@ const PromoGenerator = memo(() => {
     });
     const negativeInstruction = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
     const designGuideline = styleRefApplied ? '' : ` ${DESIGN_GUIDELINE_PROMPT}.`;
-    const full = `${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${combinedHint ? ', ' + combinedHint : ''}${textInstruction}${logoSpaceInstruction}.${designGuideline} ${enrichedExtras} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction} ${SHAPE_AUTHENTICITY_RECAP}`;
+    // Teks (Nama Usaha/Headline/dll) ditegaskan lagi di posisi AKHIR —
+    // supaya tidak "ketimpa" instruksi 98% ikuti referensi (kalau
+    // referensinya sendiri tidak punya teks, AI bisa salah simpulkan
+    // "jangan pakai teks sama sekali"). Pola sama seperti perbaikan video.
+    const textEmphasis = textParts.length > 0 ? ` PENTING \u2014 WAJIB tampil sebagai teks di gambar ini (ejaan persis, JANGAN dihilangkan meskipun foto referensi tidak punya teks): ${textParts.join(', ')}.` : '';
+    const full = `${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${combinedHint ? ', ' + combinedHint : ''}${textInstruction}${logoSpaceInstruction}.${designGuideline} ${enrichedExtras} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction} ${SHAPE_AUTHENTICITY_RECAP}${textEmphasis}`;
     return {
       productSubject,
       textParts,
