@@ -549,7 +549,7 @@ const buildEnrichedPromptExtras = (brand, {
     // jadi font TIDAK BOLEH ikut disisipkan di sini (sebelumnya bocor,
     // selalu masuk apa pun mode-nya — bug yang sama persis seperti
     // "Momen Aksi acak" yang sudah diperbaiki lebih dulu).
-    const typography = `Kalau ada teks, pakai gaya font tebal besar bergaya "${fh}" untuk judul/headline (dengan tekstur/finishing yang sesuai gaya font-nya, bukan flat polos), gaya bersih "${fb}" untuk isi. Badge (kalau ada) sedikit dimiringkan/dirotasi, jangan sejajar sempurna.`;
+    const typography = `Kalau ada teks, render menyerupai gaya font "${fh}" untuk judul/headline SESUAI KARAKTER ASLI font tersebut (kalau font-nya memang tebal/besar secara alami, buat tebal besar; kalau font-nya tipis/elegan/kursif seperti tulisan tangan, buat tipis/elegan/kursif — JANGAN dipaksa tebal-besar kalau bukan itu karakter aslinya), dengan tekstur/finishing yang sesuai gaya font-nya (bukan flat polos), gaya bersih "${fb}" untuk isi. Badge (kalau ada) sedikit dimiringkan/dirotasi, jangan sejajar sempurna.`;
     parts.push(typography);
   } else {
     parts.push('Kalau ada teks (dari foto referensi atau diminta eksplisit), ikuti gaya tipografi yang terlihat di foto referensi — JANGAN memaksakan font brand default.');
@@ -3095,7 +3095,7 @@ const PromoGenerator = memo(() => {
     setVisionBusy('style');
     setStylePhotoDesc('');
     try {
-      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan gaya visual DAN gerakan/aksi foto ini untuk keperluan prompt AI image generation. Sebutkan: komposisi, sudut pengambilan, pencahayaan, palet warna, mood/suasana. Sebutkan gerakan/aksi yang terlihat kalau ada (misalnya elemen melayang, jatuh, dituang, mengepul, dipotong — sebutkan gerakannya secara abstrak). HITUNG dan SEBUTKAN JUMLAH PERSIS objek utama yang terlihat (misal: "terlihat 6 potongan melayang") — jangan pakai kata ambigu seperti "beberapa/banyak", wajib angka pasti. Sebutkan ORIENTASI/ARAH KEMIRINGAN objek utama persis apa adanya seperti yang tampak di foto (condong/miring ke arah mana persisnya), jangan diabaikan. JANGAN sebutkan jenis makanan/minuman, bahan, buah, garnish, atau objek spesifik apa pun yang terlihat di foto ini — foto referensi ini kemungkinan besar produk yang BERBEDA dari produk yang akan dibuat nanti, jadi fokus HANYA pada teknik visual, gerakan, jumlah, dan orientasi secara abstrak, JANGAN sebutkan wujud bendanya. JANGAN sebutkan, kutip, atau tuliskan ulang teks/tulisan apa pun yang terlihat di foto ini walau ada — abaikan total semua teks di foto. Jawab dalam 3-5 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
+      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan gaya visual DAN gerakan/aksi foto ini untuk keperluan prompt AI image generation. Sebutkan: sudut pengambilan, pencahayaan, palet warna, mood/suasana. Deskripsikan POSISI SPASIAL tiap elemen individual secara SPESIFIK dan DETAIL (bukan cuma kata umum seperti "komposisi dinamis") — sebutkan elemen mana ada di kiri/kanan/atas/bawah/tengah, mana yang posisinya lebih tinggi/rendah dari yang lain, mana yang saling tumpang tindih dengan mana, dan sudut kemiringan MASING-MASING elemen (bukan 1 sudut yang sama untuk semua elemen jika memang berbeda-beda di foto). Sebutkan gerakan/aksi yang terlihat kalau ada (misalnya elemen melayang, jatuh, dituang, mengepul, dipotong — sebutkan gerakannya secara abstrak). HITUNG dan SEBUTKAN JUMLAH PERSIS objek utama yang terlihat (misal: "terlihat 6 potongan melayang") — jangan pakai kata ambigu seperti "beberapa/banyak", wajib angka pasti. JANGAN sebutkan jenis makanan/minuman, bahan, buah, garnish, atau objek spesifik apa pun yang terlihat di foto ini — foto referensi ini kemungkinan besar produk yang BERBEDA dari produk yang akan dibuat nanti, jadi fokus HANYA pada teknik visual, posisi, gerakan, dan jumlah secara abstrak, JANGAN sebutkan wujud bendanya. JANGAN sebutkan, kutip, atau tuliskan ulang teks/tulisan apa pun yang terlihat di foto ini walau ada — abaikan total semua teks di foto. Jawab dalam 4-7 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
       setStylePhotoDesc(text);
       setVisionAnalyzedForProduct(adCopyDraft.productName.trim());
     } catch (e) {
@@ -3134,6 +3134,7 @@ const PromoGenerator = memo(() => {
     let textInstruction = '';
     if (includeText) {
       const orientationHint = textOrientation === 'miring' ? ' (teks dimiringkan/dirotasi sekitar 10-15 derajat, bukan lurus datar)' : textOrientation === 'vertikal' ? ' (teks disusun VERTIKAL dari bawah ke atas, seperti label kemasan)' : '';
+      if (productSubject) textParts.push(`Nama Usaha/Produk: "${productSubject}" (WAJIB tertulis sebagai teks di gambar, ejaan persis, jangan dihilangkan)`);
       if (adCopyDraft.headline) textParts.push(`Headline: "${adCopyDraft.headline}" (font besar, paling menonjol, di bagian atas${orientationHint})`);
       if (adCopyDraft.subheadline) textParts.push(`Sub-headline: "${adCopyDraft.subheadline}" (di bawah headline, ukuran sedang)`);
       if (adCopyDraft.cta) textParts.push(`Tombol CTA (Call to Action): "${adCopyDraft.cta}" (bentuk seperti tombol, warna kontras, paling bawah)`);
@@ -3142,7 +3143,7 @@ const PromoGenerator = memo(() => {
     } else {
       textInstruction = '. JANGAN sertakan teks/tulisan apapun di gambar — foto produk bersih murni tanpa elemen teks sama sekali.';
     }
-    const logoSpaceInstruction = `. Sisakan ruang kosong bersih di ${posPhrase} gambar (jangan taruh elemen desain penting di area itu), karena logo brand akan ditambahkan secara terpisah di posisi tersebut`;
+    const logoSpaceInstruction = `. Di ${posPhrase} gambar, hindari menaruh elemen visual paling detail/menonjol tepat di area itu (karena logo brand akan ditempel terpisah di posisi tersebut) — selain itu, gambar tetap penuh alami seperti biasa, TIDAK PERLU ada ruang kosong/kotak/blok khusus yang disisakan.`;
     const visionHints = [];
     if (productPhotoDesc) visionHints.push(`[Bentuk asli produk]: ${productPhotoDesc}`);
     if (stylePhotoDesc) visionHints.push(`[Gaya visual referensi]: ${stylePhotoDesc}`);
@@ -3265,7 +3266,12 @@ const PromoGenerator = memo(() => {
     // prompt (bukan cuma sekali di tengah), supaya lebih diprioritaskan.
     const visionEmphasis = data.visionHints.length > 0 ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${data.visionHints.join(' ')}.` : '';
     const visionReminder = data.visionHints.length > 0 ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas (warna wadah dan ada/tidaknya es harus sama persis) di setiap frame video, jangan mengarang variasi baru.` : '';
-    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_INTRO} ${data.full}${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder} ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_OUTRO} ${SHAPE_AUTHENTICITY_RECAP}`;
+    // Teks (Headline/Sub-headline/CTA/Badge) numpang lewat 1x di tengah
+    // data.full sebelumnya — video AI kurang patuh soal teks dibanding
+    // gambar diam, jadi ditegaskan lagi eksplisit di akhir, sama pola
+    // dengan visionEmphasis di atas.
+    const textEmphasis = data.textParts.length > 0 ? ` PENTING \u2014 WAJIB tampil sebagai teks di video (ejaan persis, JANGAN dihilangkan/diganti): ${data.textParts.join(', ')}.` : '';
+    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_INTRO} ${data.full}${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}${textEmphasis} ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_OUTRO} ${SHAPE_AUTHENTICITY_RECAP}`;
     try {
       await navigator.clipboard.writeText(videoPrompt);
     } catch (e) {}
@@ -5314,9 +5320,10 @@ const LoginPage = ({
     onClick: handleGoogleLogin,
     disabled: loading,
     className: "w-full bg-white hover:bg-gray-100 text-gray-800 p-3 rounded-lg font-medium transition-colors"
-  }, "Masuk dengan Google"), /*#__PURE__*/React.createElement("p", {
-    className: "text-center text-sm text-gray-500"
-  }, "Belum punya akun? Hubungi tempat Anda membeli aplikasi ini untuk mendapatkan link pendaftaran.")));
+  }, "Masuk dengan Google"), /*#__PURE__*/React.createElement("a", {
+    href: "/daftar/single",
+    className: "block text-center w-full bg-[#242430] hover:bg-[#2f2f3d] text-white p-3 rounded-lg font-medium transition-colors"
+  }, "Daftar Akun Baru")));
 };
 
 // Membuat profil (users/{uid}) saat pendaftaran baru.
