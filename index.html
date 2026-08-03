@@ -3685,7 +3685,11 @@ const CompositionCanvas = forwardRef(({
             logoImg.src = brand.logoUrl;
             await new Promise(r => logoImg.onload = r);
             if (cancelled) return;
-            const badgeMax = Math.round(scaleBasis * 0.187);
+            // Basis 18,7% pas untuk format persegi/near-persegi (Promo, Feed,
+            // dll). Khusus Banner (useGeometricScale) dinaikkan jadi 25% —
+            // banner cetak besar (2x1/3x1/3x2 meter) dilihat dari jarak jauh,
+            // logo perlu proporsi lebih besar supaya tetap terbaca.
+            const badgeMax = Math.round(scaleBasis * (useGeometricScale ? 0.25 : 0.187));
             let lw = badgeMax,
               lh = badgeMax;
             const ratio = logoImg.width / logoImg.height;
@@ -3697,9 +3701,10 @@ const CompositionCanvas = forwardRef(({
             // (efek stiker), bukan kotak pembatas.
             const outlineWidth = Math.max(1.5, badgeMax * 0.015);
             drawImageWithOutline(ctx, logoImg, boxX, boxY, lw, lh, 'rgba(255,255,255,0.9)', outlineWidth);
-            // Jarak logo-tagline PROPORSIONAL (8% ukuran logo), bukan
-            // angka tetap — supaya di banner besar jaraknya ikut wajar.
-            logoGap = Math.max(6, Math.round(badgeMax * 0.08));
+            // Jarak logo-tagline PROPORSIONAL (3,5% ukuran logo, diperkecil
+            // dari 8% sebelumnya — supaya tagline menempel lebih rapat ke
+            // logo, tidak terkesan terpisah jauh), bukan angka tetap.
+            logoGap = Math.max(4, Math.round(badgeMax * 0.035));
             cursorY = isTop ? boxY + lh + logoGap : boxY - logoGap;
           } catch (e) {}
         }
@@ -4777,7 +4782,7 @@ const BannerGenerator = memo(() => {
     if (fields.telepon) textParts.push(`No. Telepon/WhatsApp: "${fields.telepon}"`);
     if (fields.jamBuka) textParts.push(`Jam Buka: "${fields.jamBuka}"`);
     const textInstruction = textParts.length > 0 ? `. Sertakan teks berikut, pastikan ejaan persis: ${textParts.join(', ')}` : '';
-    const logoSpaceInstruction = `. Sisakan ruang kosong bersih di ${posPhrase} gambar untuk logo brand (ditempel terpisah)`;
+    const logoSpaceInstruction = `. Di ${posPhrase} gambar, hindari menaruh elemen visual paling detail/menonjol tepat di area itu (karena logo brand akan ditempel terpisah di posisi tersebut) — selain itu, gambar tetap penuh alami seperti biasa, TIDAK PERLU ada ruang kosong/kotak/blok khusus yang disisakan.`;
     const photoInstruction = productPhotoDesc ? `. Foto asli produk sebagai acuan bentuk (JANGAN mengarang bentuk baru): ${productPhotoDesc}` : '';
     const negativeInstruction = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
     const full = `${SHAPE_AUTHENTICITY_GUARD} Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}${textInstruction}${photoInstruction}${logoSpaceInstruction}. ${BANNER_DESIGN_GUIDELINE} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction} ${SHAPE_AUTHENTICITY_RECAP}`;
