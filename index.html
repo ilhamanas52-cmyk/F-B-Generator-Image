@@ -3667,7 +3667,10 @@ const CompositionCanvas = forwardRef(({
       if (showLogo) {
         // Logo + tagline brand — jaring pengaman presisi, ditempel
         // langsung di atas hasil gambar AI, di pojok yang dipilih
-        // di tab Brand (prompt AI sudah diminta menyisakan ruang di situ).
+        // di tab Brand. AI TIDAK diberi tahu soal ini sama sekali
+        // (lihat catatan di logoSpaceInstruction) — keterbacaan logo
+        // ditangani 100% di sini lewat vignette lembut, bukan lewat
+        // instruksi ke AI.
         // scaleBasis: Math.min(lebar,tinggi) pas untuk format persegi/near-
         // persegi (feed IG dll), TAPI terlalu mengecilkan untuk rasio LEBAR
         // (banner 2:1/3:1/3:2) — untuk itu pakai rata-rata geometris
@@ -3677,8 +3680,16 @@ const CompositionCanvas = forwardRef(({
         const isTop = posKey.startsWith('top');
         const isLeft = posKey.endsWith('left');
         const pad = Math.round(scaleBasis * 0.04);
-        let cursorY = isTop ? pad : height - pad;
-        let logoGap = 10; // jarak logo-tagline; diganti proporsional di bawah kalau ada logo
+        const fontSize = brand.tagline ? Math.max(14, Math.round(scaleBasis * 0.028)) : 0;
+        if (brand.tagline) {
+          await document.fonts.load(`${fontSize}px "${brand.fontBody}"`);
+          if (cancelled) return;
+        }
+        let boxY = 0,
+          lw = 0,
+          lh = 0,
+          badgeMax = 0,
+          logoGap = 0;
         if (brand.logoUrl) {
           try {
             const logoImg = new Image();
@@ -3689,34 +3700,60 @@ const CompositionCanvas = forwardRef(({
             // dll). Khusus Banner (useGeometricScale) dinaikkan jadi 25% —
             // banner cetak besar (2x1/3x1/3x2 meter) dilihat dari jarak jauh,
             // logo perlu proporsi lebih besar supaya tetap terbaca.
-            const badgeMax = Math.round(scaleBasis * (useGeometricScale ? 0.25 : 0.187));
-            let lw = badgeMax,
-              lh = badgeMax;
+            badgeMax = Math.round(scaleBasis * (useGeometricScale ? 0.25 : 0.187));
+            lw = badgeMax;
+            lh = badgeMax;
             const ratio = logoImg.width / logoImg.height;
             if (ratio > 1) lh = badgeMax / ratio;else lw = badgeMax * ratio;
+            // Jarak logo-tagline PROPORSIONAL (4,3% ukuran logo).
+            logoGap = Math.max(4, Math.round(badgeMax * 0.043));
+            // TAGLINE SELALU DI BAWAH LOGO — untuk posisi ATAS, logo di
+            // pad lalu tagline menyusul di bawahnya (urutan alami). Untuk
+            // posisi BAWAH, seluruh grup (logo+tagline) tetap "menempel"
+            // ke tepi bawah kanvas, TAPI urutan internalnya tetap logo
+            // DULU baru tagline DI BAWAHNYA — bukan tagline di ATAS logo
+            // seperti sebelumnya (itu yang bikin tagline menabrak foto).
+            if (isTop) {
+              boxY = pad;
+            } else {
+              const taglineReserve = brand.tagline ? fontSize + logoGap : 0;
+              boxY = height - pad - taglineReserve - lh;
+            }
             const boxX = isLeft ? pad : width - pad - lw;
-            const boxY = isTop ? cursorY : cursorY - lh;
+            // Vignette lembut di belakang logo — gradasi gelap tipis
+            // radial, supaya logo tetap terbaca di latar seramai apapun
+            // TANPA perlu AI tahu/menyisakan ruang kosong sama sekali.
+            const vignettePad = badgeMax * 0.25;
+            const vCenterX = boxX + lw / 2;
+            const vCenterY = boxY + lh / 2;
+            const vRadius = Math.max(lw, lh) / 2 + vignettePad;
+            const vignette = ctx.createRadialGradient(vCenterX, vCenterY, Math.max(lw, lh) * 0.15, vCenterX, vCenterY, vRadius);
+            vignette.addColorStop(0, 'rgba(0,0,0,0.32)');
+            vignette.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = vignette;
+            ctx.beginPath();
+            ctx.arc(vCenterX, vCenterY, vRadius, 0, Math.PI * 2);
+            ctx.fill();
             // Tanpa kotak/alas — logo (PNG transparan) langsung ditempel,
             // dengan outline tipis netral yang MENGIKUTI BENTUK ASLI logo
             // (efek stiker), bukan kotak pembatas.
             const outlineWidth = Math.max(1.5, badgeMax * 0.015);
             drawImageWithOutline(ctx, logoImg, boxX, boxY, lw, lh, 'rgba(255,255,255,0.9)', outlineWidth);
-            // Jarak logo-tagline PROPORSIONAL (3,5% ukuran logo, diperkecil
-            // dari 8% sebelumnya — supaya tagline menempel lebih rapat ke
-            // logo, tidak terkesan terpisah jauh), bukan angka tetap.
-            logoGap = Math.max(4, Math.round(badgeMax * 0.035));
-            cursorY = isTop ? boxY + lh + logoGap : boxY - logoGap;
           } catch (e) {}
+        } else if (brand.tagline && !isTop) {
+          // Tanpa logo, tagline tetap dianggarkan tepat di tepi bawah/atas.
+          boxY = height - pad - fontSize;
+          lh = 0;
         }
         if (cancelled) return;
         if (brand.tagline) {
-          const fontSize = Math.max(14, Math.round(scaleBasis * 0.028));
-          await document.fonts.load(`${fontSize}px "${brand.fontBody}"`);
-          if (cancelled) return;
           ctx.font = `${fontSize}px "${brand.fontBody}"`;
           ctx.textAlign = isLeft ? 'left' : 'right';
           const taglineX = isLeft ? pad : width - pad;
-          const taglineY = isTop ? cursorY + fontSize : cursorY;
+          // Baseline tagline: SELALU di bawah logo (boxY + lh + gap),
+          // ditambah fontSize supaya baseline teks jatuh di bawah garis itu.
+          const taglineTopY = brand.logoUrl ? boxY + lh + logoGap : isTop ? pad : height - pad - fontSize;
+          const taglineY = taglineTopY + fontSize;
           // Tanpa kotak/alas — teks langsung di atas foto, dikasih outline
           // tipis netral (bukan solid) supaya tetap kebaca di latar manapun.
           ctx.lineWidth = Math.max(2, fontSize * 0.08);
@@ -4781,11 +4818,24 @@ const BannerGenerator = memo(() => {
     if (fields.alamat) textParts.push(`Alamat: "${fields.alamat}"`);
     if (fields.telepon) textParts.push(`No. Telepon/WhatsApp: "${fields.telepon}"`);
     if (fields.jamBuka) textParts.push(`Jam Buka: "${fields.jamBuka}"`);
-    const textInstruction = textParts.length > 0 ? `. Sertakan teks berikut, pastikan ejaan persis: ${textParts.join(', ')}` : '';
-    const logoSpaceInstruction = `. Di ${posPhrase} gambar, hindari menaruh elemen visual paling detail/menonjol tepat di area itu (karena logo brand akan ditempel terpisah di posisi tersebut) — selain itu, gambar tetap penuh alami seperti biasa, TIDAK PERLU ada ruang kosong/kotak/blok khusus yang disisakan.`;
+    // Field fungsional (CTA/Alamat/Telepon/Jam Buka) sebelumnya sama
+    // sekali tidak punya petunjuk posisi — AI cenderung menyusunnya
+    // jadi 1 bar penuh di bagian bawah (konvensi umum), yang otomatis
+    // menabrak pojok manapun yang dipilih untuk logo. Ditambahkan
+    // instruksi eksplisit supaya bar itu menyisakan celah di pojok logo.
+    const functionalTextLayoutHint = fields.alamat || fields.telepon || fields.jamBuka || fields.cta ? ` Susun CTA/Alamat/Telepon/Jam Buka (kalau ada) sedemikian rupa supaya TIDAK menabrak/tumpang tindih dengan pojok ${posPhrase} — kalau biasanya berbentuk bar memanjang di bagian bawah, persempit atau geser bar itu supaya menyisakan celah bersih di pojok tersebut.` : '';
+    const textInstruction = textParts.length > 0 ? `. Sertakan teks berikut, pastikan ejaan persis: ${textParts.join(', ')}.${functionalTextLayoutHint}` : '';
+    // Logo TIDAK PERNAH disebut sama sekali ke AI — sebelumnya berbagai
+    // versi instruksi ("sisakan ruang kosong" lalu "hindari elemen
+    // menonjol") tetap memicu AI membuat area kosong/polos di pojok
+    // tersebut. Solusinya: AI sama sekali tidak diberi tahu logo akan
+    // ditempel — biarkan gambar penuh & ramai alami di semua bidang.
+    // Keterbacaan logo sepenuhnya ditangani di kode (lihat vignette
+    // lembut di CompositionCanvas), bukan lewat instruksi ke AI.
+    const logoSpaceInstruction = '';
     const photoInstruction = productPhotoDesc ? `. Foto asli produk sebagai acuan bentuk (JANGAN mengarang bentuk baru): ${productPhotoDesc}` : '';
     const negativeInstruction = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
-    const full = `${SHAPE_AUTHENTICITY_GUARD} Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}${textInstruction}${photoInstruction}${logoSpaceInstruction}. ${BANNER_DESIGN_GUIDELINE} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction} ${SHAPE_AUTHENTICITY_RECAP}`;
+    const full = `${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}${textInstruction}${photoInstruction}. ${BANNER_DESIGN_GUIDELINE} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction} ${SHAPE_AUTHENTICITY_RECAP}`;
     return {
       productSubject: fields.productName.trim(),
       sizeLabel: sizeCfg.label,
