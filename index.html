@@ -3700,7 +3700,7 @@ const CompositionCanvas = forwardRef(({
             // dll). Khusus Banner (useGeometricScale) dinaikkan jadi 25% —
             // banner cetak besar (2x1/3x1/3x2 meter) dilihat dari jarak jauh,
             // logo perlu proporsi lebih besar supaya tetap terbaca.
-            badgeMax = Math.round(scaleBasis * (useGeometricScale ? 0.16 : 0.187));
+            badgeMax = Math.round(scaleBasis * (useGeometricScale ? 0.18 : 0.187));
             lw = badgeMax;
             lh = badgeMax;
             const ratio = logoImg.width / logoImg.height;
@@ -3756,8 +3756,11 @@ const CompositionCanvas = forwardRef(({
           const taglineY = taglineTopY + fontSize;
           // Tanpa kotak/alas — teks langsung di atas foto, dikasih outline
           // tipis netral (bukan solid) supaya tetap kebaca di latar manapun.
-          ctx.lineWidth = Math.max(2, fontSize * 0.08);
-          ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+          // Outline diperkuat (mirip gaya outline logo) — lineWidth &
+          // opacity dinaikkan supaya lebih terlihat jelas, tidak cuma
+          // samar tipis seperti sebelumnya.
+          ctx.lineWidth = Math.max(3, fontSize * 0.12);
+          ctx.strokeStyle = 'rgba(0,0,0,0.85)';
           ctx.strokeText(brand.tagline, taglineX, taglineY);
           ctx.fillStyle = brand.secondaryColor;
           ctx.fillText(brand.tagline, taglineX, taglineY);
@@ -4823,7 +4826,7 @@ const BannerGenerator = memo(() => {
     // jadi 1 bar penuh di bagian bawah (konvensi umum), yang otomatis
     // menabrak pojok manapun yang dipilih untuk logo. Ditambahkan
     // instruksi eksplisit supaya bar itu menyisakan celah di pojok logo.
-    const functionalTextLayoutHint = fields.alamat || fields.telepon || fields.jamBuka || fields.cta ? ` Alamat/Telepon/Jam Buka/CTA (kalau ada) WAJIB tidak ditempatkan di pojok ${posPhrase} gambar (karena logo brand akan ditempel terpisah di posisi tersebut) — taruh field-field itu di area lain saja. Latar/foto tetap boleh mengisi penuh area tersebut secara alami seramai apapun, hanya field teks fungsional ini yang perlu dijauhkan dari pojok itu.` : '';
+    const functionalTextLayoutHint = fields.alamat || fields.telepon || fields.jamBuka || fields.cta ? ` Bar/susunan Alamat/Telepon/Jam Buka/CTA (kalau ada) WAJIB berhenti sebelum mencapai 20% terakhir dari sisi ${posKey.endsWith('left') ? 'kiri' : 'kanan'} gambar — persempit bar-nya (termasuk item paling ujung) supaya tidak melewati batas itu, karena area 20% itu untuk logo brand yang ditempel terpisah. Latar/foto tetap boleh mengisi penuh area tersebut secara alami seramai apapun, hanya bar/susunan teks fungsional ini yang dibatasi lebarnya.` : '';
     const textInstruction = textParts.length > 0 ? `. Sertakan teks berikut, pastikan ejaan persis: ${textParts.join(', ')}.${functionalTextLayoutHint}` : '';
     // Logo TIDAK PERNAH disebut sama sekali ke AI — sebelumnya berbagai
     // versi instruksi ("sisakan ruang kosong" lalu "hindari elemen
