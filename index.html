@@ -541,7 +541,7 @@ const buildEnrichedPromptExtras = (brand, {
     }
   }
   if (!respectStyleRef) {
-    const colorLock = `Palet warna WAJIB sesuai brand — ${brand.primaryColor} untuk aksen tegas, ${brand.secondaryColor} untuk kontras kuat, ${brand.accentColor} untuk menonjolkan elemen promo/CTA, gunakan PERSIS kode HEX ini (bukan pendekatan warna lain).`;
+    const colorLock = `Palet warna WAJIB sesuai brand — ${brand.primaryColor} (kode HEX internal untuk PALET WARNA, BUKAN teks yang ditulis di gambar) untuk aksen tegas, ${brand.secondaryColor} (kode HEX internal, BUKAN teks) untuk kontras kuat, ${brand.accentColor} (kode HEX internal, BUKAN teks) untuk menonjolkan elemen promo/CTA — gunakan PERSIS kode HEX ini sebagai acuan WARNA VISUAL, JANGAN pernah menuliskan kode HEX itu sendiri (mis. "${brand.primaryColor}") sebagai tulisan di gambar.`;
     parts.push(colorLock);
     // Font brand (typography) HANYA dipaksa saat mode "Pakai Brand
     // Identity" — saat mode "Total Ikuti Gaya Foto Referensi" aktif,
@@ -549,7 +549,7 @@ const buildEnrichedPromptExtras = (brand, {
     // jadi font TIDAK BOLEH ikut disisipkan di sini (sebelumnya bocor,
     // selalu masuk apa pun mode-nya — bug yang sama persis seperti
     // "Momen Aksi acak" yang sudah diperbaiki lebih dulu).
-    const typography = `Kalau ada teks, render menyerupai gaya font "${fh}" untuk judul/headline SESUAI KARAKTER ASLI font tersebut (kalau font-nya memang tebal/besar secara alami, buat tebal besar; kalau font-nya tipis/elegan/kursif seperti tulisan tangan, buat tipis/elegan/kursif — JANGAN dipaksa tebal-besar kalau bukan itu karakter aslinya), dengan tekstur/finishing yang sesuai gaya font-nya (bukan flat polos), gaya bersih "${fb}" untuk isi. Badge (kalau ada) sedikit dimiringkan/dirotasi, jangan sejajar sempurna.`;
+    const typography = `Kalau ada teks, render menyerupai GAYA VISUAL font "${fh}" (ini nama font untuk ACUAN GAYA saja — JANGAN pernah menuliskan kata "${fh}" itu sendiri sebagai teks di gambar) untuk judul/headline SESUAI KARAKTER ASLI font tersebut (kalau font-nya memang tebal/besar secara alami, buat tebal besar; kalau font-nya tipis/elegan/kursif seperti tulisan tangan, buat tipis/elegan/kursif — JANGAN dipaksa tebal-besar kalau bukan itu karakter aslinya), dengan tekstur/finishing yang sesuai gaya font-nya (bukan flat polos), gaya bersih "${fb}" untuk isi (nama font ini juga HANYA acuan gaya, JANGAN dituliskan sebagai teks). Badge (kalau ada) sedikit dimiringkan/dirotasi, jangan sejajar sempurna.`;
     parts.push(typography);
   } else {
     parts.push('Kalau ada teks (dari foto referensi atau diminta eksplisit), ikuti gaya tipografi yang terlihat di foto referensi — JANGAN memaksakan font brand default.');
@@ -1194,12 +1194,20 @@ function MainDashboard({
     className: "bg-gradient-to-b from-[#16161d] to-[#0f0f14] border-b border-[#232330] p-4 flex justify-between items-center shadow-lg shadow-black/30"
   }, /*#__PURE__*/React.createElement("h1", {
     className: "text-xl font-bold font-['Space_Grotesk'] bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent tracking-tight"
-  }, "F&B Design Studio"), /*#__PURE__*/React.createElement("nav", {
+  }, "F&B Design Studio"), /*#__PURE__*/React.createElement("a", {
+    href: "https://wa.me/6281317766481",
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "hidden sm:flex items-center gap-1.5 text-[11px] font-semibold text-green-400 hover:text-green-300 bg-green-900/20 border border-green-700/40 px-2.5 py-1 rounded-full whitespace-nowrap"
+  }, "\uD83D\uDCAC Customer Service (WA Only) 0813-1776-6481"), /*#__PURE__*/React.createElement("nav", {
     className: "flex gap-2 sm:gap-4 overflow-x-auto items-center"
   }, ['brands', 'menu', 'promo', 'konten', 'feed9', 'banner'].map(t => /*#__PURE__*/React.createElement("button", {
     key: t,
-    onClick: () => setActiveTab(t),
-    className: `relative px-3 sm:px-4 py-1.5 rounded-lg transition-all whitespace-nowrap text-sm font-medium ${activeTab === t ? 'text-white bg-[#1a1a22]' : 'text-gray-500 hover:text-gray-300'}`
+    onClick: () => {
+      if (t === 'banner' && !isPro(profile && profile.plan)) return;
+      setActiveTab(t);
+    },
+    className: `relative px-3 sm:px-4 py-1.5 rounded-lg transition-all whitespace-nowrap text-sm font-medium ${activeTab === t ? 'text-white bg-[#1a1a22]' : t === 'banner' && !isPro(profile && profile.plan) ? 'text-gray-600 cursor-not-allowed opacity-60' : 'text-gray-500 hover:text-gray-300'}`
   }, t === 'konten' ? 'KONTEN 30 HARI' : t === 'feed9' ? '9 FEED KONSISTEN' : t === 'banner' ? 'BANNER CETAK' : t.toUpperCase(), t === 'banner' && !isPro(profile && profile.plan) && /*#__PURE__*/React.createElement("span", {
     className: "ml-1 text-amber-500 text-[10px]"
   }, "\uD83D\uDD12"), /*#__PURE__*/React.createElement("div", {
@@ -1595,7 +1603,9 @@ const BrandSettings = memo(({
       reader.readAsDataURL(e.target.files[0]);
     },
     className: "text-sm file:bg-[#4F46E5] file:text-white file:border-none file:px-4 file:py-2"
-  }), /*#__PURE__*/React.createElement("label", {
+  }), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-gray-500 mt-1"
+  }, "Logo sebaiknya bersih dari background, dengan format PNG. Lakukan crop tepat di sisi terluar logo."), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Posisi Logo & Tagline (di semua promo)"), /*#__PURE__*/React.createElement("select", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
@@ -1889,7 +1899,7 @@ const MenuPageGenerator = memo(({
     const styleHint = MENU_STYLE_PRESETS[selectedStyle].promptHint;
     const lighting = pickVariant(LIGHTING_VARIANTS, lightingLastRef);
     const negativeClause = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
-    const url = openChatGPTGenerate(`background suasana untuk halaman menu restoran/cafe ${brand.name}, ${styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, seluruh area kosong bersih tanpa teks/watermark/elemen desain apapun (akan ditambahkan daftar menu secara terpisah), format vertikal poster. ${lighting} ${QUALITY_PROHIBITION_LAYER}${negativeClause}`);
+    const url = openChatGPTGenerate(`background suasana untuk halaman menu restoran/cafe ${brand.name}, ${styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor} (kode HEX internal untuk acuan warna, BUKAN teks yang ditulis di gambar), seluruh area kosong bersih tanpa teks/watermark/elemen desain apapun (akan ditambahkan daftar menu secara terpisah), format vertikal poster. ${lighting} ${QUALITY_PROHIBITION_LAYER}${negativeClause}`);
     setLastGenUrl(url);
   };
   const download = () => {
@@ -3125,7 +3135,7 @@ const PromoGenerator = memo(() => {
   const buildPromptData = () => {
     if (!adCopyDraft.productName || !adCopyDraft.productName.trim()) return null;
     const styleRefApplied = styleMode === 'reference' && !!stylePhotoDesc;
-    const brandHint = styleRefApplied ? `gaya sesuai brand ${brand.name} (untuk generate ini, abaikan warna default brand — WAJIB ikuti persis palet warna & gaya visual dari foto referensi yang sudah dijelaskan di bawah)` : `nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}`;
+    const brandHint = styleRefApplied ? `gaya sesuai brand ${brand.name} (untuk generate ini, abaikan warna default brand — WAJIB ikuti persis palet warna & gaya visual dari foto referensi yang sudah dijelaskan di bawah)` : `nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor} (kode HEX internal untuk acuan warna, BUKAN teks yang ditulis di gambar), gaya sesuai brand ${brand.name}`;
     const formatHint = FORMAT_DESCRIPTIONS[format];
     const posKey = brand.logoPosition || 'bottom-right';
     const posPhrase = LOGO_POSITIONS[posKey].promptPhrase;
@@ -3264,7 +3274,7 @@ const PromoGenerator = memo(() => {
     }
     setGenError('');
     const data = buildPromptData();
-    const voClause = voScript.trim() ? ` Sertakan narasi suara (voice over) berikut, diucapkan dengan jelas: "${voScript.trim()}".` : '';
+    const voClause = voScript.trim() ? ` Sertakan narasi suara (voice over) berikut. Naskah yang HARUS diucapkan (kata demi kata, PERSIS 1 KALI dari awal sampai akhir, JANGAN diulang): ${voScript.trim()} — Kalau video masih berjalan setelah narasi selesai diucapkan, biarkan hening/diam di sisa waktu, JANGAN mengulang kata/frasa/bagian mana pun untuk mengisi waktu.` : '';
     // Video AI (Veo 3.1) cenderung KURANG presisi mengikuti detail
     // bentuk fisik (warna wadah, ada/tidak es, dll) dibanding model
     // gambar — jadi detail dari Vision AI diulang TEGAS di awal & akhir
@@ -3296,7 +3306,7 @@ const PromoGenerator = memo(() => {
   }), /*#__PURE__*/React.createElement("div", {
     className: "hud-scanline"
   }), /*#__PURE__*/React.createElement("div", {
-    className: "border-t border-[#222226] pt-4 space-y-3"
+    className: "border-t border-[#222226] pt-4 space-y-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between"
   }, /*#__PURE__*/React.createElement("p", {
@@ -3374,13 +3384,19 @@ const PromoGenerator = memo(() => {
     className: "text-[11px] text-gray-500"
   }, "Supaya AI tidak mengarang bentuk makanan Anda \u2014 begitu di-upload, otomatis dianalisis & langsung tergabung ke prompt."), !settings.geminiApiKey && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500"
-  }, "Simpan API key Gemini dulu di tab Brand supaya bisa dianalisis AI."), /*#__PURE__*/React.createElement("input", {
+  }, "Simpan API key Gemini dulu di tab Brand supaya bisa dianalisis AI."), /*#__PURE__*/React.createElement("label", {
+    className: "flex flex-col items-center justify-center gap-1 border-2 border-dashed border-[#3a3a48] hover:border-[#4F46E5] rounded-lg py-4 cursor-pointer transition-colors bg-[#0D0D12]"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xl"
+  }, "\uD83D\uDCF7"), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-gray-300 font-medium"
+  }, "Klik untuk upload foto produk"), /*#__PURE__*/React.createElement("input", {
     ref: productPhotoInputRef,
     type: "file",
     accept: "image/*",
     onChange: handleProductPhoto,
-    className: "text-xs file:bg-[#242430] file:text-white file:border-none file:px-3 file:py-1.5 file:rounded"
-  }), productPhotoUrl && /*#__PURE__*/React.createElement("div", {
+    className: "hidden"
+  })), productPhotoUrl && /*#__PURE__*/React.createElement("div", {
     className: "relative inline-block"
   }, /*#__PURE__*/React.createElement("img", {
     src: productPhotoUrl,
@@ -3414,13 +3430,19 @@ const PromoGenerator = memo(() => {
     className: "text-xs text-amber-500"
   }, "Simpan API key Gemini dulu di tab Brand (section \"Vision AI\") supaya fitur ini bisa dipakai."), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-gray-500"
-  }, "Cuma gaya visualnya yang diambil \u2014 teks tetap dari isian Anda sendiri. Begitu di-upload, otomatis dianalisis & langsung tergabung ke prompt."), /*#__PURE__*/React.createElement("input", {
+  }, "Cuma gaya visualnya yang diambil \u2014 teks tetap dari isian Anda sendiri. Begitu di-upload, otomatis dianalisis & langsung tergabung ke prompt."), /*#__PURE__*/React.createElement("label", {
+    className: "flex flex-col items-center justify-center gap-1 border-2 border-dashed border-[#3a3a48] hover:border-[#4F46E5] rounded-lg py-4 cursor-pointer transition-colors bg-[#0D0D12]"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xl"
+  }, "\uD83D\uDCF7"), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-gray-300 font-medium"
+  }, "Klik untuk upload foto referensi"), /*#__PURE__*/React.createElement("input", {
     ref: styleRefPhotoInputRef,
     type: "file",
     accept: "image/*",
     onChange: handleStyleRefPhoto,
-    className: "text-xs file:bg-[#242430] file:text-white file:border-none file:px-3 file:py-1.5 file:rounded"
-  }), styleRefPhotoUrl && /*#__PURE__*/React.createElement("div", {
+    className: "hidden"
+  })), styleRefPhotoUrl && /*#__PURE__*/React.createElement("div", {
     className: "relative inline-block"
   }, /*#__PURE__*/React.createElement("img", {
     src: styleRefPhotoUrl,
@@ -4030,7 +4052,7 @@ const ContentPlanGenerator = memo(({
       const topicText = `${activeDay.tema} ${activeDay.konsep} ${activeDay.konsepFoto}`;
       const matched = await pickBestMatchingPhoto(settings.geminiApiKey, topicText, photoLibrary);
       const visionClause = matched ? `. [Foto acuan]: ${matched.detail}` : '';
-      const voClause = voScript.trim() ? ` Sertakan narasi suara (voice over) berikut, diucapkan dengan jelas: "${voScript.trim()}".` : '';
+      const voClause = voScript.trim() ? ` Sertakan narasi suara (voice over) berikut. Naskah yang HARUS diucapkan (kata demi kata, PERSIS 1 KALI dari awal sampai akhir, JANGAN diulang): ${voScript.trim()} — Kalau video masih berjalan setelah narasi selesai diucapkan, biarkan hening/diam di sisa waktu, JANGAN mengulang kata/frasa/bagian mana pun untuk mengisi waktu.` : '';
       // Video AI cenderung KURANG presisi mengikuti detail bentuk fisik
       // dibanding model gambar — diulang tegas di awal & akhir prompt.
       const visionEmphasis = matched ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${matched.detail}.` : '';
@@ -4838,7 +4860,7 @@ const BannerGenerator = memo(() => {
     const logoSpaceInstruction = '';
     const photoInstruction = productPhotoDesc ? `. Foto asli produk sebagai acuan bentuk (JANGAN mengarang bentuk baru): ${productPhotoDesc}` : '';
     const negativeInstruction = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
-    const full = `${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}${textInstruction}${photoInstruction}. ${BANNER_DESIGN_GUIDELINE} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction} ${SHAPE_AUTHENTICITY_RECAP}`;
+    const full = `${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor} (kode HEX internal untuk acuan warna, BUKAN teks yang ditulis di gambar), gaya sesuai brand ${brand.name}${textInstruction}${photoInstruction}. ${BANNER_DESIGN_GUIDELINE} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction} ${SHAPE_AUTHENTICITY_RECAP}`;
     return {
       productSubject: fields.productName.trim(),
       sizeLabel: sizeCfg.label,
@@ -5043,7 +5065,7 @@ const BannerGenerator = memo(() => {
     placeholder: "Contoh: jangan taruh tangan/jari di foto, hindari warna merah menyala"
   })), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500 bg-[#0A0A0D] border border-amber-500/40 rounded p-2 leading-relaxed"
-  }, "\u26A0 Foto latar dari AI resolusinya terbatas \u2014 untuk hasil cetak terbaik, tanyakan dulu ke percetakan Anda apakah mereka sanggup memperbesar foto ini dengan baik (sebagian percetakan biasanya punya software khusus untuk memperbesar resolusi hingga layak cetak, tapi tidak semua \u2014 pastikan dulu sebelum cetak dalam jumlah banyak/ukuran besar)."), /*#__PURE__*/React.createElement("div", {
+  }, "\u26A0 Foto latar dari AI resolusinya terbatas \u2014 untuk hasil cetak terbaik, tanyakan dulu ke percetakan Anda apakah mereka sanggup memperbesar foto ini dengan baik (sebagian percetakan biasanya punya software khusus untuk memperbesar resolusi hingga layak cetak, tapi tidak semua \u2014 pastikan dulu sebelum cetak dalam jumlah banyak/ukuran besar). Sebelum cetak minta operator mengecek seluruh elemen desain: gambar, teks, logo dll. Kadang beberapa bagian minor perlu sedikit perbaikan."), /*#__PURE__*/React.createElement("div", {
     className: "relative"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerate,
