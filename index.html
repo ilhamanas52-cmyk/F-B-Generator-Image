@@ -1194,12 +1194,7 @@ function MainDashboard({
     className: "bg-gradient-to-b from-[#16161d] to-[#0f0f14] border-b border-[#232330] p-4 flex justify-between items-center shadow-lg shadow-black/30"
   }, /*#__PURE__*/React.createElement("h1", {
     className: "text-xl font-bold font-['Space_Grotesk'] bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent tracking-tight"
-  }, "F&B Design Studio"), /*#__PURE__*/React.createElement("a", {
-    href: "https://wa.me/6281317766481",
-    target: "_blank",
-    rel: "noopener noreferrer",
-    className: "hidden sm:flex items-center gap-1.5 text-[11px] font-semibold text-green-400 hover:text-green-300 bg-green-900/20 border border-green-700/40 px-2.5 py-1 rounded-full whitespace-nowrap"
-  }, "\uD83D\uDCAC Customer Service (WA Only) 0813-1776-6481"), /*#__PURE__*/React.createElement("nav", {
+  }, "F&B Design Studio"), /*#__PURE__*/React.createElement("nav", {
     className: "flex gap-2 sm:gap-4 overflow-x-auto items-center"
   }, ['brands', 'menu', 'promo', 'konten', 'feed9', 'banner'].map(t => /*#__PURE__*/React.createElement("button", {
     key: t,
@@ -1239,7 +1234,9 @@ function MainDashboard({
     target: "_blank",
     rel: "noopener noreferrer",
     className: "block text-center text-xs bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white px-4 py-2 rounded-lg font-bold"
-  }, "Upgrade Pro - Hanya 49Rb"), /*#__PURE__*/React.createElement("button", {
+  }, "Upgrade Pro - Hanya 49Rb"), /*#__PURE__*/React.createElement("p", {
+    className: "text-center text-[11px] text-gray-500"
+  }, "\uD83D\uDCAC Customer Service (WA Only) 0813-1776-6481"), /*#__PURE__*/React.createElement("button", {
     onClick: onLogout,
     className: "w-full text-center text-xs text-gray-400 hover:text-white border border-[#242430] rounded-lg py-2"
   }, "Keluar"))))), /*#__PURE__*/React.createElement("main", {
@@ -1604,8 +1601,8 @@ const BrandSettings = memo(({
     },
     className: "text-sm file:bg-[#4F46E5] file:text-white file:border-none file:px-4 file:py-2"
   }), /*#__PURE__*/React.createElement("p", {
-    className: "text-[11px] text-gray-500 mt-1"
-  }, "Logo sebaiknya bersih dari background, dengan format PNG. Lakukan crop tepat di sisi terluar logo."), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] text-amber-500 mt-1"
+  }, "\u26A0 Gunakan logo format PNG transparan (background sudah dihapus), dan crop rapat tepat di sisi terluar logo \u2014 jangan sisakan ruang kosong di sekelilingnya, supaya hasil tempel di desain rapi tanpa kotak putih."), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Posisi Logo & Tagline (di semua promo)"), /*#__PURE__*/React.createElement("select", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
@@ -3587,7 +3584,9 @@ const PromoGenerator = memo(() => {
   }, "\u2139 Mode ikut Foto Referensi Gaya aktif untuk generate ini \u2014 warna & sudut kamera brand dilepas, mengikuti deskripsi referensi foto."), /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateAI,
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
-  }, "Buat Gambar dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
+  }, "Buat Gambar dengan ChatGPT (Gratis)"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500 bg-[#0A0A0D] border border-amber-500/30 rounded p-2 leading-relaxed"
+  }, "\u26A0 Tab ChatGPT akan terbuka otomatis berisi prompt lengkap (teks iklan + posisi ruang kosong logo sudah disiapkan). Setelah gambar selesai dibuat, download filenya lalu upload kembali di kotak \"Upload Hasil Gambar AI\" di bawah \u2014 logo & tagline brand Anda akan otomatis ditempel sesuai posisi yang diatur di tab Brand."), lastGenUrl && /*#__PURE__*/React.createElement("a", {
     href: lastGenUrl,
     target: "_blank",
     rel: "noopener noreferrer",
@@ -3620,9 +3619,7 @@ const PromoGenerator = memo(() => {
     className: "text-[11px] text-amber-500"
   }, "\uD83D\uDCA1 Pilih model Veo 3.1 di Google Flow untuk akses gratis. Prompt sudah tersalin otomatis \u2014 tinggal paste. Prompt ini juga bisa dipakai di platform video AI lain yang Anda punya akses \u2014 tidak terkunci ke satu platform saja.")), genError && /*#__PURE__*/React.createElement("p", {
     className: "text-red-500 text-sm"
-  }, genError), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-gray-500"
-  }, "Tab ChatGPT akan terbuka dengan prompt lengkap (sudah termasuk teks iklan & posisi ruang kosong logo). Setelah gambar jadi, download lalu upload di bawah ini \u2014 logo & tagline brand akan otomatis ditempel di posisi yang sudah diatur di tab Brand."), /*#__PURE__*/React.createElement("label", {
+  }, genError), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Upload Hasil Gambar AI"), /*#__PURE__*/React.createElement("input", {
     type: "file",
@@ -4134,13 +4131,19 @@ const ContentPlanGenerator = memo(({
     accept: "image/*",
     onChange: handleAddLibraryPhoto,
     className: "hidden"
-  }))), photoLibrary.length === 0 && /*#__PURE__*/React.createElement("input", {
+  }))), photoLibrary.length === 0 && /*#__PURE__*/React.createElement("label", {
+    className: "flex flex-col items-center justify-center gap-1 border-2 border-dashed border-[#3a3a48] hover:border-[#4F46E5] rounded-lg py-4 cursor-pointer transition-colors bg-[#0D0D12]"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xl"
+  }, "\uD83D\uDCF7"), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-gray-300 font-medium"
+  }, "Klik untuk upload foto"), /*#__PURE__*/React.createElement("input", {
     ref: photoLibraryInputRef,
     type: "file",
     accept: "image/*",
     onChange: handleAddLibraryPhoto,
-    className: "text-xs file:bg-[#242430] file:text-white file:border-none file:px-3 file:py-1.5 file:rounded"
-  })), /*#__PURE__*/React.createElement("label", {
+    className: "hidden"
+  }))), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Arahan AI (opsional, berlaku untuk semua hari)"), /*#__PURE__*/React.createElement("textarea", {
     className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded text-sm",
@@ -4631,13 +4634,19 @@ const FeedCampaignGenerator = memo(() => {
     accept: "image/*",
     onChange: handleAddLibraryPhoto,
     className: "hidden"
-  }))), photoLibrary.length === 0 && /*#__PURE__*/React.createElement("input", {
+  }))), photoLibrary.length === 0 && /*#__PURE__*/React.createElement("label", {
+    className: "flex flex-col items-center justify-center gap-1 border-2 border-dashed border-[#3a3a48] hover:border-[#4F46E5] rounded-lg py-4 cursor-pointer transition-colors bg-[#0D0D12]"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xl"
+  }, "\uD83D\uDCF7"), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-gray-300 font-medium"
+  }, "Klik untuk upload foto"), /*#__PURE__*/React.createElement("input", {
     ref: photoLibraryInputRef,
     type: "file",
     accept: "image/*",
     onChange: handleAddLibraryPhoto,
-    className: "text-xs file:bg-[#242430] file:text-white file:border-none file:px-3 file:py-1.5 file:rounded"
-  })), /*#__PURE__*/React.createElement("div", {
+    className: "hidden"
+  }))), /*#__PURE__*/React.createElement("div", {
     className: "border border-[#222226] rounded p-4 space-y-2 mt-2"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-sm font-bold text-white"
@@ -4987,13 +4996,19 @@ const BannerGenerator = memo(() => {
     className: "text-[11px] text-gray-500"
   }, "Supaya AI tidak mengarang bentuk makanan Anda \u2014 begitu di-upload, otomatis dianalisis & langsung tergabung ke prompt."), !settings.geminiApiKey && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500"
-  }, "Simpan API key Gemini dulu di tab Brand supaya bisa dianalisis AI."), /*#__PURE__*/React.createElement("input", {
+  }, "Simpan API key Gemini dulu di tab Brand supaya bisa dianalisis AI."), /*#__PURE__*/React.createElement("label", {
+    className: "flex flex-col items-center justify-center gap-1 border-2 border-dashed border-[#3a3a48] hover:border-[#4F46E5] rounded-lg py-4 cursor-pointer transition-colors bg-[#0D0D12]"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xl"
+  }, "\uD83D\uDCF7"), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-gray-300 font-medium"
+  }, "Klik untuk upload foto produk"), /*#__PURE__*/React.createElement("input", {
     ref: productPhotoInputRef,
     type: "file",
     accept: "image/*",
     onChange: handleProductPhoto,
-    className: "text-xs file:bg-[#242430] file:text-white file:border-none file:px-3 file:py-1.5 file:rounded"
-  }), productPhotoUrl && /*#__PURE__*/React.createElement("div", {
+    className: "hidden"
+  })), productPhotoUrl && /*#__PURE__*/React.createElement("div", {
     className: "relative inline-block"
   }, /*#__PURE__*/React.createElement("img", {
     src: productPhotoUrl,
@@ -5065,7 +5080,7 @@ const BannerGenerator = memo(() => {
     placeholder: "Contoh: jangan taruh tangan/jari di foto, hindari warna merah menyala"
   })), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500 bg-[#0A0A0D] border border-amber-500/40 rounded p-2 leading-relaxed"
-  }, "\u26A0 Foto latar dari AI resolusinya terbatas \u2014 untuk hasil cetak terbaik, tanyakan dulu ke percetakan Anda apakah mereka sanggup memperbesar foto ini dengan baik (sebagian percetakan biasanya punya software khusus untuk memperbesar resolusi hingga layak cetak, tapi tidak semua \u2014 pastikan dulu sebelum cetak dalam jumlah banyak/ukuran besar). Sebelum cetak minta operator mengecek seluruh elemen desain: gambar, teks, logo dll. Kadang beberapa bagian minor perlu sedikit perbaikan."), /*#__PURE__*/React.createElement("div", {
+  }, "\u26A0 Mohon periksa detail file banner ini bersama tim operator percetakan sebelum cetak final \u2014 terutama ketajaman logo dan teks. Karena gambar dihasilkan dan diperbesar menggunakan AI, kualitas visual bisa bervariasi tergantung ukuran cetak; optimasi tambahan oleh percetakan mungkin diperlukan untuk hasil terbaik."), /*#__PURE__*/React.createElement("div", {
     className: "relative"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerate,
@@ -5085,7 +5100,25 @@ const BannerGenerator = memo(() => {
     className: "block text-center text-xs text-purple-400 hover:text-purple-300 underline"
   }, "Tab tidak otomatis terbuka? Klik di sini"), genError && /*#__PURE__*/React.createElement("p", {
     className: "text-red-500 text-sm"
-  }, genError), /*#__PURE__*/React.createElement("label", {
+  }, genError), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 border border-[#242430] rounded-lg p-3 bg-[#0A0A0D]"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block"
+  }, "Perbesar Resolusi Sebelum Upload (opsional, disarankan)"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-gray-500"
+  }, "Gambar dari ChatGPT resolusinya masih rendah untuk cetak ukuran besar. Upscale dulu gambar yang baru didownload di salah satu tool gratis di bawah \u2014 baru upload hasilnya ke kotak \"Upload Hasil Gambar AI\". Dengan begitu logo & teks yang kami tempel setelahnya tetap tajam."), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => window.open('https://picsart.com/image-upscale/', '_blank', 'noopener,noreferrer'),
+    className: "text-xs font-semibold text-white bg-[#242430] hover:bg-[#2d2d3a] border border-[#3a3a48] rounded-lg py-2 px-2 transition-colors"
+  }, "\u2600\uFE0F Outdoor (Picsart)"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => window.open('https://www.recraft.ai/image-upscaler', '_blank', 'noopener,noreferrer'),
+    className: "text-xs font-semibold text-white bg-[#242430] hover:bg-[#2d2d3a] border border-[#3a3a48] rounded-lg py-2 px-2 transition-colors"
+  }, "\uD83C\uDFE0 Indoor (Recraft)")), /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] text-gray-600"
+  }, "Outdoor: banner dibaca dari jarak jauh (2-5m). Indoor: banner dibaca dari jarak dekat, butuh ketajaman lebih tinggi.")), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Upload Hasil Gambar AI"), /*#__PURE__*/React.createElement("input", {
     type: "file",
