@@ -3180,6 +3180,7 @@ const PromoGenerator = memo(() => {
       formatHint,
       enrichedExtras,
       negativePrompt: negativePrompt.trim(),
+      styleRefApplied,
       full
     };
   };
@@ -3285,7 +3286,16 @@ const PromoGenerator = memo(() => {
     // gambar diam, jadi ditegaskan lagi eksplisit di akhir, sama pola
     // dengan visionEmphasis di atas.
     const textEmphasis = data.textParts.length > 0 ? ` PENTING \u2014 WAJIB tampil sebagai teks di video (ejaan persis, JANGAN dihilangkan/diganti): ${data.textParts.join(', ')}.` : '';
-    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_INTRO} ${data.full}${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}${textEmphasis} ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_OUTRO} ${SHAPE_AUTHENTICITY_RECAP}`;
+    // Gaya font/tipografi (dari Foto Referensi Gaya) numpang lewat 1x di
+    // tengah data.full sebelumnya (di dalam enrichedExtras) — video AI
+    // kurang patuh soal detail visual abstrak seperti font dibanding
+    // gambar diam, jadi ditegaskan lagi eksplisit di akhir, sama pola
+    // dengan visionEmphasis & textEmphasis di atas. Font tetap TIDAK bisa
+    // dijamin 100% presisi (ini keterbatasan video AI, bukan cuma soal
+    // prompt) — solusi paling reliable tetap pakai gambar composite final
+    // sebagai Initial Frame di Google Flow, bukan cuma mengandalkan prompt.
+    const styleEmphasis = data.styleRefApplied ? ` PENTING \u2014 WAJIB ikuti PERSIS gaya font/tipografi yang terlihat di foto referensi gaya (bentuk huruf, ketebalan, gaya penulisan), JANGAN pakai font default/font pilihan AI sendiri, di setiap frame video.` : '';
+    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_INTRO} ${data.full}${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}${textEmphasis}${styleEmphasis} ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_OUTRO} ${SHAPE_AUTHENTICITY_RECAP}`;
     try {
       await navigator.clipboard.writeText(videoPrompt);
     } catch (e) {}
