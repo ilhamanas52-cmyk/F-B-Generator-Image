@@ -1219,7 +1219,9 @@ function MainDashboard({
     className: "flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-[#1a1a22] hover:bg-[#222230] border border-[#2a2a36] rounded-lg px-3 py-1.5 whitespace-nowrap"
   }, "\uD83D\uDC64 Profil", isPro(profile && profile.plan) && /*#__PURE__*/React.createElement("span", {
     className: "text-[9px] font-bold bg-gradient-to-r from-amber-600 to-amber-500 text-white px-1.5 py-0.5 rounded"
-  }, "PRO")), showProfileMenu && /*#__PURE__*/React.createElement("div", {
+  }, "PRO"), /*#__PURE__*/React.createElement("span", {
+    className: "text-[8px] text-gray-500 transition-transform duration-200" + (showProfileMenu ? " rotate-180" : "")
+  }, "\u25BC")), showProfileMenu && /*#__PURE__*/React.createElement("div", {
     className: "absolute right-0 top-full mt-2 w-64 bg-[#15151b] border border-[#242430] rounded-xl shadow-2xl p-4 space-y-3 z-50"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-500 break-all"
