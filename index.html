@@ -58,13 +58,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = 'fnb-design-studio'; // bebas diisi apa saja, dipakai untuk struktur path Firestore
 
-// Struktur dokumen data bisnis TETAP SAMA seperti sebelumnya:
-// artifacts/{appId}/users/{uid}/appData/state berisi { brand, menu,
-// contentPlan }. Bedanya, sekarang {uid} berasal dari akun yang
-// BENAR-BENAR login (Email/Password atau Google), bukan token
-// otomatis dari Canvas — jadi setiap pengguna punya data sendiri
-// yang privat, dan nyambung di perangkat manapun mereka login.
-
 const defaultAppData = {
   brand: {
     name: 'Brand Saya',
@@ -78,25 +71,12 @@ const defaultAppData = {
     logoUrl: '',
     logoPosition: 'bottom-right'
   },
-  // "menu" TIDAK lagi disimpan di sini — tiap item menu sekarang jadi
-  // dokumen Firestore TERSENDIRI (lihat menuItems collection di
-  // MainDashboard), supaya tidak kena batas ukuran 1MB per dokumen
-  // kalau menu banyak dengan foto.
   contentPlan: [],
-  contentPlanRawText: '', // teks mentah yang ditempel di kolom "Tempel Jawaban ChatGPT" — disimpan permanen (beda dari foto per-hari yang sesi-saja)
-  // API key Gemini milik USER SENDIRI (bukan milik pemilik aplikasi) —
-  // dipakai fitur Vision AI (analisis foto) di tab Promo dkk. Disimpan
-  // di dokumen appData/state yang sama, sudah otomatis privat berkat
-  // Firestore Rules yang ada (tidak perlu Rules baru).
+  contentPlanRawText: '',
   settings: {
     geminiApiKey: ''
   }
 };
-// 15 pasangan font khusus F&B (berdasar riset tren tipografi 2026 —
-// serif "juicy"/bouncy, bold/brutalist signage, playful, tulisan
-// tangan tebal & elegan, heritage serif, condensed diner, dan modern bersih).
-// 7 PERTAMA = Reguler (paling serbaguna & dikenali luas), SISANYA
-// (8) = khusus Pro (lebih niche/berkarakter khas) — lihat FREE_FONT_COUNT.
 const fontOptions = [{
   heading: 'Fraunces',
   body: 'Inter'
@@ -143,7 +123,6 @@ const fontOptions = [{
   heading: 'Prata',
   body: 'Work Sans'
 }];
-// 7 pertama di atas = gratis untuk paket Reguler, sisanya khusus Pro.
 const FREE_FONT_COUNT = 7;
 const loadGoogleFonts = () => {
   const fonts = ['Fraunces', 'Inter', 'Archivo+Black', 'Poppins', 'Nunito', 'Permanent+Marker', 'Open+Sans', 'Merriweather', 'EB+Garamond', 'Montserrat', 'Lato', 'Bebas+Neue', 'Roboto+Condensed', 'Pacifico', 'Quicksand', 'Great+Vibes', 'Baloo+2', 'Mulish', 'Cormorant+Garamond', 'Work+Sans', 'Space+Grotesk', 'JetBrains+Mono', 'Playfair+Display', 'Libre+Baskerville', 'Satisfy', 'Prata'];
@@ -153,37 +132,13 @@ const loadGoogleFonts = () => {
   document.head.appendChild(link);
 };
 const BrandContext = createContext(defaultAppData.brand);
-// Context terpisah dari BrandContext (bukan soal identitas brand,
-// tapi soal pengaturan/API key) — dibaca komponen manapun yang butuh
-// akses Gemini API key untuk fitur Vision AI.
 const SettingsContext = createContext(defaultAppData.settings);
 
-// ============================================================
-// SISTEM PAKET REGULER & PRO
-//
-// Nilai `plan` di Firestore TETAP 'single'/'reseller'/'reseller_client'
-// (supaya URL pendaftaran & pengaturan Scalev tidak perlu diubah) —
-// yang berubah cuma LABEL yang ditampilkan ke user ("Reguler"/"Pro")
-// dan FITUR yang didapat. isPro() adalah satu-satunya tempat yang
-// menentukan arti "Pro" secara teknis — supaya kalau nanti nilai
-// plan berubah, cukup ubah 1 fungsi ini.
-// ============================================================
 const isPro = plan => plan === 'reseller' || plan === 'reseller_client';
 
-// Link "Upgrade ke Pro" — URL Scalev asli. HANYA di sini nilainya
-// diisi, supaya kalau nanti berubah cukup ganti 1 baris ini saja.
 const SCALEV_PRO_UPGRADE_URL = 'https://superstrikeshop.myscalev.com/upgrade-paket-pro';
 const PlanContext = createContext('single');
 
-// Komponen kunci "Khusus Pro" — dipakai BERULANG di semua fitur
-// Pro-only (Video, Banner Cetak, Foto Referensi Gaya, dll) supaya
-// polanya SELALU SAMA di seluruh aplikasi (bukan beda-beda per tempat).
-// Fitur TETAP TERLIHAT (tidak disembunyikan), tapi dilapisi overlay
-// kunci + ajakan upgrade — sesuai keputusan user.
-// VARIAN RINGKAS — pita kecil di pojok, dipakai di grid SEMPIT (misal
-// pilihan Gaya Menu) supaya TIDAK menumpuk/menutupi teks di baliknya.
-// Teks/label tetap 100% terbaca — cuma ditambah pita "PRO" kecil +
-// klik pita = ke halaman upgrade. Tidak ada overlay besar di sini.
 const ProBadgeCorner = () => {
   return /*#__PURE__*/React.createElement("a", {
     href: SCALEV_PRO_UPGRADE_URL,
@@ -194,11 +149,6 @@ const ProBadgeCorner = () => {
   }, "\uD83D\uDD12 PRO");
 };
 
-// VARIAN LENGKAP — overlay ajakan upgrade penuh, dipakai di area yang
-// LEBIH LEGA (Foto Referensi Gaya, Video, Banner Cetak). Konten di
-// balik overlay TIDAK di-blur & TIDAK terlalu digelapkan — supaya
-// nama/label fitur di baliknya tetap kebaca jelas (bukan cuma bayangan
-// samar seperti sebelumnya).
 const ProLock = ({
   children,
   label = 'Fitur ini khusus paket Pro'
@@ -239,17 +189,6 @@ const hudStyles = `
   .pro-glow { animation: proGlow 2.2s ease-in-out infinite; }
 `;
 
-// Batas aman panjang teks untuk dimasukkan ke URL ChatGPT. Kalau
-// prompt lebih panjang dari ini, browser/server ChatGPT bisa menolak
-// (error 431 "Request Header Fields Too Large"). Solusinya: salin ke
-// clipboard dan buka ChatGPT kosong, minta pengguna tempel manual —
-// daripada gagal total seperti membuka halaman error.
-// Batas aman PANJANG URL SETELAH DI-ENCODE (bukan panjang teks mentah)
-// — diukur dari prompt normal tab Promo (~2700 karakter encoded, itu
-// aman/normal), dikasih ruang lebih supaya tidak salah tangkap prompt
-// wajar sebagai "kepanjangan". Kalau memang melebihi ini, teks dipotong
-// otomatis (bukan clipboard/alert — itu sering diblokir di sandbox
-// Canvas) supaya tetap ada yang otomatis terisi, walau ujungnya terpotong.
 const MAX_ENCODED_URL_LENGTH = 4500;
 const openChatGPTWithPrompt = fullPrompt => {
   let text = fullPrompt;
@@ -260,86 +199,39 @@ const openChatGPTWithPrompt = fullPrompt => {
   }
   const url = `https://chatgpt.com/?q=${encoded}`;
   window.open(url, '_blank');
-  return url; // dikembalikan supaya pemanggil bisa tampilkan link cadangan manual
+  return url;
 };
 
-// GENERATE AI — diarahkan ke ChatGPT (gratis, tanpa API key, tanpa billing).
-// Membuka tab baru dengan prompt otomatis terisi; pengguna generate pakai
-// akun ChatGPT gratis mereka sendiri, lalu upload manual hasilnya.
 const openChatGPTGenerate = promptText => {
   const fullPrompt = `Buatkan gambar: ${promptText}, high quality, appetizing food photography atmosphere`;
   return openChatGPTWithPrompt(fullPrompt);
 };
 
-// Sama seperti di atas, tapi TANPA balutan "buatkan gambar" — untuk
-// permintaan teks biasa (misal rencana konten 30 hari), atau saat
-// prompt yang dikirim sudah lengkap apa adanya (tidak perlu dibungkus lagi).
 const openChatGPTText = promptText => {
   return openChatGPTWithPrompt(promptText);
 };
 
-// Kaidah desain grafis default untuk iklan FB/IG — otomatis disertakan
-// di prompt, tapi tetap teks biasa yang bisa dihapus/diedit pengguna.
 const DESIGN_GUIDELINE_PROMPT = "gunakan kaidah desain grafis yang kontras dan kuat dan membuat orang berhenti scroll dan membaca hingga tuntas. image akan digunakan sebagai materi iklan di FB dan IG. buat susunan warna mencolok kontras dengan timeline facebook dan Instagram, namun tetap mempertahankan kaidah psikologi warna dan teori warna serasi dan kaidah kekuatan desain grafis, dan color pallete. pastikan margin aman 10%-15%";
 
-// ============================================================
-// SISTEM PROMPT GAMBAR — formula 6 lapis terkonsolidasi
-// (Subjek → Pencahayaan → Komposisi&Aksi → Warna Terkunci →
-// Tipografi → Kualitas&Larangan), hasil eksplorasi mendalam
-// bersama pengguna (bentuk autentik makanan, elemen "wow" dari
-// referensi visual nyata, SOP higienis, dsb).
-// ============================================================
-
-// Penjaga bentuk autentik — supaya detail makanan/minuman (butir
-// nasi, helai mie, buih, dll) tidak berubah bentuk jadi generik,
-// walau boleh menggumpal/menumpuk secara alami.
 const SHAPE_AUTHENTICITY_GUARD = "Sebelum menggambar, cermati dulu bentuk fisik AUTENTIK dari hidangan/minuman yang diminta secara spesifik — bukan interpretasi generik bergaya ilustrasi AI pada umumnya. TIDAK BOLEH ADA DISTORSI BENTUK pada elemen individual apapun (butir nasi, helai mie, potongan buah, es batu, gelembung/buih, serat, dll) — elemen BOLEH menggumpal/menempel/tumpang tindih (itu wajar), TAPI bentuk asli tiap elemen individual harus tetap konsisten. SELAIN bentuk, KEADAAN OLAHAN/TEKSTUR juga harus autentik sesuai cara masaknya: nasi matang (termasuk nasi sushi) harus terlihat lengket-mengkilap-lembap, BUKAN kering/terpisah seperti beras mentah; mie matang harus kenyal-mengkilap bukan kaku-kering; daging matang harus juicy bukan kering; sayur rebus/tumis harus segar-lembap bukan layu-kering.";
 
-// Recap singkat di akhir prompt — prinsip GENERIK berlaku untuk semua
-// jenis makanan/minuman apa pun (bukan cuma 1 bahan tertentu seperti
-// contoh nasi sushi), sengaja DIULANG di posisi akhir supaya tidak
-// tenggelam di antara banyak instruksi lain (SHAPE_AUTHENTICITY_GUARD
-// sendiri cuma disisipkan 1x di paling awal prompt).
 const SHAPE_AUTHENTICITY_RECAP = "Sekali lagi ditegaskan: bentuk & tekstur SEMUA elemen makanan/minuman di gambar ini WAJIB autentik sesuai kondisi aslinya (matang/segar/sesuai jenisnya) — berlaku untuk APA PUN jenis makanan/minumannya, tidak terbatas ke satu bahan tertentu. JANGAN ada elemen yang terlihat mentah/kering/palsu/plastik kalau seharusnya matang/segar/lembap.";
 
-// SOP kebersihan — otomatis disisipkan setiap kali bank momen aksi
-// yang dipilih melibatkan tangan manusia (bukan pilihan, demi
-// kredibilitas & kepercayaan pelanggan).
 const HYGIENE_SOP_TEXT = "Tangan manusia yang terlihat dalam gambar WAJIB memakai sarung tangan sekali pakai (nitrile/lateks berwarna terang), rambut tertutup jaring rambut (hairnet) di bawah topi koki, sesuai standar kebersihan dapur profesional.";
 
-// Lapis 6 — kualitas & larangan, dipakai di SEMUA generate gambar.
 const QUALITY_PROHIBITION_LAYER = "High quality, food/beverage photography editorial. Hindari kesan stock-photo generik, hindari oversaturasi warna tidak natural, hindari tekstur makanan/minuman terlihat plastik/palsu.";
 
-// Larangan teks/logo/watermark yang TIDAK diminta — dipakai di SEMUA
-// generate gambar & video. Teks yang MEMANG diminta lewat field
-// (Headline, CTA, harga, dll) tetap boleh muncul karena instruksi itu
-// disebutkan TERPISAH sebelum klausa ini; klausa ini hanya melarang
-// AI menambah sendiri apapun DI LUAR yang eksplisit diminta.
 const NO_UNSOLICITED_TEXT_CLAUSE = "JANGAN tambahkan teks, tulisan, watermark, logo, subtitle, ikon, elemen UI/interface, stiker, atau karakter/simbol apa pun di luar yang secara eksplisit diminta di atas. JANGAN membuat/menambahkan badge penghargaan, rating, sertifikasi, cap/stempel, atau label semacam itu atas inisiatif sendiri — walau tidak ada di foto referensi sekalipun, itu bukan alasan untuk menciptakannya sendiri.";
 
-// Versi KHUSUS VIDEO — video generator (Veo) secara alami lebih rentan
-// menambah teks/watermark/ikon (dilatih dari jutaan video dunia nyata
-// yang penuh caption/logo stasiun/ikon UI). Klausa ini SENGAJA ditaruh
-// di 2 titik (awal & akhir prompt) dan menyebut secara eksplisit foto
-// referensi yang mungkin dilampirkan LANGSUNG di kolom chat Google Flow
-// (bukan cuma dijelaskan lewat teks) — karena kalau foto itu sendiri
-// ada watermark/teks/ikon, model bisa meniru apa yang "dilihatnya"
-// walau instruksi teks bilang sebaliknya.
 const NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_INTRO = "PENTING soal teks/ikon: JANGAN tambahkan teks, tulisan, watermark, logo, subtitle, ikon, elemen UI/interface, atau stiker apa pun di video ini di luar yang eksplisit diminta. Kalau ada foto referensi terlampir di chat ini: foto itu HANYA acuan komposisi, sudut, pencahayaan, gerakan, dan orientasi/kemiringan objek — ABAIKAN TOTAL teks, tulisan, watermark, logo, ikon, atau simbol apa pun yang mungkin terlihat DI DALAM foto referensi tersebut, JANGAN direproduksi ke video hasil, cukup tiru gaya visual & komposisinya saja.";
 const NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_OUTRO = "Sekali lagi ditegaskan: TIDAK ADA teks, tulisan, watermark, logo, ikon, elemen UI, atau stiker apa pun di video ini kecuali yang eksplisit diminta di atas — termasuk yang mungkin terlihat di foto referensi terlampir, JANGAN ditiru.";
 
 
-// Bank variasi PENCAHAYAAN (Lapis 2)
 const LIGHTING_VARIANTS = ["Pencahayaan jendela alami hangat, sinar keemasan masuk dari samping, menciptakan bayangan lembut dan highlight alami di permukaan produk.", "Pencahayaan studio 3 titik dramatis, key light dari kiri atas, fill light lembut, rim light tipis di tepi produk memisahkan objek dari latar gelap.", "Cahaya mendung lembut merata (soft overcast), tanpa bayangan tajam, warna natural tidak berlebihan kontras.", "Pencahayaan backlit dramatis dari belakang, siluet tipis di tepi objek, uap/embun terlihat jelas terkena cahaya."];
 
-// Bank variasi KOMPOSISI (Lapis 3, bagian pertama) — termasuk elemen
-// "wow": depth of field, elemen keluar bingkai, latar kontras ekstrem.
 const COMPOSITION_VARIANTS = ["Komposisi statis elegan, objek diletakkan sedikit miring 10-15 derajat dari sumbu vertikal, ruang negatif di sekitar objek.", "Komposisi DINAMIS MELAYANG — objek atau sebagian dari objek MELAYANG di udara membentuk sudut berbeda-beda, bukan diam di piring/gelas.", "Komposisi close-up dramatis, sudut eye-level rendah, objek mendominasi hampir seluruh frame.", "Komposisi top-down (dari atas), objek di tengah dengan elemen pendukung tersusun di sekelilingnya."];
 const FRAME_DEPTH_CONTRAST_VARIANTS = ["Beberapa elemen pendukung (bahan mentah, remah, percikan) sengaja diletakkan MELEWATI TEPI FRAME (terpotong sebagian di pinggir foto), menciptakan kesan melimpah. Depth of field — objek utama tajam fokus, elemen lain di belakang sedikit blur menciptakan kedalaman. Latar BENAR-BENAR GELAP PEKAT (hitam), menciptakan kontras dramatis dengan warna produk.", "Beberapa elemen pendukung sengaja diletakkan MELEWATI TEPI FRAME, menciptakan kesan melimpah. Depth of field — objek utama tajam fokus, elemen lain di belakang sedikit blur menciptakan kedalaman. Latar BERWARNA JENUH SENADA dengan produk (bukan netral/putih polos), menciptakan kontras dramatis."];
 
-// Bank variasi MOMEN AKSI (Lapis 3, bagian kedua) — dilewati kalau
-// pengguna pilih mode Statis. Tiap entri menandai apakah melibatkan
-// tangan (memicu HYGIENE_SOP_TEXT otomatis).
 const ACTION_VARIANTS = [{
   text: "Momen aksi — cairan (saus/sirup/kuah) sedang DITUANG dari atas membentuk gerakan alami, percikan kecil terlihat.",
   hands: true
@@ -354,9 +246,6 @@ const ACTION_VARIANTS = [{
   hands: true
 }];
 
-// Pilih 1 varian dari bank secara acak, TAPI tidak pernah sama
-// dengan yang dipakai di generate SEBELUMNYA (anti-pengulangan) —
-// lastIndexRef adalah useRef milik komponen pemanggil.
 const pickVariant = (bank, lastIndexRef) => {
   if (bank.length === 1) return bank[0];
   let idx;
@@ -367,14 +256,6 @@ const pickVariant = (bank, lastIndexRef) => {
   return bank[idx];
 };
 
-// ============================================================
-// VISION AI — analisis foto pakai Gemini API (punya API key SENDIRI
-// milik user, disimpan di Firestore, TIDAK dikirim ke server kami).
-// Dipanggil langsung dari browser (fetch), sama seperti pola generate
-// gambar via ChatGPT di aplikasi ini — tanpa backend.
-// Model gemini-2.5-flash: multimodal (terima gambar+teks), ada kuota
-// gratis harian yang cukup untuk skala UMKM per Juli 2026.
-// ============================================================
 const GEMINI_VISION_MODEL = 'gemini-3.5-flash';
 const analyzeImageWithGemini = async (apiKey, imageDataUrl, instruction) => {
   if (!apiKey) throw new Error('API key Gemini belum diisi. Simpan dulu di tab Brand.');
@@ -423,8 +304,6 @@ const analyzeImageWithGemini = async (apiKey, imageDataUrl, instruction) => {
   return text;
 };
 
-// Versi teks polos (tanpa gambar) dari Gemini — dipakai untuk tugas
-// pencocokan foto (bukan analisis visual), lebih ringan/cepat.
 const askGeminiText = async (apiKey, instruction) => {
   if (!apiKey) throw new Error('API key Gemini belum diisi.');
   let resp;
@@ -458,14 +337,6 @@ const askGeminiText = async (apiKey, instruction) => {
   return text;
 };
 
-// ============================================================
-// PERPUSTAKAAN FOTO ACUAN — dipakai tab Konten 30 Hari & 9 Feed
-// Konsisten (maks 10 foto, tanpa label manual dari user). Tiap foto
-// otomatis dianalisis SEKALI saat upload (label singkat + deskripsi
-// detail bentuk asli), lalu saat generate 1 unit konten (hari/slot),
-// sistem otomatis MENCOCOKKAN foto mana yang paling relevan dengan
-// topik konten itu — semuanya otomatis, tanpa konfirmasi manual.
-// ============================================================
 const analyzePhotoForLibrary = async (apiKey, imageDataUrl) => {
   const instruction = 'Analisis foto ini untuk 2 tujuan. Jawab PERSIS dengan format berikut (2 baris saja, tanpa embel-embel lain, tanpa markdown):\nLABEL: (label singkat 3-6 kata tentang objek utama foto ini, contoh: "kopi latte dalam gelas kaca", "tampak depan restoran dengan signage", "staff crew dapur berseragam")\nDETAIL: (deskripsi detail 2-3 kalimat tentang bentuk fisik, warna, tekstur, dan ciri visual presisi objek tersebut, untuk jadi acuan AI image generator supaya tidak mengarang bentuk)';
   const text = await analyzeImageWithGemini(apiKey, imageDataUrl, instruction);
@@ -477,11 +348,6 @@ const analyzePhotoForLibrary = async (apiKey, imageDataUrl) => {
   };
 };
 
-// Diberikan teks topik konten (Tema/Konsep/dll) dan daftar foto yang
-// sudah dianalisis (label+detail), minta Gemini memilihkan foto PALING
-// relevan — atau null kalau memang tidak ada yang cocok. Semua otomatis,
-// tidak pernah menunjukkan kegagalan sebagai error mengganggu (kalau
-// gagal, generate tetap lanjut TANPA foto acuan).
 const pickBestMatchingPhoto = async (apiKey, topicText, photoLibrary) => {
   const validPhotos = (photoLibrary || []).filter(p => p.detail && !p.analyzing && !p.error);
   if (validPhotos.length === 0 || !topicText || !apiKey) return null;
@@ -498,20 +364,11 @@ const pickBestMatchingPhoto = async (apiKey, topicText, photoLibrary) => {
   }
 };
 
-// Rakit Lapis 2-6 jadi 1 blok teks siap pakai. Dipanggil dari
-// komponen yang SUDAH memilih varian (lewat pickVariant + useRef
-// masing-masing), supaya anti-pengulangan bekerja per-komponen.
-// respectStyleRef: true kalau user sudah menerapkan hasil analisis
-// "Foto Referensi Gaya" (Vision AI) ke Arahan AI untuk generate ini —
-// pencahayaan/komposisi/sudut acak DAN kunci warna brand dilepas
-// supaya tidak bentrok dengan gaya dari foto referensi (lihat diskusi
-// bug angle+warna berbeda dari referensi).
 const buildEnrichedPromptExtras = (brand, {
   lighting,
   composition,
   frameDepthContrast,
   action,
-  // { text, hands } atau null kalau mode Statis
   fontHeading,
   fontBody,
   respectStyleRef = false
@@ -520,14 +377,6 @@ const buildEnrichedPromptExtras = (brand, {
   const fb = fontBody || brand.fontBody;
   const parts = [];
   if (respectStyleRef) {
-    // Lewati pencahayaan/komposisi/sudut/AKSI ACAK sepenuhnya — biarkan
-    // deskripsi gaya DAN gerakan dari foto referensi (sudah ada di
-    // Arahan AI) yang jadi SATU-SATUNYA acuan. Sebelumnya "Momen Aksi"
-    // acak tetap disisipkan di luar blok if/else ini walau mode
-    // referensi aktif — itu bug yang menyebabkan aksi acak (mis.
-    // "dituang saus") bertabrakan dengan aksi asli di foto referensi
-    // (mis. "melayang"). Sekarang aksi acak TIDAK PERNAH disisipkan
-    // sama sekali kalau respectStyleRef aktif.
     parts.push('PENTING \u2014 TARGET KEMIRIPAN 98%: instruksi di atas SUDAH menyertakan deskripsi gaya visual, gerakan/aksi, jumlah objek, DAN orientasi/arah kemiringan dari foto referensi yang diberikan user.');
     parts.push('Foto referensi ini SENGAJA dipilih user karena ekspresinya TEGAS, BERANI, dan JELAS \u2014 JANGAN dilembutkan, JANGAN ragu-ragu, JANGAN kompromi/setengah-setengah, JANGAN menghasilkan versi "aman" yang lebih halus dari referensi.');
     parts.push('Buat SEDEKAT MUNGKIN (98%) identik dengan referensi tersebut untuk: pencahayaan, komposisi, sudut pengambilan gambar, PALET WARNA, gerakan/aksi, ORIENTASI/ARAH (jangan dibalik/diputar ke arah lain), JUMLAH & SUSUNAN elemen dalam komposisi (ikuti angka persis yang sudah disebutkan di atas), ekspresi, dan tingkat keberanian/ketegasan visualnya \u2014 JANGAN gunakan variasi lain di luar yang sudah dijelaskan, dan JANGAN memakai warna brand default.');
@@ -543,12 +392,6 @@ const buildEnrichedPromptExtras = (brand, {
   if (!respectStyleRef) {
     const colorLock = `Palet warna WAJIB sesuai brand — ${brand.primaryColor} (kode HEX internal untuk PALET WARNA, BUKAN teks yang ditulis di gambar) untuk aksen tegas, ${brand.secondaryColor} (kode HEX internal, BUKAN teks) untuk kontras kuat, ${brand.accentColor} (kode HEX internal, BUKAN teks) untuk menonjolkan elemen promo/CTA — gunakan PERSIS kode HEX ini sebagai acuan WARNA VISUAL, JANGAN pernah menuliskan kode HEX itu sendiri (mis. "${brand.primaryColor}") sebagai tulisan di gambar.`;
     parts.push(colorLock);
-    // Font brand (typography) HANYA dipaksa saat mode "Pakai Brand
-    // Identity" — saat mode "Total Ikuti Gaya Foto Referensi" aktif,
-    // tombolnya sendiri sudah menjanjikan "warna & font brand dilepas",
-    // jadi font TIDAK BOLEH ikut disisipkan di sini (sebelumnya bocor,
-    // selalu masuk apa pun mode-nya — bug yang sama persis seperti
-    // "Momen Aksi acak" yang sudah diperbaiki lebih dulu).
     const typography = `Kalau ada teks, render menyerupai GAYA VISUAL font "${fh}" (ini nama font untuk ACUAN GAYA saja — JANGAN pernah menuliskan kata "${fh}" itu sendiri sebagai teks di gambar) untuk judul/headline SESUAI KARAKTER ASLI font tersebut (kalau font-nya memang tebal/besar secara alami, buat tebal besar; kalau font-nya tipis/elegan/kursif seperti tulisan tangan, buat tipis/elegan/kursif — JANGAN dipaksa tebal-besar kalau bukan itu karakter aslinya), dengan tekstur/finishing yang sesuai gaya font-nya (bukan flat polos), gaya bersih "${fb}" untuk isi (nama font ini juga HANYA acuan gaya, JANGAN dituliskan sebagai teks). Badge (kalau ada) sedikit dimiringkan/dirotasi, jangan sejajar sempurna.`;
     parts.push(typography);
   } else {
@@ -556,16 +399,11 @@ const buildEnrichedPromptExtras = (brand, {
   }
   parts.push(QUALITY_PROHIBITION_LAYER);
   if (respectStyleRef) {
-    // Recap singkat KHUSUS WARNA, sengaja ditaruh paling akhir (bukan
-    // ditumpuk di blok 98% yang panjang) supaya jadi kalimat penutup
-    // yang tidak tenggelam — sama pola dengan SHAPE_AUTHENTICITY_RECAP.
     parts.push('Sekali lagi ditegaskan: WARNA di gambar ini WAJIB 98% identik dengan palet warna foto referensi yang sudah dijelaskan di atas — JANGAN kembali ke warna bias/umum AI sendiri, JANGAN memakai warna brand default. KHUSUS untuk warna TEKS: kalau foto referensi TIDAK punya teks sama sekali untuk dijadikan acuan warna font, JANGAN menebak warna sendiri (jangan pakai coklat/tan/pastel sembarangan) — pakai warna KONTRAS TINGGI (putih bersih atau warna netral tegas) terhadap latar belakang, supaya tetap terbaca jelas.');
   }
   return parts.join(' ');
 };
 
-// Deskripsi format/rasio yang otomatis disisipkan ke prompt sesuai
-// tombol format yang dipilih pengguna (Feed/Story/YouTube/GoFood).
 const FORMAT_DESCRIPTIONS = {
   feed: "format persegi (1:1) untuk feed Instagram/Facebook",
   story: "format vertikal (9:16) untuk Instagram/Facebook Story",
@@ -573,10 +411,6 @@ const FORMAT_DESCRIPTIONS = {
   gofood: "format landscape untuk banner GoFood/GrabFood"
 };
 
-// 3 pilihan ukuran fisik banner (landscape) — mempengaruhi rasio
-// gambar yang diminta ke AI. Ukuran fisik sungguhan (meter) cuma
-// relevan untuk keperluan cetak nanti, TIDAK mengubah resolusi
-// piksel gambar dari AI (lihat peringatan resolusi di UI).
 const BANNER_SIZES = {
   '2x1': {
     label: '2 x 1 meter',
@@ -601,9 +435,6 @@ const BANNER_SIZES = {
   }
 };
 
-// Dropdown "Tujuan Banner" — otomatis menyesuaikan ARAH GAYA DESAIN
-// (berdasar riset kebutuhan umum banner F&B), supaya user tidak perlu
-// atur gaya visual manual seperti di tab Promo.
 const BANNER_PURPOSES = {
   promo: {
     label: 'Promo / Diskon',
@@ -623,9 +454,6 @@ const BANNER_PURPOSES = {
   }
 };
 
-// Dropdown BARU "Pola Desain" — terpisah dari "Tujuan Banner" di atas,
-// keduanya dikombinasikan bebas (Tujuan = ARAH ISI/PESAN, Pola Desain
-// = STRUKTUR TATA LETAK visualnya).
 const BANNER_PATTERNS = {
   grid: {
     label: 'Grid Rapi & Simetris',
@@ -646,16 +474,9 @@ const BANNER_PATTERNS = {
 };
 
 
-// Panduan desain khusus BANNER FISIK (beda dari DESIGN_GUIDELINE_PROMPT
-// yang dipakai tab Promo — itu untuk feed Instagram/FB, ini untuk
-// dibaca dari jarak 2-5 meter, kadang dari kendaraan yang bergerak).
 const BANNER_DESIGN_GUIDELINE = "gunakan kaidah desain grafis banner/spanduk luar ruang (outdoor) — tulisan HARUS besar dan terbaca jelas dari jarak 2-5 meter, bahkan dari kendaraan yang sedang bergerak. Kontras warna tinggi, hindari detail kecil yang tidak terbaca dari jauh, komposisi sederhana tidak berantakan. Pastikan margin aman 10-15% di semua sisi.";
 
 
-// Posisi logo & tagline — dipilih sekali di tab Brand, berlaku
-// konsisten untuk semua promo. Dipakai untuk instruksi prompt AI
-// (sisakan ruang kosong) DAN untuk posisi gambar logo/tagline
-// yang ditempel kanvas kami di atas hasil AI.
 const LOGO_POSITIONS = {
   'top-left': {
     label: 'Kiri Atas',
@@ -675,24 +496,10 @@ const LOGO_POSITIONS = {
   }
 };
 
-// 6 pilihan gaya desain untuk halaman menu — mempengaruhi prompt
-// background AI (suasana/tekstur/mood), sementara grid menu tetap
-// digambar presisi oleh kanvas kita sendiri (warna & font brand).
-// PENTING: 6 gaya ini sengaja dirancang punya KERANGKA TATA LETAK
-// yang benar-benar berbeda satu sama lain (bukan cuma beda warna/
-// dekorasi) — termasuk 2 gaya lama yang SEBELUMNYA sama-sama pakai
-// foto lingkaran (Blok Warna & Foto Bertumpuk) sudah dibedakan lagi:
-// foto SEKARANG TETAP APA ADANYA (persegi, tanpa crop bulat/cutout,
-// atas permintaan user) — pembeda kerangka datang dari SUSUNAN
-// layoutnya, bukan dari bentuk potongan foto.
-// Klasik & Elegan SENGAJA tidak pernah diubah sama sekali.
 const MENU_STYLE_PRESETS = {
   colorBlock: {
     label: 'Grid Galeri 6 Foto',
     layoutKey: 'gridGaleri',
-    // Grid rapi 2 kolom x 3 baris, 6 foto ukuran sama besar — gaya
-    // katalog produk/portofolio. MENGGANTI "Blok Warna Berani" (kerangka
-    // list lama) karena terlalu mirip gaya list lainnya.
     itemCap: 6,
     pageBg: '#1A1207',
     textMain: '#FFFFFF',
@@ -703,8 +510,6 @@ const MENU_STYLE_PRESETS = {
   classic: {
     label: 'Klasik & Elegan',
     layoutKey: 'dinerList',
-    // 1 kolom, foto medium persegi, badge harga pil overlap foto —
-    // TIDAK DIUBAH — dipertahankan atas permintaan user sejak awal.
     itemCap: 6,
     pageBg: '#1C1712',
     textMain: '#F3E6C9',
@@ -715,10 +520,6 @@ const MENU_STYLE_PRESETS = {
   photoStack: {
     label: 'Menu Spesial 3 Foto',
     layoutKey: 'menuSpesial3',
-    // 1 foto BESAR mengisi setengah halaman + 2 foto lebih kecil mengisi
-    // sisa setengah halaman lainnya — khusus 3 item unggulan/rekomendasi,
-    // BUKAN katalog lengkap. MENGGANTI "Foto Bertumpuk" (kerangka list
-    // lama) karena terlalu mirip gaya list lainnya.
     itemCap: 3,
     pageBg: '#3A0E12',
     textMain: '#FFFFFF',
@@ -729,9 +530,6 @@ const MENU_STYLE_PRESETS = {
   heroGlow: {
     label: 'Hero Glow Dramatis',
     layoutKey: 'heroGlow',
-    // Kolase foto persegi diagonal di atas + daftar tipografi glow di
-    // bawah (tanpa foto lagi di daftarnya) — struktur ini sudah beda
-    // sejak awal, dipertahankan.
     itemCap: 6,
     pageBg: '#0B0B0C',
     textMain: '#FFFFFF',
@@ -742,9 +540,6 @@ const MENU_STYLE_PRESETS = {
   bentoGrid: {
     label: 'Bento Grid Mosaik',
     layoutKey: 'bentoGrid',
-    // BARU — terinspirasi kotak bento Jepang: grid TIDAK BERATURAN,
-    // 1 item per kategori dapat kotak BESAR (foto dominan), sisanya
-    // kotak kecil di sekelilingnya — bukan list 1 kolom sama sekali.
     itemCap: 7,
     pageBg: '#12151A',
     textMain: '#FFFFFF',
@@ -755,10 +550,6 @@ const MENU_STYLE_PRESETS = {
   typographic: {
     label: 'Minimalis Tipografi',
     layoutKey: 'typographic',
-    // BARU — TANPA foto sama sekali di manapun. Nama item besar gaya
-    // kapur/tulisan-tangan di latar gelap, harga pakai dotted-leader.
-    // Terinspirasi menu fine-dining kelas dunia (Eleven Madison Park)
-    // & gaya chalkboard klasik kafe.
     itemCap: 14,
     pageBg: '#0D0D0D',
     textMain: '#F5F5F0',
@@ -768,19 +559,8 @@ const MENU_STYLE_PRESETS = {
   }
 };
 
-// ============================================================
-// KONTEN 30 HARI — pilihan tema, pembangun prompt permintaan
-// rencana 30 hari (teks biasa ke ChatGPT), dan parser hasil paste
-// balik dari ChatGPT (dipecah pakai "###", field dibaca via label).
-// ============================================================
 const CONTENT_THEMES = ['Promo & Diskon', 'Balik Layar (BTS) Dapur', 'Testimoni Pelanggan', 'Tips & Edukasi', 'Produk Spotlight', 'Interaksi & Kuis', 'Momen Musiman/Hari Besar'];
 
-// ============================================================
-// 9 FEED KONSISTEN — khusus Instagram, format 1:1. 9 peran tetap
-// dalam 1 campaign, tiap peran dibangun jadi 1 prompt sendiri
-// (bukan lewat parsing teks ChatGPT seperti Konten 30 Hari, karena
-// perannya sudah pasti/tetap, jadi bisa dibangun langsung di kode).
-// ============================================================
 const FEED_ROLES = [{
   id: 1,
   label: 'Hero',
@@ -826,10 +606,7 @@ const buildFeedSlotPrompt = (brand, brief, role, style, visionHint) => {
   if (role.label === 'Promo' && brief.hargaPromo) contentHint = `, sertakan teks promo/diskon mencolok: "${brief.hargaPromo}"`;
   if (role.label.startsWith('Testimoni') && brief.testimoni) contentHint = `, sertakan kutipan testimoni di gambar: "${brief.testimoni}"`;
   if (role.label.startsWith('CTA') && brief.cta) contentHint = `, sertakan teks CTA di gambar: "${brief.cta}"`;
-  // "style" (lighting/composition/frameDepthContrast) SUDAH ditentukan
-  // di luar fungsi ini (dikunci 1x oleh FeedCampaignGenerator, dipakai
-  // sama untuk semua 9 slot) — supaya seluruh feed terasa 1 keluarga
-  // visual yang senada, bukan diacak ulang tiap slot.
+  const lighting = pickVariant ? style.lighting : style.lighting;
   const enrichedExtras = buildEnrichedPromptExtras(brand, {
     lighting: style.lighting,
     composition: style.composition,
@@ -861,29 +638,18 @@ Caption Instagram: [teks caption siap posting, mulai dengan hook menarik di kali
 Ulangi format persis ini untuk seluruh 30 hari, tiap hari diakhiri tanda "###".`;
 };
 const parseContentPlan = text => {
-  // Pecah berdasarkan pola "HARI <angka>" itu SENDIRI (bukan tanda
-  // "###") — karena AI kadang lupa menambahkan "###" di tiap hari,
-  // tapi hampir selalu tetap menulis "HARI 1", "HARI 2", dst sebagai
-  // bagian dari kontennya. Jauh lebih tahan terhadap format yang
-  // sedikit meleset dari instruksi.
   const blocks = text.split(/(?=HARI\s+\d+\s*\n)/i).map(b => b.trim()).filter(Boolean);
   const days = [];
   blocks.forEach(block => {
-    if (!/^HARI\s+\d+/i.test(block)) return; // lewati bagian sebelum HARI 1 (instruksi awal yang ikut ter-paste)
+    if (!/^HARI\s+\d+/i.test(block)) return;
     const temaMatch = block.match(/Tema:\s*(.+)/i);
     const konsepMatch = block.match(/Konsep:\s*(.+)/i);
     const ideMatch = block.match(/Ide Konten:\s*(.+)/i);
     const fotoMatch = block.match(/Konsep Foto\s*\/?\s*Desain:\s*(.+)/i);
-    // Prompt Gambar berhenti SEBELUM "HARI <angka>" berikutnya muncul
-    // lagi — jaring pengaman supaya tidak "menelan" isi hari-hari
-    // sesudahnya kalau kebetulan masih tergabung dalam 1 blok.
     const promptMatch = block.match(/Prompt Gambar:\s*([\s\S]+?)(?=\n\s*Caption Instagram:|\n\s*HARI\s+\d+|$)/i);
-    // Caption berhenti SEBELUM "HARI <angka>" berikutnya, sama seperti
-    // Prompt Gambar — jaring pengaman kalau AI lupa tanda "###".
     const captionMatch = block.match(/Caption Instagram:\s*([\s\S]+?)(?=\n\s*HARI\s+\d+|$)/i);
     days.push({
       day: days.length + 1,
-      // selalu urut sesuai posisi asli, bukan angka yang ditulis ChatGPT — supaya tidak pernah dobel
       tema: temaMatch ? temaMatch[1].trim() : '',
       konsep: konsepMatch ? konsepMatch[1].trim() : '',
       ide: ideMatch ? ideMatch[1].trim() : '',
@@ -895,10 +661,6 @@ const parseContentPlan = text => {
   return days;
 };
 
-// Kata kunci yang menandakan konten menyinggung tempat/orang ASLI
-// (bukan cuma foto produk) — kalau salah satu ketemu di Tema/Konsep
-// Foto hari itu, munculkan pengingat untuk lampirkan foto asli ke
-// ChatGPT, supaya AI tidak mengarang tempat/orang sendiri.
 const REAL_PLACE_KEYWORDS = ['dapur', 'karyawan', 'koki', 'chef', 'staff', 'pegawai', 'interior', 'tampak depan', 'suasana toko', 'outlet', 'kasir', 'pelayan', 'barista', 'seragam', 'tim'];
 const needsRealPhotoReminder = day => {
   if (!day) return false;
@@ -906,8 +668,6 @@ const needsRealPhotoReminder = day => {
   return REAL_PLACE_KEYWORDS.some(kw => text.includes(kw));
 };
 
-// Pilihan rasio untuk hasil akhir (kanvas + download) — tidak
-// mempengaruhi prompt generate ke ChatGPT sama sekali.
 const CONTENT_RATIOS = {
   '1:1': {
     label: 'Persegi (1:1)',
@@ -1038,10 +798,6 @@ const drawCoverImage = (ctx, img, x, y, w, h, focusPoint = {
   ctx.drawImage(img, sx, sy, sWidth, sHeight, x, y, w, h);
 };
 
-// Menggambar foto UTUH tanpa crop sama sekali — cuma diskalakan supaya
-// muat di dalam batas maksimal lebar & tinggi (rasio asli tetap terjaga).
-// Kalau bentuknya beda dari kotaknya, boleh menyisakan ruang kosong di
-// samping — tapi tidak akan pernah memotong bagian foto.
 const computeContainSize = (img, maxW, maxH) => {
   const scale = Math.min(maxW / img.width, maxH / img.height, 1);
   return {
@@ -1059,10 +815,6 @@ const drawContainImage = (ctx, img, x, y, maxW, maxH) => {
   return h;
 };
 
-// Menggambar gambar (logo) dengan outline yang MENGIKUTI BENTUK ASLI-nya
-// (efek stiker) — bukan kotak pembatas. Caranya: bikin siluet warna solid
-// dari alpha channel gambar, gambar siluet itu berulang di sekeliling
-// posisi asli (banyak sudut), baru gambar logo aslinya di tengah paling atas.
 const drawImageWithOutline = (ctx, img, x, y, w, h, outlineColor, outlineWidth) => {
   const silhouette = document.createElement('canvas');
   silhouette.width = w;
@@ -1101,8 +853,6 @@ function MainDashboard({
   const docRef = () => doc(db, 'artifacts', appId, 'users', user.uid, 'appData', 'state');
   const menuCollRef = () => collection(db, 'artifacts', appId, 'users', user.uid, 'menuItems');
 
-  // Baca dokumen utama (Brand, rencana 30 hari, teks mentah paste).
-  // Menu TIDAK lagi ada di sini — lihat listener terpisah di bawah.
   useEffect(() => {
     if (!isAuthReady || !user) return;
     return onSnapshot(docRef(), async d => {
@@ -1120,10 +870,6 @@ function MainDashboard({
             ...(data.settings || {})
           }
         });
-        // Migrasi 1x otomatis: kalau masih ada menu lama tergabung di
-        // dokumen ini (dari sebelum perbaikan batas ukuran Firestore),
-        // pindahkan tiap item jadi dokumen tersendiri, lalu kosongkan
-        // field lama supaya dokumen utama mengecil kembali.
         if (Array.isArray(data.menu) && data.menu.length > 0) {
           for (const item of data.menu) {
             await setDoc(doc(menuCollRef(), item.id), item).catch(() => {});
@@ -1135,7 +881,6 @@ function MainDashboard({
           }).catch(() => {});
         }
       } else {
-        // Dokumen belum ada — buat dengan data default
         setDoc(docRef(), {
           brand: defaultAppData.brand,
           contentPlan: [],
@@ -1149,14 +894,25 @@ function MainDashboard({
   // Dengarkan koleksi menuItems — tiap dokumen = 1 item menu (dengan
   // fotonya sendiri), supaya bisa terus bertambah tanpa pernah kena
   // batas ukuran 1MB (batas itu berlaku PER DOKUMEN, bukan per koleksi).
+  // Diurutkan MENAIK berdasar timestamp yang tersemat di awal id
+  // ("menu_<timestamp>") — Firestore TIDAK menjamin urutan dokumen
+  // kalau tidak diminta eksplisit, jadi urutan tampil bisa acak/berubah
+  // kalau tidak diurutkan sendiri di sini. Ini urutan sesuai KAPAN
+  // item ditambahkan (item pertama yang ditambah selalu tampil
+  // pertama), bukan urutan acak dari Firestore.
   useEffect(() => {
     if (!isAuthReady || !user) return;
     return onSnapshot(menuCollRef(), snap => {
-      setMenu(snap.docs.map(d => d.data()));
+      const items = snap.docs.map(d => d.data());
+      items.sort((a, b) => {
+        const ta = parseInt(String(a.id).replace('menu_', ''), 10) || 0;
+        const tb = parseInt(String(b.id).replace('menu_', ''), 10) || 0;
+        return ta - tb;
+      });
+      setMenu(items);
     }, err => setDbError(`Gagal baca menu: ${err.message}`));
   }, [isAuthReady, user]);
 
-  // Tulis ulang (merge) tiap kali appData (Brand/Konten 30 Hari) berubah
   const saveAppData = updates => {
     if (!user) return;
     const next = {
@@ -1169,9 +925,6 @@ function MainDashboard({
     }).catch(e => setDbError(`Gagal menyimpan: ${e.message}`));
   };
 
-  // Tambah/hapus 1 item menu — langsung ke dokumennya sendiri di
-  // koleksi menuItems, TIDAK lewat saveAppData (supaya tidak pernah
-  // ikut membengkakkan dokumen utama).
   const addMenuItem = item => {
     if (!user) return;
     setDoc(doc(menuCollRef(), item.id), item).catch(e => setDbError(`Gagal menyimpan menu: ${e.message}`));
@@ -1360,10 +1113,6 @@ const BrandSettings = memo(({
       }
     });
   };
-  // Warna diupdate ke tampilan SEKETIKA (localColors), tapi baru benar-benar
-  // disimpan ke Firestore 400ms setelah pengguna BERHENTI menggeser warna —
-  // supaya tidak mengirim puluhan permintaan simpan per detik saat drag
-  // color picker (penyebab error "write stream exhausted" di Firestore).
   const updateColorDebounced = updates => {
     setLocalColors(prev => ({
       ...prev,
@@ -1375,10 +1124,9 @@ const BrandSettings = memo(({
     }, 400);
   };
 
-  // --- Vision AI: API key Gemini milik user sendiri ---
   const [apiKeyInput, setApiKeyInput] = useState((settings && settings.geminiApiKey) || '');
   const [showApiKey, setShowApiKey] = useState(false);
-  const [testStatus, setTestStatus] = useState(null); // null | 'testing' | 'ok' | { error }
+  const [testStatus, setTestStatus] = useState(null);
   useEffect(() => {
     setApiKeyInput((settings && settings.geminiApiKey) || '');
   }, [settings && settings.geminiApiKey]);
@@ -1394,8 +1142,6 @@ const BrandSettings = memo(({
   const testApiKey = async () => {
     setTestStatus('testing');
     try {
-      // Tes ringan: kirim teks singkat tanpa gambar, cukup untuk
-      // memastikan API key valid & terhubung.
       const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_VISION_MODEL}:generateContent`, {
         method: 'POST',
         headers: {
@@ -1636,8 +1382,6 @@ const MenuManager = memo(({
   });
   const [error, setError] = useState('');
   const [capacityWarning, setCapacityWarning] = useState('');
-  // Kemudahan pakai: isi contoh dalam 1 klik — pola sama seperti tab Promo.
-  // Foto & status Unggulan yang mungkin sudah diisi user TIDAK direset.
   const fillExample = () => {
     setNewItem(prev => ({
       ...prev,
@@ -1655,11 +1399,6 @@ const MenuManager = memo(({
         const maxDim = 600;
         let w = img.width,
           h = img.height;
-        // Semua gaya sekarang memotong foto jadi bentuk tetap (bulat/kotak/persegi
-        // via cover-crop), jadi kapasitas TIDAK lagi tergantung rasio foto asli
-        // seperti dulu — melainkan tergantung gaya menu yang dipilih nanti
-        // (lihat itemCap per gaya di MENU_STYLE_PRESETS). Di sini kita cuma
-        // tunjukkan rentang kapasitas terkecil-terbesar di antara semua gaya.
         const caps = Object.values(MENU_STYLE_PRESETS).map(s => s.itemCap);
         const minCap = Math.min(...caps);
         const maxCap = Math.max(...caps);
@@ -1793,7 +1532,7 @@ const MenuManager = memo(({
       ...newItem,
       featured: e.target.checked
     })
-  }), "Menu Unggulan (tampil lebih besar di Halaman Menu, maks. 6 item ditampilkan)"), /*#__PURE__*/React.createElement("button", {
+  }), "Menu Unggulan (diprioritaskan tampil lebih besar/menonjol di beberapa gaya desain Halaman Menu — kapasitas tiap gaya berbeda, lihat keterangan di tab Generate Menu)"), /*#__PURE__*/React.createElement("button", {
     onClick: saveItem,
     className: "w-full bg-gradient-to-r from-[#4F46E5] to-[#4338CA] hover:from-[#6366F1] hover:to-[#4F46E5] text-white px-4 py-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#4F46E5]/30 font-semibold"
   }, "Tambah Menu"), error && /*#__PURE__*/React.createElement("p", {
@@ -1819,21 +1558,8 @@ const MenuManager = memo(({
   }, "Hapus")))));
 });
 
-// ============================================================
-// GENERATE HALAMAN MENU — pola sama seperti tab Promo (background
-// dari AI, elemen presisi dari kanvas kita), tapi arahnya dibalik:
-// di sini SEMUA data (nama, deskripsi, harga banyak item sekaligus)
-// digambar oleh kanvas kita sendiri — bukan diserahkan ke AI —
-// supaya harga & nama menu dijamin akurat 100%. AI cuma bertugas
-// membuat foto suasana/latar kosong sesuai gaya yang dipilih.
-// ============================================================
 const CATEGORY_ORDER = ['Coffee', 'Non-Coffee', 'Food', 'Dessert'];
 
-// Skala render halaman menu supaya hasil download tajam kalau dicetak
-// A4 (~300 DPI), sementara semua perhitungan layout di kode tetap
-// pakai angka "logis" berbasis lebar 1080px seperti biasa — ctx.scale
-// yang membesarkan hasil akhirnya, jadi tidak perlu ubah satu-satu
-// angka di seluruh fungsi render.
 const SCREEN_SCALE = 1;
 const PRINT_SCALE = 2.3;
 const MenuPageGenerator = memo(({
@@ -1842,22 +1568,24 @@ const MenuPageGenerator = memo(({
   const [selectedStyle, setSelectedStyle] = useState('colorBlock');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [photoUrl, setPhotoUrl] = useState('');
-  const [quality, setQuality] = useState('screen'); // 'screen' (ringan) | 'print' (tajam untuk A4)
+  const [quality, setQuality] = useState('screen');
   const [genError, setGenError] = useState('');
   const [lastGenUrl, setLastGenUrl] = useState('');
-  const [negativePrompt, setNegativePrompt] = useState(''); // Negative Prompt: "Hindari ..."
+  const [negativePrompt, setNegativePrompt] = useState('');
   const canvasRef = useRef();
   const brand = useContext(BrandContext);
   const plan = useContext(PlanContext);
-  // Reguler dapat 2 gaya (Klasik & Elegan, Blok Warna Berani), Pro dapat semua 4.
   const FREE_MENU_STYLES = ['classic', 'colorBlock', 'heroGlow'];
   const lightingLastRef = useRef(-1);
   const filteredMenu = categoryFilter === 'all' ? menu : menu.filter(m => m.category === categoryFilter);
-  // Batas item per halaman A4, beda per gaya sesuai kepadatan STRUKTUR
-  // masing-masing halaman — supaya halaman SELALU pas A4 tanpa foto/font
-  // dipaksa menyusut ekstrem atau halaman memanjang.
   const ITEM_CAP = MENU_STYLE_PRESETS[selectedStyle].itemCap;
-  const displayedMenu = filteredMenu.slice(0, ITEM_CAP);
+  // Untuk gaya "Menu Spesial 3 Foto" (photoStack) — prioritaskan item
+  // yang ditandai "Menu Unggulan" SEBELUM dipotong ke ITEM_CAP. Gaya
+  // ini memang didesain khusus menampilkan 3 item favorit, jadi kalau
+  // item favorit kebetulan bukan 3 pertama di data, mereka WAJIB tetap
+  // lolos ke sini — bukan malah tergantikan item non-favorit.
+  const orderedMenu = selectedStyle === 'photoStack' ? [...filteredMenu].sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0)) : filteredMenu;
+  const displayedMenu = orderedMenu.slice(0, ITEM_CAP);
   const isTruncated = filteredMenu.length > ITEM_CAP;
   const handlePhoto = e => {
     const file = e.target.files[0];
@@ -1939,7 +1667,9 @@ const MenuPageGenerator = memo(({
     }, val.label), locked && /*#__PURE__*/React.createElement(ProBadgeCorner, null));
   })), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-500"
-  }, "Kapasitas per halaman A4 beda tiap gaya (", MENU_STYLE_PRESETS[selectedStyle].itemCap, " item untuk gaya ", MENU_STYLE_PRESETS[selectedStyle].label, ") — gunakan filter kategori kalau menu lebih banyak."), /*#__PURE__*/React.createElement("label", {
+  }, "Kapasitas per halaman A4 beda tiap gaya (", MENU_STYLE_PRESETS[selectedStyle].itemCap, " item untuk gaya ", MENU_STYLE_PRESETS[selectedStyle].label, ") — gunakan filter kategori kalau menu lebih banyak."), selectedStyle === 'photoStack' && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500"
+  }, "Gaya ini otomatis mengutamakan 3 item yang ditandai \"Menu Unggulan\" di tab Tambah Menu \u2014 kalau belum ada yang ditandai, 3 item pertama yang dipakai."), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Filter Kategori"), /*#__PURE__*/React.createElement("select", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
@@ -2001,8 +1731,6 @@ const MenuPageGenerator = memo(({
   }));
 });
 
-// Menggambar persegi dengan sudut membulat + clip, dipakai untuk
-// kartu & foto pada layout Grid.
 const roundRectPath = (ctx, x, y, w, h, r) => {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -2022,15 +1750,8 @@ const MenuPageCanvas = forwardRef(({
   const brand = useContext(BrandContext);
   useImperativeHandle(ref, () => canvasRef.current);
   useEffect(() => {
-    // Penjaga race-condition: kalau effect ini jalan lagi (misal
-    // pengguna ganti gaya sebelum render sebelumnya selesai), proses
-    // LAMA harus berhenti gambar, supaya tidak numpuk dengan hasil baru.
     let cancelled = false;
 
-    // Menghitung tinggi header SEBENARNYA berdasarkan rasio logo asli,
-    // bukan angka tetap — supaya logo lebar (landscape) tidak
-    // menyisakan ruang kosong berlebih, dan logo tinggi (portrait)
-    // tidak kepotong.
     const computeHeaderHeight = async brand => {
       let h = 40;
       if (brand.logoUrl) {
@@ -2083,9 +1804,6 @@ const MenuPageCanvas = forwardRef(({
       ctx.textAlign = 'left';
     };
 
-    // Header versi RINGKAS — logo lebih kecil & rata kiri (bukan tengah),
-    // dipakai gaya Foto Bulat Bertumpuk & Hero Glow yang butuh banyak ruang
-    // vertikal untuk elemen hero/judul raksasa masing-masing.
     const computeCompactHeaderHeight = async brand => {
       let h = 24;
       h += brand.logoUrl ? 70 : 6;
@@ -2123,18 +1841,9 @@ const MenuPageCanvas = forwardRef(({
       }
     };
 
-    // Kanvas dipaksa tetap rasio A4 (210:297) — TIDAK lagi memanjang
-    // mengikuti jumlah menu. Kalau konten lebih tinggi dari muatan
-    // 1 halaman, seluruh isi diskalakan turun secara proporsional
-    // (tanpa distorsi) supaya tetap muat.
     const A4_WIDTH = 1080;
     const A4_HEIGHT = Math.round(A4_WIDTH * 297 / 210);
 
-    // Badge mencolok "★ FAVORIT" di pojok kanan-atas foto item yang
-    // ditandai "Menu Unggulan" — sengaja MENJOROK KELUAR dari batas
-    // foto (posisinya dipusatkan tepat di sudut), warna merah cerah
-    // tetap (tidak ikut warna gaya) supaya selalu mencolok apapun
-    // temanya, plus outline putih tebal biar makin menonjol.
     const drawFeaturedBadge = (ctx, x, y, scale = 1, anchor = 'corner') => {
       const text = '★ FAVORIT';
       const fontSize = Math.round(28 * scale);
@@ -2147,15 +1856,13 @@ const MenuPageCanvas = forwardRef(({
       if (anchor === 'inset-topright') {
         bx = x - w;
         by = y;
-      } // x,y = pojok kanan-atas badge, badge penuh DI DALAM foto
-      else if (anchor === 'left-middle') {
+      } else if (anchor === 'left-middle') {
         bx = x;
         by = y - h / 2;
-      } // x,y = titik tengah-kiri badge, dipakai di samping teks
-      else {
+      } else {
         bx = x - w * 0.6;
         by = y - h * 0.6;
-      } // mode lama: menjorok di sudut
+      }
       ctx.save();
       ctx.fillStyle = '#FF2D2D';
       roundRectPath(ctx, bx, by, w, h, h / 2);
@@ -2172,11 +1879,6 @@ const MenuPageCanvas = forwardRef(({
       ctx.restore();
       return w;
     };
-    // Badge harga bulat/pil — dipakai gaya A (Grid Bold, bentuk bulat) dan
-    // B (Diner List, bentuk pil) untuk menampilkan harga sebagai badge
-    // menonjol di atas foto, BUKAN teks polos seperti gaya C/D.
-    // centerX/centerY = titik pusat badge (boleh menjorok separuh keluar
-    // foto untuk kesan "menonjol" sesuai brief desain).
     const drawPriceBadge = (ctx, priceText, centerX, centerY, {
       scale = 1,
       shape = 'pill',
@@ -2220,19 +1922,11 @@ const MenuPageCanvas = forwardRef(({
       ctx.restore();
     };
 
-    // ============================================================
-    // A) GRID BOLD (gaya Modern) — grid 2 kolom + badge harga BULAT
-    // besar menonjol di sudut foto (bukan teks polos di bawah kartu).
-    // ============================================================
-    // Helper kecil dipakai gaya-gaya baru: load gambar via Promise (mengurangi
-    // pengulangan pola new Image()+onload di 3 fungsi render baru).
     const loadImg = src => new Promise(resolve => {
       const im = new Image();
       im.onload = () => resolve(im);
       im.src = src;
     });
-    // Garis titik-titik penghubung nama→harga (dotted leader) — dipakai
-    // gaya Foto Bulat Bertumpuk sesuai referensi.
     const drawDottedLeader = (ctx, xStart, xEnd, y, color) => {
       if (xEnd <= xStart) return;
       ctx.save();
@@ -2246,13 +1940,6 @@ const MenuPageCanvas = forwardRef(({
       ctx.restore();
     };
 
-    // ============================================================
-    // GRID GALERI 6 FOTO — gaya katalog produk/portofolio. Grid RAPI
-    // 2 kolom x 3 baris, 6 foto ukuran SAMA BESAR (bukan list 1 kolom
-    // sama sekali) — sengaja BEDA KERANGKA dari gaya list lain
-    // (Klasik & Elegan) karena sebelumnya ("Blok Warna Berani") cuma
-    // beda kulit visual dari kerangka list yang sama.
-    // ============================================================
     const renderGridGaleriLayout = async (canvas, ctx, width, grouped, cfg) => {
       const headerH = await computeHeaderHeight(brand);
       const bottomPad = 50;
@@ -2322,13 +2009,19 @@ const MenuPageCanvas = forwardRef(({
     };
 
     // ============================================================
-    // B) DINER LIST (gaya Klasik) — 1 kolom, foto MEDIUM (lebih besar
-    // dari list biasa), badge harga bentuk PIL menjorok di sudut foto.
+    // DINER LIST (gaya Klasik & Elegan) — 1 kolom, foto MEDIUM.
+    // Badge harga sekarang diletakkan sebagai baris TERSENDIRI di
+    // BAWAH nama+deskripsi (bukan menjorok sejajar foto lagi) — versi
+    // sebelumnya menempatkan badge tepat di garis tepi kanan foto,
+    // yang membuat badge dengan teks harga panjang (mis. "Rp 32.323")
+    // melebar dan menimpa area nama/deskripsi. Dengan badge sebagai
+    // baris sendiri di bawah, tidak akan pernah tabrakan lagi berapa
+    // pun panjang angka harganya.
     // ============================================================
     const renderDinerListLayout = async (canvas, ctx, width, grouped, cfg) => {
       const headerH = await computeHeaderHeight(brand);
       const catHeaderHBase = 70,
-        rowHBase = 156,
+        rowHBase = 168,
         bottomPad = 60;
       const totalRows = grouped.reduce((sum, g) => sum + g.list.length, 0);
       const naturalBodyHeight = grouped.length * catHeaderHBase + totalRows * rowHBase;
@@ -2345,7 +2038,7 @@ const MenuPageCanvas = forwardRef(({
         if (cancelled) return;
         drawCoverImage(ctx, img, 0, 0, A4_WIDTH, A4_HEIGHT);
         ctx.fillStyle = cfg.pageBg + 'C7';
-        ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT); // ~78% opacity overlay warna khas gaya
+        ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
       }
       if (cancelled) return;
       await renderHeader(ctx, A4_WIDTH, brand);
@@ -2354,14 +2047,11 @@ const MenuPageCanvas = forwardRef(({
       await document.fonts.load(`22px "${brand.fontBody}"`);
       if (cancelled) return;
 
-      // HANYA metrik VERTIKAL yang dipadatkan kalau kepanjangan — lebar
-      // (ukuran thumbnail medium) tidak pernah mengecil drastis, supaya
-      // ciri khas "foto besar" gaya ini tetap terasa.
       const availableBody = A4_HEIGHT - headerH - bottomPad;
       const vScale = naturalBodyHeight > availableBody ? Math.max(0.4, availableBody / naturalBodyHeight) : 1;
       const catHeaderH = catHeaderHBase * vScale;
       const rowH = rowHBase * vScale;
-      const thumbSize = Math.max(70, 130 * vScale); // ~110-140px di skala penuh sesuai brief "medium"
+      const thumbSize = Math.max(70, 130 * vScale);
       const nameFontSize = Math.round(30 * Math.max(vScale, 0.65));
       const descFontSize = Math.round(22 * Math.max(vScale, 0.65));
       let y = headerH;
@@ -2386,58 +2076,39 @@ const MenuPageCanvas = forwardRef(({
               await new Promise(r => thumbImg.onload = r);
               if (cancelled) return;
               drawCoverImage(ctx, thumbImg, marginX, y + 10, thumbSize, thumbSize);
-              // Badge harga PIL sejajar dengan foto (di tengah tinggi foto,
-              // menjorok sedikit ke kanan) — sebelumnya di sudut bawah foto,
-              // sampai tumpang tindih dengan baris item berikutnya.
-              drawPriceBadge(ctx, priceText, marginX + thumbSize, y + 10 + thumbSize / 2, {
-                scale: Math.max(vScale, 0.7),
-                shape: 'pill',
-                bg: brand.primaryColor,
-                fontSize: 22
-              });
             } catch (e) {}
           }
           const textX = item.photoUrl ? marginX + thumbSize + 24 : marginX;
+          const textMaxW = width - marginX - textX;
           ctx.fillStyle = cfg.textMain;
           ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
-          ctx.fillText(item.name, textX, y + nameFontSize + 8, width - marginX - textX);
+          ctx.fillText(item.name, textX, y + nameFontSize + 4, textMaxW);
           if (item.featured) {
             const nameW = ctx.measureText(item.name).width;
-            drawFeaturedBadge(ctx, textX + nameW + 14, y + nameFontSize / 2 + 2, 0.6, 'left-middle');
+            drawFeaturedBadge(ctx, textX + nameW + 14, y + nameFontSize / 2 - 2, 0.6, 'left-middle');
           }
+          let descBaselineY = y + nameFontSize + 4;
           if (item.description) {
             ctx.fillStyle = cfg.textSub;
             ctx.font = `${descFontSize}px "${brand.fontBody}"`;
-            ctx.fillText(item.description, textX, y + nameFontSize + descFontSize + 12, width - marginX - textX);
+            descBaselineY = y + nameFontSize + descFontSize + 10;
+            ctx.fillText(item.description, textX, descBaselineY, textMaxW);
           }
-          // Tanpa foto: harga tetap ditampilkan, sebagai pil kecil menempel setelah nama
-          if (!item.photoUrl) {
-            const nameW = ctx.measureText(item.name).width;
-            drawPriceBadge(ctx, priceText, width - marginX - 50, y + nameFontSize / 2 + 2, {
-              scale: Math.max(vScale, 0.7) * 0.9,
-              shape: 'pill',
-              bg: brand.primaryColor,
-              fontSize: 20
-            });
-          }
+          // Badge harga: baris TERSENDIRI di bawah nama+deskripsi, rata
+          // kiri sejajar teks (bukan lagi menjorok di sudut foto) —
+          // supaya tidak pernah menimpa foto atau teks apa pun.
+          const priceBaselineY = descBaselineY + (item.description ? 34 : 30) * Math.max(vScale, 0.7);
+          drawPriceBadge(ctx, priceText, textX + 55 * Math.max(vScale, 0.7), priceBaselineY, {
+            scale: Math.max(vScale, 0.7),
+            shape: 'pill',
+            bg: brand.primaryColor,
+            fontSize: 20
+          });
           y += rowH;
         }
       }
     };
 
-    // ============================================================
-    // C) BUBBLE STRIP (gaya Playful) — 1 kolom, foto BULAT KECIL
-    // berjajar (bukan kartu foto besar), baris ramping & rapat,
-    // harga teks sederhana rata-kanan.
-    // ============================================================
-    // ============================================================
-    // MENU SPESIAL 3 FOTO — KHUSUS 3 item unggulan/rekomendasi, BUKAN
-    // katalog lengkap. 1 foto BESAR mengisi setengah halaman (kiri) +
-    // 2 foto lebih kecil mengisi sisa setengah halaman (kanan, atas-
-    // bawah). Nama & harga menumpang di atas foto dengan gradasi gelap
-    // di bagian bawah — sengaja BEDA KERANGKA dari gaya list manapun
-    // (foto jadi latar utuh, bukan thumbnail di samping teks).
-    // ============================================================
     const renderMenuSpesial3Layout = async (canvas, ctx, width, grouped, cfg) => {
       const headerH = await computeHeaderHeight(brand);
       const bottomPad = 40;
@@ -2463,7 +2134,11 @@ const MenuPageCanvas = forwardRef(({
       if (cancelled) return;
       const flatItems = [];
       for (const group of grouped) for (const item of group.list) flatItems.push(item);
-      const items = flatItems.slice(0, 3);
+      // Prioritaskan item "Menu Unggulan" untuk mengisi 3 slot — layout
+      // ini regroup kategori (Coffee/Non-Coffee/dst) bisa mengacak
+      // urutan asli, jadi diurutkan ULANG di sini supaya item favorit
+      // SELALU mendapat slot besar (index 0) terlepas dari kategorinya.
+      const items = [...flatItems].sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0)).slice(0, 3);
       const drawCaption = (x, y, w, h, item) => {
         const grad = ctx.createLinearGradient(x, y + h * 0.5, x, y + h);
         grad.addColorStop(0, 'rgba(0,0,0,0)');
@@ -2496,24 +2171,14 @@ const MenuPageCanvas = forwardRef(({
         }
         drawCaption(x, y, w, h, item);
       };
-      // Slot besar (kiri, penuh tinggi)
       await drawSlot(0, bodyTop, leftW, bodyH, items[0]);
       if (cancelled) return;
-      // 2 slot kecil (kanan, atas-bawah)
       const smallH = (bodyH - gap) / 2;
       await drawSlot(rightX, bodyTop, rightW, smallH, items[1]);
       if (cancelled) return;
       await drawSlot(rightX, bodyTop + smallH + gap, rightW, smallH, items[2]);
     };
 
-    // ============================================================
-    // HERO GLOW DRAMATIS — referensi: poster "The Burger House".
-    // Header ringkas, judul raksasa efek GRADASI + GLOW (bukan warna
-    // solid datar), foto item unggulan saling tumpuk-silang secara
-    // diagonal di bawah judul, badge favorit/harga diberi efek glow.
-    // Daftar harga di bagian bawah TANPA foto per-item (semua foto
-    // sudah ditampilkan di kolase hero atas), sesuai referensi.
-    // ============================================================
     const renderHeroGlowLayout = async (canvas, ctx, width, grouped, cfg) => {
       const headerH = await computeCompactHeaderHeight(brand);
       const titleH = 96;
@@ -2549,7 +2214,6 @@ const MenuPageCanvas = forwardRef(({
       await document.fonts.load(`bold ${nameFontSize}px "${brand.fontBody}"`);
       if (cancelled) return;
 
-      // Judul raksasa dengan GRADASI warna + GLOW (bukan warna solid datar)
       ctx.save();
       ctx.font = `bold 74px "${brand.fontHeading}"`;
       ctx.textAlign = 'center';
@@ -2563,9 +2227,6 @@ const MenuPageCanvas = forwardRef(({
       ctx.restore();
       ctx.textAlign = 'left';
 
-      // Kolase foto tumpuk-silang DIAGONAL — maksimal 3 item (prioritas
-      // yang ditandai Menu Unggulan, sisanya diambil dari item pertama
-      // yang punya foto), meniru komposisi "produk saling tumpuk" referensi.
       const allItems = grouped.flatMap(g => g.list);
       const withPhoto = allItems.filter(i => i.photoUrl);
       const featuredFirst = [...withPhoto.filter(i => i.featured), ...withPhoto.filter(i => !i.featured)].slice(0, 3);
@@ -2586,9 +2247,6 @@ const MenuPageCanvas = forwardRef(({
         size: 168,
         z: 1
       }];
-      // Slot TENGAH (terbesar) selalu diprioritaskan lebih dulu — jadi kalau
-      // cuma ada 1-2 foto tersedia, yang tampil adalah foto prioritas utama
-      // di posisi paling menonjol, bukan kebetulan jatuh ke slot samping.
       const activeSlots = collageSlots.slice(0, featuredFirst.length).sort((a, b) => a.z - b.z);
       for (const slot of activeSlots) {
         const item = featuredFirst[collageSlots.indexOf(slot)];
@@ -2618,8 +2276,6 @@ const MenuPageCanvas = forwardRef(({
         } catch (e) {}
       }
 
-      // Daftar harga di bawah kolase — TANPA foto per-item (sesuai referensi),
-      // badge favorit diberi efek glow.
       let y = bodyTop;
       const marginX = 60;
       for (const group of grouped) {
@@ -2656,23 +2312,14 @@ const MenuPageCanvas = forwardRef(({
       }
     };
 
-    // ============================================================
-    // BENTO GRID MOSAIK — grid TIDAK BERATURAN (bukan list 1 kolom).
-    // 1 item per kategori (favorit/pertama) dapat kotak BESAR (foto
-    // dominan), sisanya dapat kotak KECIL berjajar di sebelahnya —
-    // kerangka mosaik, satu-satunya di antara 6 gaya yang bukan
-    // berbasis "baris demi baris ke bawah".
-    // ============================================================
     const renderBentoGridLayout = async (canvas, ctx, width, grouped, cfg) => {
       const headerH = await computeHeaderHeight(brand);
       const catHeaderHBase = 50,
         bottomPad = 50,
         gapBase = 14,
         marginX = 40;
-      // Tinggi 1 "unit baris mosaik" (1 kotak besar + kolom kotak kecil
-      // di sebelahnya) dihitung dari jumlah item kecil per kategori.
       const rowUnitBase = 190;
-      const totalUnits = grouped.length; // 1 unit mosaik per kategori
+      const totalUnits = grouped.length;
       const naturalBodyHeight = grouped.length * catHeaderHBase + totalUnits * (rowUnitBase + gapBase);
       if (cancelled) return;
       canvas.width = A4_WIDTH * renderScale;
@@ -2703,9 +2350,6 @@ const MenuPageCanvas = forwardRef(({
       const priceFont = Math.round(17 * Math.max(vScale, 0.6));
       let y = headerH;
       const drawTile = (item, tx, ty, tw, th, big) => {
-        // Foto PERSEGI penuh 1 kotak (tetap apa adanya, tanpa crop
-        // bulat/cutout) — mengisi seluruh area kotak sebagai latar,
-        // teks nama+harga di-overlay gradasi gelap di bagian bawah.
         roundRectPath(ctx, tx, ty, tw, th, 10);
         ctx.save();
         ctx.clip();
@@ -2765,7 +2409,6 @@ const MenuPageCanvas = forwardRef(({
         const bigW = (width - marginX * 2) * 0.42;
         const smallColX = marginX + bigW + gap;
         const smallColW = width - marginX - smallColX;
-        // Kotak besar — item pertama (prioritas favorit)
         const bigItem = items.find(i => i.featured) || items[0];
         if (bigItem.photoUrl) {
           try {
@@ -2784,8 +2427,6 @@ const MenuPageCanvas = forwardRef(({
         }
         drawTile(bigItem, marginX, y, bigW, rowUnit, true);
 
-        // Kotak-kotak kecil — sisa item, disusun 2 kolom mini di
-        // samping kotak besar, mengisi tinggi yang sama (rowUnit).
         const restItems = items.filter(i => i !== bigItem).slice(0, 4);
         const smallCols = restItems.length > 2 ? 2 : 1;
         const smallRows = Math.ceil(restItems.length / smallCols);
@@ -2819,15 +2460,6 @@ const MenuPageCanvas = forwardRef(({
       }
     };
 
-    // ============================================================
-    // MINIMALIS TIPOGRAFI — TANPA foto sama sekali di manapun.
-    // Terinspirasi menu fine-dining kelas dunia (grid bersih, teks
-    // minimal, tanpa gambar — makanan jadi "bintang" lewat restraint)
-    // dikombinasi gaya chalkboard klasik kafe (nama item besar gaya
-    // tulisan-tangan). Kerangka: 1 kolom penuh, TANPA elemen foto
-    // apa pun — benar-benar beda dari 5 gaya lain yang semuanya
-    // pakai foto.
-    // ============================================================
     const renderTypographicLayout = async (canvas, ctx, width, grouped, cfg) => {
       const headerH = await computeHeaderHeight(brand);
       const catHeaderHBase = 70,
@@ -2841,9 +2473,6 @@ const MenuPageCanvas = forwardRef(({
       ctx.scale(renderScale, renderScale);
       ctx.fillStyle = cfg.pageBg;
       ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
-      // Sengaja TIDAK menggambar backgroundImage sama sekali di sini
-      // walau ada — gaya ini murni tipografi, foto latar AI (kalaupun
-      // di-upload) tidak dipakai supaya konsisten "tanpa elemen visual".
       if (cancelled) return;
       await renderHeader(ctx, A4_WIDTH, brand);
       await document.fonts.load(`bold 36px "${brand.fontHeading}"`);
@@ -2946,30 +2575,22 @@ const PromoGenerator = memo(() => {
     cta: '',
     badge: ''
   });
-  // 4 kontrol baru — disembunyikan di balik "+ Gaya Visual" (progressive disclosure)
-  const [includeAction, setIncludeAction] = useState(true); // true = boleh ada momen aksi, false = Statis saja
-  const [includeText, setIncludeText] = useState(true); // false = foto bersih tanpa teks sama sekali
-  const [textOrientation, setTextOrientation] = useState('lurus'); // 'lurus' | 'miring' | 'vertikal'
-  const [showVisualStyle, setShowVisualStyle] = useState(false); // "+ Gaya Visual"
-  const [showVisionAI, setShowVisionAI] = useState(false); // "+ Analisis Foto dengan AI"
-  // --- Vision AI: 2 foto upload, SEKARANG SEPENUHNYA OTOMATIS —
-  // begitu foto di-upload, langsung dianalisis Gemini dan hasilnya
-  // langsung tergabung ke prompt, TANPA tombol "Analisis dengan AI"
-  // atau konfirmasi "Pakai" lagi (disederhanakan atas permintaan user).
-  const [productPhotoUrl, setProductPhotoUrl] = useState(''); // Foto Produk Asli
-  const [styleRefPhotoUrl, setStyleRefPhotoUrl] = useState(''); // Foto Referensi Gaya
-  const [productPhotoDesc, setProductPhotoDesc] = useState(''); // hasil analisis otomatis, langsung dipakai
-  const [stylePhotoDesc, setStylePhotoDesc] = useState(''); // hasil analisis otomatis, langsung dipakai
-  // Pilihan EKSPLISIT user (bukan otomatis lagi) — 'brand' = tetap
-  // pakai warna & font Brand Identity, 'reference' = total ikuti gaya
-  // dari foto referensi (warna & font brand dilepas untuk generate ini).
+  const [includeAction, setIncludeAction] = useState(true);
+  const [includeText, setIncludeText] = useState(true);
+  const [textOrientation, setTextOrientation] = useState('lurus');
+  const [showVisualStyle, setShowVisualStyle] = useState(false);
+  const [showVisionAI, setShowVisionAI] = useState(false);
+  const [productPhotoUrl, setProductPhotoUrl] = useState('');
+  const [styleRefPhotoUrl, setStyleRefPhotoUrl] = useState('');
+  const [productPhotoDesc, setProductPhotoDesc] = useState('');
+  const [stylePhotoDesc, setStylePhotoDesc] = useState('');
   const [styleMode, setStyleMode] = useState('brand');
-  const [visionAnalyzedForProduct, setVisionAnalyzedForProduct] = useState(''); // Nama Produk saat analisis foto terakhir berhasil
-  const [voScript, setVoScript] = useState(''); // Naskah Voice Over untuk fitur Video 10 Detik (Pro)
-  const [visionBusy, setVisionBusy] = useState(null); // null | 'product' | 'style'
+  const [visionAnalyzedForProduct, setVisionAnalyzedForProduct] = useState('');
+  const [voScript, setVoScript] = useState('');
+  const [visionBusy, setVisionBusy] = useState(null);
   const [visionError, setVisionError] = useState('');
-  const [visionErrorFor, setVisionErrorFor] = useState(''); // 'product' | 'style' \u2014 supaya error tampil di section yang benar
-  const [negativePrompt, setNegativePrompt] = useState(''); // Negative Prompt: "Hindari ..."
+  const [visionErrorFor, setVisionErrorFor] = useState('');
+  const [negativePrompt, setNegativePrompt] = useState('');
   const canvasRef = useRef();
   const productPhotoInputRef = useRef(null);
   const styleRefPhotoInputRef = useRef(null);
@@ -2980,10 +2601,6 @@ const PromoGenerator = memo(() => {
   const compositionLastRef = useRef(-1);
   const frameLastRef = useRef(-1);
   const actionLastRef = useRef(-1);
-  // Variant pencahayaan/komposisi/frame dipilih SEKALI (bukan tiap render)
-  // supaya kolom Preview Prompt PERSIS sama dengan yang benar-benar
-  // dikirim saat klik generate — bukan pilihan acak baru tiap kali
-  // Preview dilihat. Diacak ulang lagi setelah generate (lihat rerollVisualVariant).
   const [visualVariant, setVisualVariant] = useState(() => ({
     lighting: pickVariant(LIGHTING_VARIANTS, lightingLastRef),
     composition: pickVariant(COMPOSITION_VARIANTS, compositionLastRef),
@@ -3012,9 +2629,6 @@ const PromoGenerator = memo(() => {
     }
   };
   const dims = dimsMap[format];
-  // Kemudahan pakai: isi contoh teks promo wajar dalam 1 klik — berguna
-  // terutama untuk yang baru pertama kali pakai dan bingung "harus isi
-  // apa", bisa lihat contohnya dulu baru diedit sesuai kebutuhan.
   const fillExample = () => {
     setAdCopyDraft({
       productName: 'Es Kopi Susu',
@@ -3131,7 +2745,18 @@ const PromoGenerator = memo(() => {
   // Dipakai untuk kotak Preview Prompt DAN untuk generate sungguhan —
   // supaya keduanya PERSIS SAMA (WYSIWYG). Mengembalikan null kalau
   // Nama Produk (satu-satunya field wajib sekarang) masih kosong.
-  const buildPromptData = () => {
+  // Parameter "medium" ('gambar' | 'video') mengubah kata di klausa
+  // penegasan teks akhir (textEmphasis) — supaya saat dipakai untuk
+  // video, prompt TIDAK perlu ditambah lagi klausa penegasan teks
+  // TERPISAH di handleGenerateVideo (itu sebelumnya menyebabkan Nama
+  // Usaha/Produk & field teks lain muncul TERTULIS 3x di prompt final
+  // video: 1x instruksi utama + 1x recap sini + 1x recap terpisah di
+  // handleGenerateVideo — diduga jadi penyebab teks terduplikasi/typo
+  // di hasil video, karena model diminta "menuliskan" blok teks yang
+  // sama berulang kali alih-alih sekali dengan tegas).
+  const buildPromptData = ({
+    medium = 'gambar'
+  } = {}) => {
     if (!adCopyDraft.productName || !adCopyDraft.productName.trim()) return null;
     const styleRefApplied = styleMode === 'reference' && !!stylePhotoDesc;
     const brandHint = styleRefApplied ? `gaya sesuai brand ${brand.name} (untuk generate ini, abaikan warna default brand — WAJIB ikuti persis palet warna & gaya visual dari foto referensi yang sudah dijelaskan di bawah)` : `nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor} (kode HEX internal untuk acuan warna, BUKAN teks yang ditulis di gambar), gaya sesuai brand ${brand.name}`;
@@ -3166,11 +2791,11 @@ const PromoGenerator = memo(() => {
     });
     const negativeInstruction = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
     const designGuideline = styleRefApplied ? '' : ` ${DESIGN_GUIDELINE_PROMPT}.`;
-    // Teks (Nama Usaha/Headline/dll) ditegaskan lagi di posisi AKHIR —
-    // supaya tidak "ketimpa" instruksi 98% ikuti referensi (kalau
-    // referensinya sendiri tidak punya teks, AI bisa salah simpulkan
-    // "jangan pakai teks sama sekali"). Pola sama seperti perbaikan video.
-    const textEmphasis = textParts.length > 0 ? ` PENTING \u2014 WAJIB tampil sebagai teks di gambar ini (ejaan persis, JANGAN dihilangkan meskipun foto referensi tidak punya teks): ${textParts.join(', ')}.` : '';
+    // Teks (Nama Usaha/Headline/dll) ditegaskan lagi SEKALI di posisi
+    // AKHIR (bukan 2x seperti sebelumnya di jalur video) — supaya tidak
+    // "ketimpa" instruksi 98% ikuti referensi, TANPA membuat blok teks
+    // yang sama dituliskan berkali-kali (pemicu duplikasi/typo di video).
+    const textEmphasis = textParts.length > 0 ? ` PENTING \u2014 WAJIB tampil sebagai teks di ${medium} ini (ejaan persis, JANGAN dihilangkan meskipun foto referensi tidak punya teks): ${textParts.join(', ')}.` : '';
     const full = `${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${combinedHint ? ', ' + combinedHint : ''}${textInstruction}${logoSpaceInstruction}.${designGuideline} ${enrichedExtras} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction} ${SHAPE_AUTHENTICITY_RECAP}${textEmphasis}`;
     return {
       productSubject,
@@ -3184,12 +2809,6 @@ const PromoGenerator = memo(() => {
       full
     };
   };
-  // Sesuai permintaan user: foto & hasil analisis TIDAK dihapus otomatis
-  // setelah generate lagi (biar bisa coba beberapa variasi tanpa upload
-  // ulang) — foto cuma hilang kalau user refresh/tutup aplikasi (itu
-  // sudah terjadi alami karena disimpan di memori sesi, bukan Firestore).
-  // Yang tetap diacak ulang tiap generate cuma variasi gaya visual
-  // (pencahayaan/komposisi), supaya generate berturut-turut tetap variatif.
   const rerollVisualVariant = () => {
     setVisualVariant({
       lighting: pickVariant(LIGHTING_VARIANTS, lightingLastRef),
@@ -3197,11 +2816,6 @@ const PromoGenerator = memo(() => {
       frameDepthContrast: pickVariant(FRAME_DEPTH_CONTRAST_VARIANTS, frameLastRef)
     });
   };
-  // Foto tetap nyantol antar-generate — tapi kalau Nama Produk berubah
-  // SETELAH foto dianalisis, deskripsi bentuk/gaya lama itu berisiko
-  // sudah tidak relevan (lihat kasus "kopi jadi mie ayam" sebelumnya).
-  // visionAnalyzedForProduct mengingat Nama Produk SAAT analisis
-  // terakhir berhasil, untuk dibandingkan dan munculkan peringatan.
   const productNameMismatch = !!visionAnalyzedForProduct && (!!productPhotoDesc || !!stylePhotoDesc) && visionAnalyzedForProduct !== adCopyDraft.productName.trim();
   const clearVisionData = () => {
     setProductPhotoUrl('');
@@ -3232,12 +2846,6 @@ const PromoGenerator = memo(() => {
     a.download = 'promo.png';
     a.click();
   };
-  // Kemudahan pakai: bagikan hasil promo langsung ke WhatsApp. Di HP
-  // (Android/iOS Chrome/Safari) ini membuka menu share bawaan HP dengan
-  // gambar SUDAH terlampir, tinggal pilih WhatsApp. Di desktop/browser
-  // yang tidak dukung share file (keterbatasan teknis browser, bukan
-  // bug), otomatis fallback: download dulu, lalu buka WhatsApp Web
-  // dengan teks siap pakai — gambar tinggal dilampirkan manual sekali.
   const shareToWhatsApp = async () => {
     setGenError('');
     try {
@@ -3263,9 +2871,14 @@ const PromoGenerator = memo(() => {
       if (e.name !== 'AbortError') setGenError('Gagal membagikan: ' + e.message);
     }
   };
-  // --- Fitur Video 10 Detik (khusus Pro) — tidak ada URL prefill resmi
-  // seperti ChatGPT untuk Google Flow, jadi alurnya: salin prompt ke
-  // clipboard otomatis + buka tab baru Flow, user tinggal paste manual.
+  // --- Fitur Video 10 Detik (khusus Pro). Sekarang panggil
+  // buildPromptData({ medium: 'video' }) SEKALI dan pakai data.full
+  // apa adanya untuk bagian teks (tanpa klausa penegasan teks
+  // TERPISAH lagi di sini) — menghilangkan triplikasi teks yang
+  // sebelumnya terbukti bikin nama produk terduplikasi/typo di hasil
+  // video (lihat catatan di buildPromptData). visionEmphasis/Reminder
+  // & styleEmphasis TETAP dipertahankan (itu bukan duplikasi teks
+  // tampilan, tapi instruksi ke AI soal bentuk fisik & tipografi).
   const handleGenerateVideo = async () => {
     if (!isPro(plan)) return;
     if (!adCopyDraft.productName || !adCopyDraft.productName.trim()) {
@@ -3273,29 +2886,21 @@ const PromoGenerator = memo(() => {
       return;
     }
     setGenError('');
-    const data = buildPromptData();
+    const data = buildPromptData({
+      medium: 'video'
+    });
     const voClause = voScript.trim() ? ` Sertakan narasi suara (voice over) berikut. Naskah yang HARUS diucapkan (kata demi kata, PERSIS 1 KALI dari awal sampai akhir, JANGAN diulang): ${voScript.trim()} — Kalau video masih berjalan setelah narasi selesai diucapkan, biarkan hening/diam di sisa waktu, JANGAN mengulang kata/frasa/bagian mana pun untuk mengisi waktu.` : '';
-    // Video AI (Veo 3.1) cenderung KURANG presisi mengikuti detail
-    // bentuk fisik (warna wadah, ada/tidak es, dll) dibanding model
-    // gambar — jadi detail dari Vision AI diulang TEGAS di awal & akhir
-    // prompt (bukan cuma sekali di tengah), supaya lebih diprioritaskan.
     const visionEmphasis = data.visionHints.length > 0 ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${data.visionHints.join(' ')}.` : '';
     const visionReminder = data.visionHints.length > 0 ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas (warna wadah dan ada/tidaknya es harus sama persis) di setiap frame video, jangan mengarang variasi baru.` : '';
-    // Teks (Headline/Sub-headline/CTA/Badge) numpang lewat 1x di tengah
-    // data.full sebelumnya — video AI kurang patuh soal teks dibanding
-    // gambar diam, jadi ditegaskan lagi eksplisit di akhir, sama pola
-    // dengan visionEmphasis di atas.
-    const textEmphasis = data.textParts.length > 0 ? ` PENTING \u2014 WAJIB tampil sebagai teks di video (ejaan persis, JANGAN dihilangkan/diganti): ${data.textParts.join(', ')}.` : '';
-    // Gaya font/tipografi (dari Foto Referensi Gaya) numpang lewat 1x di
-    // tengah data.full sebelumnya (di dalam enrichedExtras) — video AI
-    // kurang patuh soal detail visual abstrak seperti font dibanding
-    // gambar diam, jadi ditegaskan lagi eksplisit di akhir, sama pola
-    // dengan visionEmphasis & textEmphasis di atas. Font tetap TIDAK bisa
-    // dijamin 100% presisi (ini keterbatasan video AI, bukan cuma soal
-    // prompt) — solusi paling reliable tetap pakai gambar composite final
-    // sebagai Initial Frame di Google Flow, bukan cuma mengandalkan prompt.
     const styleEmphasis = data.styleRefApplied ? ` PENTING \u2014 WAJIB ikuti PERSIS gaya font/tipografi yang terlihat di foto referensi gaya (bentuk huruf, ketebalan, gaya penulisan), JANGAN pakai font default/font pilihan AI sendiri, di setiap frame video.` : '';
-    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_INTRO} ${data.full}${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}${textEmphasis}${styleEmphasis} ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_OUTRO} ${SHAPE_AUTHENTICITY_RECAP}`;
+    // Penguat WARNA khusus video — sebelumnya instruksi "98% identik
+    // warna referensi" cuma ditulis dengan kata "di gambar ini", tanpa
+    // penegasan "di SETIAP FRAME sepanjang durasi" (beda dari instruksi
+    // bentuk/tekstur yang sudah punya penguat "di setiap frame" lewat
+    // visionReminder) — diduga jadi sebab warna mulai bergeser/tidak
+    // patuh referensi seiring gerakan kamera/transisi di video.
+    const colorVideoEmphasis = data.styleRefApplied ? ` PENTING \u2014 WARNA harus 98% identik dengan palet warna foto referensi di SETIAP FRAME sepanjang durasi video — jangan mulai bergeser ke warna lain seiring gerakan kamera, transisi, atau perubahan pencahayaan.` : '';
+    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_INTRO} ${data.full}${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}${styleEmphasis}${colorVideoEmphasis} ${NO_UNSOLICITED_TEXT_CLAUSE_VIDEO_OUTRO} ${SHAPE_AUTHENTICITY_RECAP}`;
     try {
       await navigator.clipboard.writeText(videoPrompt);
     } catch (e) {}
@@ -3667,18 +3272,12 @@ const CompositionCanvas = forwardRef(({
   width,
   height,
   showLogo = true,
-  useGeometricScale = false // true khusus Banner: basis skala logo/tagline pakai
-  // rata-rata geometris √(lebar×tinggi), bukan Math.min(lebar,tinggi) — supaya
-  // proporsional di rasio LEBAR (2:1, 3:1, dll), bukan cuma rasio persegi
-  // seperti feed Instagram. Math.min() terlalu mengecilkan di rasio lebar.
+  useGeometricScale = false
 }, ref) => {
   const canvasRef = useRef(null);
   const brand = useContext(BrandContext);
   useImperativeHandle(ref, () => canvasRef.current);
   useEffect(() => {
-    // Penjaga race-condition: kalau props berubah lagi (misal pindah
-    // hari/ganti rasio) sebelum render sebelumnya selesai, proses LAMA
-    // harus berhenti gambar, supaya tidak numpuk dengan hasil baru.
     let cancelled = false;
     const render = async () => {
       const canvas = canvasRef.current;
@@ -3696,16 +3295,6 @@ const CompositionCanvas = forwardRef(({
       }
       if (cancelled) return;
       if (showLogo) {
-        // Logo + tagline brand — jaring pengaman presisi, ditempel
-        // langsung di atas hasil gambar AI, di pojok yang dipilih
-        // di tab Brand. AI TIDAK diberi tahu soal ini sama sekali
-        // (lihat catatan di logoSpaceInstruction) — keterbacaan logo
-        // ditangani 100% di sini lewat vignette lembut, bukan lewat
-        // instruksi ke AI.
-        // scaleBasis: Math.min(lebar,tinggi) pas untuk format persegi/near-
-        // persegi (feed IG dll), TAPI terlalu mengecilkan untuk rasio LEBAR
-        // (banner 2:1/3:1/3:2) — untuk itu pakai rata-rata geometris
-        // √(lebar×tinggi), representasi ukuran yang lebih adil untuk rasio apa pun.
         const scaleBasis = useGeometricScale ? Math.sqrt(width * height) : Math.min(width, height);
         const posKey = brand.logoPosition || 'bottom-right';
         const isTop = posKey.startsWith('top');
@@ -3727,23 +3316,12 @@ const CompositionCanvas = forwardRef(({
             logoImg.src = brand.logoUrl;
             await new Promise(r => logoImg.onload = r);
             if (cancelled) return;
-            // Basis 18,7% pas untuk format persegi/near-persegi (Promo, Feed,
-            // dll). Khusus Banner (useGeometricScale) dinaikkan jadi 25% —
-            // banner cetak besar (2x1/3x1/3x2 meter) dilihat dari jarak jauh,
-            // logo perlu proporsi lebih besar supaya tetap terbaca.
             badgeMax = Math.round(scaleBasis * (useGeometricScale ? 0.18 : 0.187));
             lw = badgeMax;
             lh = badgeMax;
             const ratio = logoImg.width / logoImg.height;
             if (ratio > 1) lh = badgeMax / ratio;else lw = badgeMax * ratio;
-            // Jarak logo-tagline PROPORSIONAL (4,3% ukuran logo).
             logoGap = Math.max(4, Math.round(badgeMax * 0.043));
-            // TAGLINE SELALU DI BAWAH LOGO — untuk posisi ATAS, logo di
-            // pad lalu tagline menyusul di bawahnya (urutan alami). Untuk
-            // posisi BAWAH, seluruh grup (logo+tagline) tetap "menempel"
-            // ke tepi bawah kanvas, TAPI urutan internalnya tetap logo
-            // DULU baru tagline DI BAWAHNYA — bukan tagline di ATAS logo
-            // seperti sebelumnya (itu yang bikin tagline menabrak foto).
             if (isTop) {
               boxY = pad;
             } else {
@@ -3751,9 +3329,6 @@ const CompositionCanvas = forwardRef(({
               boxY = height - pad - taglineReserve - lh;
             }
             const boxX = isLeft ? pad : width - pad - lw;
-            // Vignette lembut di belakang logo — gradasi gelap tipis
-            // radial, supaya logo tetap terbaca di latar seramai apapun
-            // TANPA perlu AI tahu/menyisakan ruang kosong sama sekali.
             const vignettePad = badgeMax * 0.25;
             const vCenterX = boxX + lw / 2;
             const vCenterY = boxY + lh / 2;
@@ -3765,14 +3340,10 @@ const CompositionCanvas = forwardRef(({
             ctx.beginPath();
             ctx.arc(vCenterX, vCenterY, vRadius, 0, Math.PI * 2);
             ctx.fill();
-            // Tanpa kotak/alas — logo (PNG transparan) langsung ditempel,
-            // dengan outline tipis netral yang MENGIKUTI BENTUK ASLI logo
-            // (efek stiker), bukan kotak pembatas.
             const outlineWidth = Math.max(1.5, badgeMax * 0.015);
             drawImageWithOutline(ctx, logoImg, boxX, boxY, lw, lh, 'rgba(255,255,255,0.9)', outlineWidth);
           } catch (e) {}
         } else if (brand.tagline && !isTop) {
-          // Tanpa logo, tagline tetap dianggarkan tepat di tepi bawah/atas.
           boxY = height - pad - fontSize;
           lh = 0;
         }
@@ -3781,15 +3352,8 @@ const CompositionCanvas = forwardRef(({
           ctx.font = `${fontSize}px "${brand.fontBody}"`;
           ctx.textAlign = isLeft ? 'left' : 'right';
           const taglineX = isLeft ? pad : width - pad;
-          // Baseline tagline: SELALU di bawah logo (boxY + lh + gap),
-          // ditambah fontSize supaya baseline teks jatuh di bawah garis itu.
           const taglineTopY = brand.logoUrl ? boxY + lh + logoGap : isTop ? pad : height - pad - fontSize;
           const taglineY = taglineTopY + fontSize;
-          // Tanpa kotak/alas — teks langsung di atas foto, dikasih outline
-          // tipis netral (bukan solid) supaya tetap kebaca di latar manapun.
-          // Outline diperkuat (mirip gaya outline logo) — lineWidth &
-          // opacity dinaikkan supaya lebih terlihat jelas, tidak cuma
-          // samar tipis seperti sebelumnya.
           ctx.lineWidth = Math.max(3, fontSize * 0.12);
           ctx.strokeStyle = 'rgba(0,0,0,0.85)';
           ctx.strokeText(brand.tagline, taglineX, taglineY);
@@ -3814,15 +3378,6 @@ const CompositionCanvas = forwardRef(({
   }));
 });
 
-// ============================================================
-// KONTEN 30 HARI — pilih tema, generate rencana teks lewat ChatGPT,
-// tempel balik hasilnya untuk di-parsing jadi 30 kartu hari. Tiap
-// kartu bisa generate gambar (prompt khusus hari itu), upload hasil,
-// dan otomatis dapat logo (pakai ulang CompositionCanvas yang sama
-// dengan tab Promo). Foto per-hari SENGAJA tidak disimpan permanen
-// (cuma sesi ini) supaya dokumen Firestore tidak kelebihan ukuran
-// kalau menyimpan puluhan foto sekaligus — cuma teks rencananya
-// yang disimpan permanen.
 const ContentPlanGenerator = memo(({
   contentPlan,
   rawText,
@@ -3836,12 +3391,6 @@ const ContentPlanGenerator = memo(({
   const [selectedDay, setSelectedDay] = useState(null);
   const [ratio, setRatio] = useState('1:1');
   const [includeLogo, setIncludeLogo] = useState(true);
-  // --- Foto Arahan AI (maks 10, sesi ini saja) — begitu upload,
-  // otomatis dianalisis Gemini (label singkat + detail bentuk asli).
-  // Saat generate gambar 1 hari, sistem otomatis MENCOCOKKAN foto mana
-  // yang relevan dengan topik hari itu, lalu langsung digabung ke
-  // prompt — semua otomatis, tanpa konfirmasi manual (pola sama
-  // seperti tab Promo).
   const [photoLibrary, setPhotoLibrary] = useState([]);
   const [dayGenBusy, setDayGenBusy] = useState(false);
   const [captionCopied, setCaptionCopied] = useState(false);
@@ -3853,11 +3402,9 @@ const ContentPlanGenerator = memo(({
       setTimeout(() => setCaptionCopied(false), 2000);
     } catch (e) {}
   };
-  // Arahan AI GLOBAL (1 kotak, berlaku untuk SEMUA hari sekaligus) —
-  // bukan per-hari, supaya tidak perlu isi 30 kotak terpisah.
   const [globalAiHint, setGlobalAiHint] = useState('');
-  const [negativePrompt, setNegativePrompt] = useState(''); // Negative Prompt: "Hindari ..." — berlaku gambar+video semua hari
-  const [voScript, setVoScript] = useState(''); // Naskah Voice Over global untuk fitur Video 10 Detik (Pro)
+  const [negativePrompt, setNegativePrompt] = useState('');
+  const [voScript, setVoScript] = useState('');
   const photoLibraryInputRef = useRef(null);
   const brand = useContext(BrandContext);
   const settings = useContext(SettingsContext);
@@ -3870,9 +3417,6 @@ const ContentPlanGenerator = memo(({
       setSelectedDay(contentPlan[0].day);
     }
   }, [contentPlan]);
-  // Sinkronkan pasteText kalau rawText dari Firestore baru masuk
-  // SETELAH komponen ini pertama kali dimuat (data async) — supaya
-  // teks yang tersimpan tetap muncul, bukan cuma saat mount pertama.
   useEffect(() => {
     if (rawText && rawText !== pasteText) setPasteText(rawText);
     // eslint-disable-next-line
@@ -3884,9 +3428,6 @@ const ContentPlanGenerator = memo(({
     const url = openChatGPTText(buildContentPlanPrompt(brand, selectedThemes));
     setLastGenUrl(url);
   };
-  // Teks di kolom "Tempel Jawaban ChatGPT" disimpan permanen ke
-  // Firestore (beda dari foto per-hari yang sengaja sesi-saja) —
-  // di-debounce 500ms supaya tidak menyimpan di setiap ketukan huruf.
   const handlePasteTextChange = text => {
     setPasteText(text);
     if (rawTextSaveTimer.current) clearTimeout(rawTextSaveTimer.current);
@@ -4062,8 +3603,6 @@ const ContentPlanGenerator = memo(({
       const matched = await pickBestMatchingPhoto(settings.geminiApiKey, topicText, photoLibrary);
       const visionClause = matched ? `. [Foto acuan]: ${matched.detail}` : '';
       const voClause = voScript.trim() ? ` Sertakan narasi suara (voice over) berikut. Naskah yang HARUS diucapkan (kata demi kata, PERSIS 1 KALI dari awal sampai akhir, JANGAN diulang): ${voScript.trim()} — Kalau video masih berjalan setelah narasi selesai diucapkan, biarkan hening/diam di sisa waktu, JANGAN mengulang kata/frasa/bagian mana pun untuk mengisi waktu.` : '';
-      // Video AI cenderung KURANG presisi mengikuti detail bentuk fisik
-      // dibanding model gambar — diulang tegas di awal & akhir prompt.
       const visionEmphasis = matched ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${matched.detail}.` : '';
       const visionReminder = matched ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas di setiap frame video, jangan mengarang variasi baru.` : '';
       const negativeClauseVideo = negativePrompt.trim() ? ` Hindari: ${negativePrompt.trim()}.` : '';
@@ -4318,14 +3857,6 @@ const ContentPlanGenerator = memo(({
   }, "Download Hari ", activeDay.day))));
 });
 
-// ============================================================
-// 9 FEED KONSISTEN — brief produk sekali isi, 9 slot peran tetap
-// (Hero/Fitur/Harga/Promo/Testimoni/CTA). Strip thumbnail 3x3 di
-// atas (ringan, cuma pratinjau) + 1 area kerja aktif di bawah
-// (generate/upload/kanvas/download), mirip pola Konten 30 Hari —
-// supaya tetap ringan tapi tetap bisa lihat efek grid Instagram
-// sekaligus. Sesi ini saja, tidak disimpan permanen ke Firestore.
-// ============================================================
 const FeedCampaignGenerator = memo(() => {
   const [brief, setBrief] = useState({
     productName: '',
@@ -4339,7 +3870,6 @@ const FeedCampaignGenerator = memo(() => {
   const [includeLogo, setIncludeLogo] = useState(true);
   const [lastGenUrl, setLastGenUrl] = useState('');
   const [genError, setGenError] = useState('');
-  // Kemudahan pakai: isi contoh dalam 1 klik — pola sama seperti tab Promo.
   const fillExample = () => {
     setBrief({
       productName: 'Es Kopi Susu',
@@ -4349,15 +3879,10 @@ const FeedCampaignGenerator = memo(() => {
       cta: 'Order Sekarang'
     });
   };
-  // --- Foto Arahan AI (maks 10, sesi ini saja) — pola sama seperti
-  // tab Promo & Konten 30 Hari: begitu di-upload otomatis dianalisis,
-  // lalu saat generate 1 slot, otomatis dicocokkan & digabung ke
-  // prompt tanpa konfirmasi manual.
   const [photoLibrary, setPhotoLibrary] = useState([]);
   const [slotGenBusy, setSlotGenBusy] = useState(false);
-  // Arahan AI GLOBAL (1 kotak, berlaku untuk SEMUA 9 slot sekaligus)
   const [globalAiHint, setGlobalAiHint] = useState('');
-  const [negativePrompt, setNegativePrompt] = useState(''); // Negative Prompt: "Hindari ..." — berlaku semua 9 slot
+  const [negativePrompt, setNegativePrompt] = useState('');
   const photoLibraryInputRef = useRef(null);
   const brand = useContext(BrandContext);
   const settings = useContext(SettingsContext);
@@ -4368,10 +3893,6 @@ const FeedCampaignGenerator = memo(() => {
   const lightingLastRef = useRef(-1);
   const compositionLastRef = useRef(-1);
   const frameLastRef = useRef(-1);
-  // Gaya visual (cahaya/komposisi/frame) DIKUNCI sekali di generate
-  // PERTAMA, lalu dipakai sama untuk semua 9 slot berikutnya — supaya
-  // seluruh feed terasa 1 keluarga visual yang senada (bukan diacak
-  // ulang tiap slot seperti sebelumnya).
   const [lockedVisualStyle, setLockedVisualStyle] = useState(null);
   const resetVisualStyle = () => setLockedVisualStyle(null);
   const handleGenerateSlot = async () => {
@@ -4743,13 +4264,11 @@ const BannerGenerator = memo(() => {
   const [genError, setGenError] = useState('');
   const [lastGenUrl, setLastGenUrl] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
-  // Foto Produk Asli (Vision AI) — supaya AI generate tidak mengarang
-  // bentuk makanan, sama seperti pola di tab Promo.
   const [productPhotoUrl, setProductPhotoUrl] = useState('');
   const [productPhotoDesc, setProductPhotoDesc] = useState('');
   const [visionBusy, setVisionBusy] = useState(false);
   const [visionError, setVisionError] = useState('');
-  const [negativePrompt, setNegativePrompt] = useState(''); // Negative Prompt: "Hindari ..."
+  const [negativePrompt, setNegativePrompt] = useState('');
   const productPhotoInputRef = useRef(null);
   const canvasRef = useRef();
   const resizeToDataUrl = (file, maxDim) => new Promise(resolve => {
@@ -4804,7 +4323,6 @@ const BannerGenerator = memo(() => {
     ...prev,
     [key]: value
   }));
-  // Kemudahan pakai: isi contoh dalam 1 klik — pola sama seperti tab Promo.
   const fillExample = () => {
     setFields({
       productName: 'Warung Sate Pak Budi',
@@ -4864,20 +4382,8 @@ const BannerGenerator = memo(() => {
     if (fields.alamat) textParts.push(`Alamat: "${fields.alamat}"`);
     if (fields.telepon) textParts.push(`No. Telepon/WhatsApp: "${fields.telepon}"`);
     if (fields.jamBuka) textParts.push(`Jam Buka: "${fields.jamBuka}"`);
-    // Field fungsional (CTA/Alamat/Telepon/Jam Buka) sebelumnya sama
-    // sekali tidak punya petunjuk posisi — AI cenderung menyusunnya
-    // jadi 1 bar penuh di bagian bawah (konvensi umum), yang otomatis
-    // menabrak pojok manapun yang dipilih untuk logo. Ditambahkan
-    // instruksi eksplisit supaya bar itu menyisakan celah di pojok logo.
     const functionalTextLayoutHint = fields.alamat || fields.telepon || fields.jamBuka || fields.cta ? ` Bar/susunan Alamat/Telepon/Jam Buka/CTA (kalau ada) WAJIB berhenti sebelum mencapai 20% terakhir dari sisi ${posKey.endsWith('left') ? 'kiri' : 'kanan'} gambar — persempit bar-nya (termasuk item paling ujung) supaya tidak melewati batas itu, karena area 20% itu untuk logo brand yang ditempel terpisah. Latar/foto tetap boleh mengisi penuh area tersebut secara alami seramai apapun, hanya bar/susunan teks fungsional ini yang dibatasi lebarnya.` : '';
     const textInstruction = textParts.length > 0 ? `. Sertakan teks berikut, pastikan ejaan persis: ${textParts.join(', ')}.${functionalTextLayoutHint}` : '';
-    // Logo TIDAK PERNAH disebut sama sekali ke AI — sebelumnya berbagai
-    // versi instruksi ("sisakan ruang kosong" lalu "hindari elemen
-    // menonjol") tetap memicu AI membuat area kosong/polos di pojok
-    // tersebut. Solusinya: AI sama sekali tidak diberi tahu logo akan
-    // ditempel — biarkan gambar penuh & ramai alami di semua bidang.
-    // Keterbacaan logo sepenuhnya ditangani di kode (lihat vignette
-    // lembut di CompositionCanvas), bukan lewat instruksi ke AI.
     const logoSpaceInstruction = '';
     const photoInstruction = productPhotoDesc ? `. Foto asli produk sebagai acuan bentuk (JANGAN mengarang bentuk baru): ${productPhotoDesc}` : '';
     const negativeInstruction = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
@@ -5118,11 +4624,11 @@ const BannerGenerator = memo(() => {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block"
   }, "Perbesar Resolusi Sebelum Upload (opsional, disarankan)"), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-gray-500"
-  }, "Gambar dari ChatGPT resolusinya masih rendah untuk cetak ukuran besar. Upscale dulu gambar yang baru didownload di tool gratis di bawah \u2014 baru upload hasilnya ke kotak \"Upload Hasil Gambar AI\". Dengan begitu logo & teks yang kami tempel setelahnya tetap tajam."), /*#__PURE__*/React.createElement("button", {
+  }, "Gambar dari ChatGPT resolusinya masih rendah untuk cetak ukuran besar. Upscale dulu gambar yang baru didownload di tool gratis di bawah \u2014 baru upload hasilnya ke kotak \"Upload Hasil Gambar AI\". Dengan begitu logo & teks yang kami tempel setelahnya tetap tajam. Hasil upscale tetap sepenuhnya milik Anda, aman dipakai untuk cetak komersial."), /*#__PURE__*/React.createElement("button", {
     type: "button",
-    onClick: () => window.open('https://www.recraft.ai/image-upscaler', '_blank', 'noopener,noreferrer'),
+    onClick: () => window.open('https://bigjpg.com', '_blank', 'noopener,noreferrer'),
     className: "w-full text-xs font-semibold text-white bg-[#242430] hover:bg-[#2d2d3a] border border-[#3a3a48] rounded-lg py-2 px-2 transition-colors"
-  }, "\u2728 Perbesar Resolusi (Recraft, Gratis)")), /*#__PURE__*/React.createElement("label", {
+  }, "\u2728 Perbesar Resolusi (bigjpg.com, Gratis, Tanpa Login)")), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Upload Hasil Gambar AI"), /*#__PURE__*/React.createElement("input", {
     type: "file",
@@ -5318,14 +4824,6 @@ const TestCompose = ({
   }, "Download Menu"));
 };
 
-// ============================================================
-// AUTH — Login, Daftar, Panel Reseller, dan Router utama
-//
-// Ini menggantikan bekas "App() { ... signInAnonymously ... }"
-// di Canvas — sekarang pengguna BENAR-BENAR login (Email/Password
-// atau Google), setiap akun datanya privat sepenuhnya.
-// ============================================================
-
 const LoginPage = ({
   onLoggedIn
 }) => {
@@ -5333,11 +4831,9 @@ const LoginPage = ({
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  // Lupa Password — kirim email reset mandiri, tidak perlu lagi minta
-  // admin reset manual lewat Firebase Console.
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
-  const [resetStatus, setResetStatus] = useState(''); // '' | 'sending' | 'sent' | 'error'
+  const [resetStatus, setResetStatus] = useState('');
   const handleSendResetEmail = async e => {
     e.preventDefault();
     if (!resetEmail.trim()) return;
@@ -5448,7 +4944,6 @@ const LoginPage = ({
   }, "Daftar Akun Baru")));
 };
 
-// Membuat profil (users/{uid}) saat pendaftaran baru.
 async function createUserProfile(firebaseUser, plan) {
   await setDoc(doc(db, 'users', firebaseUser.uid), {
     email: firebaseUser.email,
@@ -5544,10 +5039,6 @@ const RegisterForm = ({
     className: "text-amber-500 hover:underline"
   }, "Masuk di sini"))));
 };
-// ROUTER UTAMA — baca window.location.pathname (tidak pakai
-// react-router, cukup pengecekan string biasa) untuk menentukan
-// halaman mana yang ditampilkan. vercel.json (terpisah) yang
-// memastikan semua alamat ini tetap memuat index.html yang sama.
 export default function AppRoot() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -5579,7 +5070,6 @@ export default function AppRoot() {
     }, "Memuat...");
   }
 
-  // Halaman pendaftaran & login SELALU bisa diakses, tidak perlu login dulu
   if (path === '/login') return /*#__PURE__*/React.createElement(LoginPage, {
     onLoggedIn: goHome
   });
@@ -5594,7 +5084,6 @@ export default function AppRoot() {
     onRegistered: goHome
   });
 
-  // Halaman di bawah ini WAJIB login dulu
   if (!user) {
     window.location.href = '/login';
     return null;
