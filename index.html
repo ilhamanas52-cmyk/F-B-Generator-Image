@@ -399,7 +399,7 @@ const buildEnrichedPromptExtras = (brand, {
   }
   parts.push(QUALITY_PROHIBITION_LAYER);
   if (respectStyleRef) {
-    parts.push('Sekali lagi ditegaskan: WARNA di gambar ini WAJIB 98% identik dengan palet warna foto referensi yang sudah dijelaskan di atas — JANGAN kembali ke warna bias/umum AI sendiri, JANGAN memakai warna brand default. KHUSUS untuk warna TEKS: kalau foto referensi TIDAK punya teks sama sekali untuk dijadikan acuan warna font, JANGAN menebak warna sendiri (jangan pakai coklat/tan/pastel sembarangan) — pakai warna KONTRAS TINGGI (putih bersih atau warna netral tegas) terhadap latar belakang, supaya tetap terbaca jelas.');
+    parts.push('Sekali lagi ditegaskan: WARNA di gambar ini (produk, latar, properti pendukung) WAJIB 98% identik dengan palet warna foto referensi yang sudah dijelaskan di atas — JANGAN kembali ke warna bias/umum AI sendiri, JANGAN memakai warna brand default. KHUSUS untuk warna TEKS: aturan 98% di atas TIDAK BERLAKU untuk warna teks — warna teks WAJIB pakai KONTRAS TINGGI (putih bersih atau warna netral tegas) terhadap latar belakang di baliknya supaya tetap terbaca jelas, TERLEPAS dari palet warna referensi atau ada-tidaknya teks di foto referensi itu sendiri.');
   }
   return parts.join(' ');
 };
@@ -2718,7 +2718,7 @@ const PromoGenerator = memo(() => {
     setVisionBusy('style');
     setStylePhotoDesc('');
     try {
-      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan gaya visual DAN gerakan/aksi foto ini untuk keperluan prompt AI image generation. Sebutkan: sudut pengambilan, pencahayaan, palet warna, mood/suasana. Deskripsikan POSISI SPASIAL tiap elemen individual secara SPESIFIK dan DETAIL (bukan cuma kata umum seperti "komposisi dinamis") — sebutkan elemen mana ada di kiri/kanan/atas/bawah/tengah, mana yang posisinya lebih tinggi/rendah dari yang lain, mana yang saling tumpang tindih dengan mana, dan sudut kemiringan MASING-MASING elemen (bukan 1 sudut yang sama untuk semua elemen jika memang berbeda-beda di foto). Sebutkan gerakan/aksi yang terlihat kalau ada (misalnya elemen melayang, jatuh, dituang, mengepul, dipotong — sebutkan gerakannya secara abstrak). HITUNG dan SEBUTKAN JUMLAH PERSIS objek utama yang terlihat (misal: "terlihat 6 potongan melayang") — jangan pakai kata ambigu seperti "beberapa/banyak", wajib angka pasti. Kalau ada TEKS/TULISAN di foto ini, deskripsikan HANYA KARAKTER/GAYA font-nya secara ABSTRAK (misal: "font tebal blok modern", "font kursif elegan bergaya tulisan tangan", "font kondensat memanjang") — JANGAN kutip atau tuliskan ulang isi/kata-katanya sama sekali. JANGAN sebutkan jenis makanan/minuman, bahan, buah, garnish, atau objek spesifik apa pun yang terlihat di foto ini — foto referensi ini kemungkinan besar produk yang BERBEDA dari produk yang akan dibuat nanti, jadi fokus HANYA pada teknik visual, posisi, gerakan, jumlah, dan gaya font secara abstrak, JANGAN sebutkan wujud bendanya. JANGAN sebutkan, kutip, atau tuliskan ulang teks/tulisan apa pun yang terlihat di foto ini walau ada — abaikan total ISI semua teks di foto (fokus HANYA gaya font-nya, bukan katanya). JANGAN sebutkan atau deskripsikan LOGO, IKON, atau BADGE BERGAMBAR apa pun yang terlihat di foto ini — abaikan total elemen logo/ikon/badge tersebut, anggap tidak ada. Jawab dalam 4-8 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
+      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan gaya visual DAN gerakan/aksi foto ini untuk keperluan prompt AI image generation. Sebutkan: sudut pengambilan, pencahayaan, palet warna, mood/suasana. Deskripsikan POSISI SPASIAL tiap elemen individual secara SPESIFIK dan DETAIL (bukan cuma kata umum seperti "komposisi dinamis") — sebutkan elemen mana ada di kiri/kanan/atas/bawah/tengah, mana yang posisinya lebih tinggi/rendah dari yang lain, mana yang saling tumpang tindih dengan mana, dan sudut kemiringan MASING-MASING elemen (bukan 1 sudut yang sama untuk semua elemen jika memang berbeda-beda di foto). Sebutkan gerakan/aksi yang terlihat kalau ada (misalnya elemen melayang, jatuh, dituang, mengepul, dipotong — sebutkan gerakannya secara abstrak). HITUNG dan SEBUTKAN JUMLAH PERSIS objek utama yang terlihat (misal: "terlihat 6 potongan melayang") — jangan pakai kata ambigu seperti "beberapa/banyak", wajib angka pasti. BOLEH sebutkan KATEGORI BENDA UMUM yang lazim ada di berbagai jenis minuman/makanan memakai nama umumnya secara langsung supaya bentuknya tidak salah tafsir — misalnya: sedotan, gelas/wadah, tutup gelas, es batu, buih/foam, daun, percikan/tetesan cairan. TAPI TETAP JANGAN sebutkan jenis makanan/minuman spesifik, bahan/isian spesifik, buah, garnish spesifik, merek, logo, atau gambar apa pun — foto referensi ini kemungkinan besar produk yang BERBEDA dari produk yang akan dibuat nanti, jadi untuk hal-hal spesifik itu tetap fokus HANYA pada bentuk/posisi/gerakan secara abstrak tanpa menyebut wujud pastinya. Kalau ada TEKS/TULISAN di foto ini, deskripsikan HANYA KARAKTER/GAYA font-nya secara ABSTRAK (misal: "font tebal blok modern", "font kursif elegan bergaya tulisan tangan", "font kondensat memanjang") — JANGAN kutip atau tuliskan ulang isi/kata-katanya sama sekali. JANGAN sebutkan, kutip, atau tuliskan ulang teks/tulisan apa pun yang terlihat di foto ini walau ada — abaikan total ISI semua teks di foto (fokus HANYA gaya font-nya, bukan katanya). JANGAN sebutkan atau deskripsikan LOGO, IKON, atau BADGE BERGAMBAR apa pun yang terlihat di foto ini — abaikan total elemen logo/ikon/badge tersebut, anggap tidak ada. Jawab dalam 4-8 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
       setStylePhotoDesc(text);
       setVisionAnalyzedForProduct(adCopyDraft.productName.trim());
     } catch (e) {
@@ -2745,15 +2745,26 @@ const PromoGenerator = memo(() => {
   // Dipakai untuk kotak Preview Prompt DAN untuk generate sungguhan —
   // supaya keduanya PERSIS SAMA (WYSIWYG). Mengembalikan null kalau
   // Nama Produk (satu-satunya field wajib sekarang) masih kosong.
-  // Parameter "medium" ('gambar' | 'video') mengubah kata di klausa
-  // penegasan teks akhir (textEmphasis) — supaya saat dipakai untuk
-  // video, prompt TIDAK perlu ditambah lagi klausa penegasan teks
-  // TERPISAH di handleGenerateVideo (itu sebelumnya menyebabkan Nama
-  // Usaha/Produk & field teks lain muncul TERTULIS 3x di prompt final
-  // video: 1x instruksi utama + 1x recap sini + 1x recap terpisah di
-  // handleGenerateVideo — diduga jadi penyebab teks terduplikasi/typo
-  // di hasil video, karena model diminta "menuliskan" blok teks yang
-  // sama berulang kali alih-alih sekali dengan tegas).
+  //
+  // ============================================================
+  // SUSUNAN PROMPT BERBASIS PRIORITAS (GENERATE sesi ini)
+  // ------------------------------------------------------------
+  // openChatGPTWithPrompt() memotong prompt dari BELAKANG kalau
+  // hasil encode URL > MAX_ENCODED_URL_LENGTH (4500 karakter). Mode
+  // "Ikuti Referensi" bisa menghasilkan combinedHint (vision hints)
+  // + enrichedExtras yang sangat panjang (kasus nyata: totalnya bisa
+  // ~8.500 karakter encoded, hampir 2x lipat batas aman) — akibatnya
+  // SEMUA instruksi teks iklan (Nama Produk/Headline/dst) ikut
+  // terpotong karena dulu diletakkan SETELAH vision hints.
+  //
+  // Perbaikan: textInstruction (teks iklan, WAJIB tampil) sekarang
+  // diletakkan di AWAL prompt (tepat setelah subjek produk & format),
+  // SEBELUM combinedHint (vision hints) & enrichedExtras (gaya visual)
+  // yang boleh dikorbankan lebih dulu kalau prompt kepanjangan. Dengan
+  // urutan ini, walau vision hints/gaya visual terpotong habis oleh
+  // openChatGPTWithPrompt, teks iklan tetap utuh karena posisinya jauh
+  // dari ujung yang dipotong.
+  // ============================================================
   const buildPromptData = ({
     medium = 'gambar'
   } = {}) => {
@@ -2792,11 +2803,22 @@ const PromoGenerator = memo(() => {
     const negativeInstruction = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
     const designGuideline = styleRefApplied ? '' : ` ${DESIGN_GUIDELINE_PROMPT}.`;
     // Teks (Nama Usaha/Headline/dll) ditegaskan lagi SEKALI di posisi
-    // AKHIR (bukan 2x seperti sebelumnya di jalur video) — supaya tidak
-    // "ketimpa" instruksi 98% ikuti referensi, TANPA membuat blok teks
-    // yang sama dituliskan berkali-kali (pemicu duplikasi/typo di video).
-    const textEmphasis = textParts.length > 0 ? ` PENTING \u2014 WAJIB tampil sebagai teks di ${medium} ini (ejaan persis, JANGAN dihilangkan meskipun foto referensi tidak punya teks): ${textParts.join(', ')}.` : '';
-    const full = `${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${combinedHint ? ', ' + combinedHint : ''}${textInstruction}${logoSpaceInstruction}.${designGuideline} ${enrichedExtras} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction} ${SHAPE_AUTHENTICITY_RECAP}${textEmphasis}`;
+    // AKHIR — tapi sekarang berupa KALIMAT PENGINGAT SINGKAT (bukan
+    // menyalin ulang seluruh daftar teks persis sama). Menyalin ulang
+    // blok yang identik terbukti membuat AI membaca itu sebagai 2
+    // permintaan elemen terpisah (kasus nyata: badge tampil 2x di
+    // hasil gambar/video, satu sesuai permintaan + satu lagi karangan
+    // AI dengan kalimat berbeda tapi tema serupa). Dengan kalimat
+    // pengingat singkat ini, tujuan awalnya (jangan sampai teks
+    // "ketimpa" instruksi 98% ikuti referensi) tetap tercapai, tanpa
+    // memicu AI menganggap ada permintaan teks tambahan.
+    const textEmphasis = textParts.length > 0 ? ` PENTING \u2014 ingat kembali, JANGAN dihilangkan: seluruh elemen teks yang sudah diminta di atas (Nama Usaha/Produk, dan Headline/Sub-headline/CTA/Badge kalau ada) WAJIB tetap tampil di ${medium} ini apa adanya, walau instruksi gaya referensi di atas sangat kuat/tegas. Ini PENGINGAT PENEKANAN saja, BUKAN permintaan elemen teks baru/tambahan — jangan menggandakan elemen teks mana pun.` : '';
+    // Urutan prioritas: subjek+format -> TEKS IKLAN (wajib utuh) ->
+    // ruang logo -> brand/warna -> panduan desain -> vision hints
+    // (boleh dikorbankan) -> gaya visual (boleh dikorbankan) -> lapis
+    // penutup pendek (larangan teks liar, negative prompt, recap
+    // bentuk, recap teks singkat).
+    const full = `${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} background promosi untuk produk: ${productSubject}, ${formatHint}${textInstruction}${logoSpaceInstruction} ${brandHint}.${designGuideline}${combinedHint ? ' ' + combinedHint : ''} ${enrichedExtras} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction} ${SHAPE_AUTHENTICITY_RECAP}${textEmphasis}`;
     return {
       productSubject,
       textParts,
