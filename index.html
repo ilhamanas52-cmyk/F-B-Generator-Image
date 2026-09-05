@@ -189,7 +189,20 @@ const hudStyles = `
   .pro-glow { animation: proGlow 2.2s ease-in-out infinite; }
 `;
 
-const MAX_ENCODED_URL_LENGTH = 4500;
+// Batas 4500 (lama) terbukti terlalu ketat — bahkan prompt Promo mode
+// biasa TANPA foto referensi sama sekali rutin melebihi batas ini
+// (~6.700 karakter encoded untuk 5 field ad-copy standar), membuat
+// blok gaya visual (termasuk warna brand & font) rutin ikut terpotong
+// meski teks iklan sendiri sudah aman berkat urutan prioritas. Dinaikkan
+// ke 7000 — riset batas infrastruktur web umum (Apache LimitRequestLine
+// default ~8.190 byte, Nginx large_client_header_buffers ~8KB untuk
+// SELURUH baris request) menunjukkan 7000 karakter encoded untuk
+// parameter q= saja masih beri margin aman di bawah itu. TIDAK ada
+// jaminan resmi dari OpenAI soal batas ini (parameter ?q= bukan API
+// resmi terdokumentasi) — kalau ternyata muncul gejala baru yang beda
+// (gagal total/error, bukan potong rapi seperti sebelumnya), turunkan
+// lagi angka ini, itu tanda sudah melewati batas sungguhan ChatGPT.
+const MAX_ENCODED_URL_LENGTH = 7000;
 const openChatGPTWithPrompt = fullPrompt => {
   let text = fullPrompt;
   let encoded = encodeURIComponent(text);
@@ -2750,12 +2763,13 @@ const PromoGenerator = memo(() => {
   // SUSUNAN PROMPT BERBASIS PRIORITAS (GENERATE sesi ini)
   // ------------------------------------------------------------
   // openChatGPTWithPrompt() memotong prompt dari BELAKANG kalau
-  // hasil encode URL > MAX_ENCODED_URL_LENGTH (4500 karakter). Mode
+  // hasil encode URL > MAX_ENCODED_URL_LENGTH (7000 karakter, naik dari
+  // 4500 semula — lihat komentar di deklarasi konstantanya). Mode
   // "Ikuti Referensi" bisa menghasilkan combinedHint (vision hints)
   // + enrichedExtras yang sangat panjang (kasus nyata: totalnya bisa
-  // ~8.500 karakter encoded, hampir 2x lipat batas aman) — akibatnya
+  // ~8.500-11.000 karakter encoded, masih di atas batas baru) — akibatnya
   // SEMUA instruksi teks iklan (Nama Produk/Headline/dst) ikut
-  // terpotong karena dulu diletakkan SETELAH vision hints.
+  // terpotong kalau posisinya SETELAH vision hints.
   //
   // Perbaikan: textInstruction (teks iklan, WAJIB tampil) sekarang
   // diletakkan di AWAL prompt (tepat setelah subjek produk & format),
