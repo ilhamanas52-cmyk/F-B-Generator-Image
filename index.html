@@ -732,17 +732,19 @@ const LOGO_POSITIONS = {
 // layoutnya, bukan dari bentuk potongan foto.
 // Klasik & Elegan SENGAJA tidak pernah diubah sama sekali.
 const MENU_STYLE_PRESETS = {
-  colorBlock: {
-    label: 'Blok Warna Berani',
-    layoutKey: 'colorBlock',
-    // Blok warna solid pil per item, foto PERSEGI disisipkan di dalam
-    // blok (bukan lingkaran lagi) — harga jadi label kecil di sudut blok.
+  galeriGrid: {
+    label: 'Grid Galeri 6 Foto',
+    layoutKey: 'galeriGrid',
+    // BARU — gantikan "Blok Warna Berani" (struktur beda total, bukan
+    // cuma beda kulit). Grid 2 kolom x 3 baris, tiap kotak foto PERSEGI
+    // besar mengisi penuh sel dengan scrim gradasi di bawah untuk nama
+    // & harga overlay — bukan lagi list 1 kolom dengan blok warna pil.
     itemCap: 6,
-    pageBg: '#1A1207',
+    pageBg: '#14110E',
     textMain: '#FFFFFF',
     textSub: 'rgba(255,255,255,0.82)',
     dividerColor: '#F2A23D',
-    promptHint: 'gaya poster promo makanan warna-warni berani, blok warna solid besar, kontras tinggi, kesan energik street-food, pencahayaan terang merata'
+    promptHint: 'gaya poster galeri foto makanan grid rapi, kontras tinggi, kesan modern dan bersih, pencahayaan studio merata'
   },
   classic: {
     label: 'Klasik & Elegan',
@@ -756,18 +758,20 @@ const MENU_STYLE_PRESETS = {
     dividerColor: '#C9A227',
     promptHint: 'gaya klasik elegan bernuansa vintage, ornamen garis halus, warna hangat gelap seperti coklat tua dan emas, pencahayaan dramatis lembut, kesan mewah restoran kelas atas'
   },
-  photoStack: {
-    label: 'Foto Bertumpuk',
-    layoutKey: 'photoStack',
-    // Strip warna vertikal di sisi kiri, foto PERSEGI sedikit dimiringkan
-    // bertumpuk sepanjang strip (kesan tumpukan polaroid) — bukan
-    // lingkaran lagi. Harga pakai dotted-leader, jarak antar-baris lega.
-    itemCap: 8,
+  menuSpesial: {
+    label: 'Menu Spesial 3 Foto',
+    layoutKey: 'menuSpesial',
+    // BARU — gantikan "Foto Bertumpuk" (struktur beda total). Fokus
+    // HANYA 3 item unggulan (bukan daftar menu lengkap): 1 foto besar
+    // + 2 foto kecil di sampingnya, tiap foto punya nama & harga
+    // sendiri — dipilih dari checkbox "Unggulan" (featured) yang
+    // sudah ada, sama seperti pola di Hero Glow & Bento Grid.
+    itemCap: 3,
     pageBg: '#3A0E12',
     textMain: '#FFFFFF',
     textSub: 'rgba(255,255,255,0.75)',
     dividerColor: '#E8622B',
-    promptHint: 'gaya poster menu restoran elegan berani, latar merah tua gelap, strip warna oranye vertikal, pencahayaan studio dramatis, kesan premium'
+    promptHint: 'gaya poster menu restoran elegan berani, latar merah tua gelap, pencahayaan studio dramatis, kesan premium, spotlight ke produk unggulan'
   },
   heroGlow: {
     label: 'Hero Glow Dramatis',
@@ -1886,7 +1890,7 @@ const PRINT_SCALE = 2.3;
 const MenuPageGenerator = memo(({
   menu
 }) => {
-  const [selectedStyle, setSelectedStyle] = useState('colorBlock');
+  const [selectedStyle, setSelectedStyle] = useState('galeriGrid');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [photoUrl, setPhotoUrl] = useState('');
   const [quality, setQuality] = useState('screen'); // 'screen' (ringan) | 'print' (tajam untuk A4)
@@ -1897,7 +1901,7 @@ const MenuPageGenerator = memo(({
   const brand = useContext(BrandContext);
   const plan = useContext(PlanContext);
   // Reguler dapat 2 gaya (Klasik & Elegan, Blok Warna Berani), Pro dapat semua 4.
-  const FREE_MENU_STYLES = ['classic', 'colorBlock', 'heroGlow'];
+  const FREE_MENU_STYLES = ['classic', 'galeriGrid', 'heroGlow'];
   const lightingLastRef = useRef(-1);
   const filteredMenu = categoryFilter === 'all' ? menu : menu.filter(m => m.category === categoryFilter);
   // Batas item per halaman A4, beda per gaya sesuai kepadatan STRUKTUR
@@ -2296,24 +2300,27 @@ const MenuPageCanvas = forwardRef(({
     // beda, sama seperti referensi (merah/oranye/olive berurutan).
     // ============================================================
     const COLOR_BLOCK_PALETTE = ['#D9432B', '#E8862B', '#6E7F35', '#2E6E7A', '#8A3B6E'];
-    const renderColorBlockLayout = async (canvas, ctx, width, grouped, cfg) => {
+    // ============================================================
+    // GRID GALERI 6 FOTO — BARU, gantikan Blok Warna Berani. Struktur
+    // GRID 2 kolom x 3 baris (bukan list 1 kolom lagi) — semua item
+    // digabung lintas kategori, maksimal 6, tiap kotak foto PERSEGI
+    // besar mengisi penuh sel dengan scrim gradasi bawah untuk nama
+    // & harga overlay, badge harga warna-warni di sudut tiap kotak.
+    // ============================================================
+    const renderGaleriGridLayout = async (canvas, ctx, width, grouped, cfg) => {
       const headerH = await computeHeaderHeight(brand);
-      const catHeaderHBase = 88,
-        // dinaikkan dari 56 — supaya foto bulat yang menjorok ke atas
-        // (bleed) tidak menimpa teks kategori di atasnya
-        blockHBase = 168,
-        blockGapBase = 20,
-        bottomPad = 50;
-      const marginX = 50;
-      const totalItems = grouped.reduce((s, g) => s + g.list.length, 0);
-      const naturalBodyHeight = grouped.length * catHeaderHBase + totalItems * (blockHBase + blockGapBase);
-      const availableBody = A4_HEIGHT - headerH - bottomPad;
-      const vScale = naturalBodyHeight > availableBody ? Math.max(0.45, availableBody / naturalBodyHeight) : 1;
-      const catHeaderH = catHeaderHBase * vScale;
-      const blockH = blockHBase * vScale;
-      const blockGap = blockGapBase * vScale;
-      const nameFontSize = Math.round(30 * Math.max(vScale, 0.65));
-      const descFontSize = Math.round(19 * Math.max(vScale, 0.65));
+      const titleH = 74;
+      const bodyTop = headerH + titleH;
+      const marginX = 46;
+      const gap = 24;
+      const cols = 2,
+        rows = 3;
+      const cellW = (width - marginX * 2 - gap * (cols - 1)) / cols;
+      const availableBody = A4_HEIGHT - bodyTop - 50;
+      const cellH = (availableBody - gap * (rows - 1)) / rows;
+      const allItems = grouped.flatMap(g => g.list).slice(0, 6);
+      const nameFontSize = 26;
+      const descFontSize = 16;
       if (cancelled) return;
       canvas.width = A4_WIDTH * renderScale;
       canvas.height = A4_HEIGHT * renderScale;
@@ -2324,81 +2331,65 @@ const MenuPageCanvas = forwardRef(({
         const img = await loadImg(backgroundImage);
         if (cancelled) return;
         drawCoverImage(ctx, img, 0, 0, A4_WIDTH, A4_HEIGHT);
-        ctx.fillStyle = cfg.pageBg + 'B0';
+        ctx.fillStyle = cfg.pageBg + 'C0';
         ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
       }
       if (cancelled) return;
       await renderHeader(ctx, A4_WIDTH, brand);
-      await document.fonts.load(`bold 32px "${brand.fontHeading}"`);
+      await document.fonts.load(`bold 40px "${brand.fontHeading}"`);
       await document.fonts.load(`bold ${nameFontSize}px "${brand.fontBody}"`);
       await document.fonts.load(`${descFontSize}px "${brand.fontBody}"`);
       if (cancelled) return;
-      let y = headerH;
-      let itemIndex = 0;
-      for (const group of grouped) {
-        ctx.fillStyle = cfg.dividerColor;
-        ctx.font = `bold 32px "${brand.fontHeading}"`;
-        ctx.fillText(group.cat.toUpperCase(), marginX, y + 30);
-        y += catHeaderH;
-        for (const item of group.list) {
-          const blockColor = COLOR_BLOCK_PALETTE[itemIndex % COLOR_BLOCK_PALETTE.length];
-          const bx = marginX,
-            by = y,
-            bw = width - marginX * 2,
-            bh = blockH;
-
-          // Blok warna solid, sudut sangat membulat (kesan pil)
-          roundRectPath(ctx, bx, by, bw, bh, bh / 2);
-          ctx.fillStyle = blockColor;
-          ctx.fill();
-
-          // Foto PERSEGI disisipkan RAPI di dalam blok (bukan lingkaran
-          // menjorok keluar lagi) — sudut membulat kecil menyesuaikan
-          // sudut pil blok, foto tetap apa adanya (tanpa crop bulat/cutout).
-          let textStartX = bx + 40;
-          if (item.photoUrl) {
-            try {
-              const thumbImg = await loadImg(item.photoUrl);
-              if (cancelled) return;
-              const pad = bh * 0.14;
-              const photoSize = bh - pad * 2;
-              const px = bx + pad;
-              const py = by + pad;
-              ctx.save();
-              roundRectPath(ctx, px, py, photoSize, photoSize, 16);
-              ctx.clip();
-              drawCoverImage(ctx, thumbImg, px, py, photoSize, photoSize);
-              ctx.restore();
-              ctx.strokeStyle = '#FFFFFF';
-              ctx.lineWidth = 4;
-              roundRectPath(ctx, px, py, photoSize, photoSize, 16);
-              ctx.stroke();
-              textStartX = px + photoSize + 28;
-              if (item.featured) drawFeaturedBadge(ctx, px + photoSize - 10, py - 6, 0.55, 'inset-topright');
-            } catch (e) {}
-          }
-
-          // Nama & deskripsi di atas blok warna
-          ctx.fillStyle = cfg.textMain;
-          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
-          ctx.fillText(item.name, textStartX, by + bh / 2 - (item.description ? 6 : -8), bx + bw - textStartX - 110);
-          if (item.description) {
-            ctx.fillStyle = cfg.textSub;
-            ctx.font = `${descFontSize}px "${brand.fontBody}"`;
-            ctx.fillText(item.description, textStartX, by + bh / 2 + descFontSize + 2, bx + bw - textStartX - 110);
-          }
-
-          // Label harga menjorok di sudut atas-kanan blok — putih dengan
-          // teks warna blok, kesan "flag" menonjol (bukan teks polos)
-          drawPriceBadge(ctx, `Rp ${item.price.toLocaleString('id-ID')}`, bx + bw - 55, by + 6, {
-            scale: Math.max(vScale, 0.7),
-            shape: 'pill',
-            bg: '#FFFFFF',
-            textColor: blockColor,
-            fontSize: 20
-          });
-          itemIndex++;
-          y += blockH + blockGap;
+      ctx.fillStyle = cfg.dividerColor;
+      ctx.font = `bold 40px "${brand.fontHeading}"`;
+      ctx.fillText('GALERI MENU', marginX, headerH + 46);
+      for (let i = 0; i < allItems.length; i++) {
+        const item = allItems[i];
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const cx = marginX + col * (cellW + gap);
+        const cy = bodyTop + row * (cellH + gap);
+        ctx.save();
+        roundRectPath(ctx, cx, cy, cellW, cellH, 18);
+        ctx.clip();
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(cx, cy, cellW, cellH);
+        if (item.photoUrl) {
+          try {
+            const img = await loadImg(item.photoUrl);
+            if (cancelled) return;
+            drawCoverImage(ctx, img, cx, cy, cellW, cellH);
+          } catch (e) {}
+        }
+        // Scrim gradasi bawah supaya nama & harga tetap terbaca di atas foto
+        const scrim = ctx.createLinearGradient(0, cy + cellH * 0.45, 0, cy + cellH);
+        scrim.addColorStop(0, 'rgba(0,0,0,0)');
+        scrim.addColorStop(1, 'rgba(0,0,0,0.82)');
+        ctx.fillStyle = scrim;
+        ctx.fillRect(cx, cy, cellW, cellH);
+        ctx.restore();
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.lineWidth = 2;
+        roundRectPath(ctx, cx, cy, cellW, cellH, 18);
+        ctx.stroke();
+        // Badge harga warna-warni di sudut kanan-atas kotak
+        const blockColor = COLOR_BLOCK_PALETTE[i % COLOR_BLOCK_PALETTE.length];
+        drawPriceBadge(ctx, `Rp ${item.price.toLocaleString('id-ID')}`, cx + cellW - 14, cy + 14, {
+          scale: 0.62,
+          shape: 'pill',
+          bg: blockColor,
+          textColor: '#FFFFFF',
+          fontSize: 19
+        });
+        if (item.featured) drawFeaturedBadge(ctx, cx + 26, cy + 26, 0.5, 'inset-topright');
+        // Nama & deskripsi di atas scrim, rata bawah kotak
+        ctx.fillStyle = cfg.textMain;
+        ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
+        ctx.fillText(item.name, cx + 18, cy + cellH - (item.description ? descFontSize + 30 : 22), cellW - 36);
+        if (item.description) {
+          ctx.fillStyle = cfg.textSub;
+          ctx.font = `${descFontSize}px "${brand.fontBody}"`;
+          ctx.fillText(item.description, cx + 18, cy + cellH - 16, cellW - 36);
         }
       }
     };
@@ -2519,22 +2510,27 @@ const MenuPageCanvas = forwardRef(({
     // bertumpuk sepanjang strip, harga pakai dotted-leader dengan
     // jarak antar-baris lega.
     // ============================================================
-    const renderPhotoStackLayout = async (canvas, ctx, width, grouped, cfg) => {
+    // ============================================================
+    // MENU SPESIAL 3 FOTO — BARU, gantikan Foto Bertumpuk. Struktur
+    // beda total: HANYA 3 item unggulan (bukan daftar menu lengkap),
+    // 1 foto BESAR (item unggulan utama) + 2 foto KECIL di bawahnya,
+    // masing-masing punya nama & harga sendiri. Item unggulan dipilih
+    // dari checkbox "Unggulan" (featured) — pola sama seperti Hero
+    // Glow & Bento Grid, fallback ke 3 item pertama yang punya foto.
+    // ============================================================
+    const renderMenuSpesialLayout = async (canvas, ctx, width, grouped, cfg) => {
       const headerH = await computeCompactHeaderHeight(brand);
-      const heroTitleH = 92; // ruang untuk judul raksasa di bawah header ringkas
-      const bodyTop = headerH + heroTitleH;
-      const catHeaderHBase = 50,
-        rowHBase = 96,
-        bottomPad = 60;
-      const totalRows = grouped.reduce((sum, g) => sum + g.list.length, 0);
-      const naturalBodyHeight = grouped.length * catHeaderHBase + totalRows * rowHBase;
-      const availableBody = A4_HEIGHT - bodyTop - bottomPad;
-      const vScale = naturalBodyHeight > availableBody ? Math.max(0.4, availableBody / naturalBodyHeight) : 1;
-      const catHeaderH = catHeaderHBase * vScale;
-      const rowH = rowHBase * vScale;
-      const photoSize = Math.max(48, 88 * vScale); // persegi, sedikit bertumpuk antar-baris — ciri khas gaya ini
-      const nameFontSize = Math.round(27 * Math.max(vScale, 0.65));
-      const descFontSize = Math.round(17 * Math.max(vScale, 0.65));
+      const titleH = 90;
+      const bodyTop = headerH + titleH;
+      const marginX = 50;
+      const bottomPad = 60;
+      const allItems = grouped.flatMap(g => g.list);
+      const withPhoto = allItems.filter(i => i.photoUrl);
+      const spesial = [...withPhoto.filter(i => i.featured), ...withPhoto.filter(i => !i.featured)].slice(0, 3);
+      const bigItem = spesial[0];
+      const smallItems = spesial.slice(1, 3);
+      const bigH = A4_HEIGHT - bodyTop - bottomPad;
+      const bigW = bigH * 0.86;
       if (cancelled) return;
       canvas.width = A4_WIDTH * renderScale;
       canvas.height = A4_HEIGHT * renderScale;
@@ -2550,88 +2546,79 @@ const MenuPageCanvas = forwardRef(({
       }
       if (cancelled) return;
       await renderCompactHeader(ctx, brand);
-      await document.fonts.load(`bold 62px "${brand.fontHeading}"`);
-      await document.fonts.load(`bold 26px "${brand.fontHeading}"`);
-      await document.fonts.load(`bold ${nameFontSize}px "${brand.fontBody}"`);
-      await document.fonts.load(`${descFontSize}px "${brand.fontBody}"`);
+      await document.fonts.load(`bold 56px "${brand.fontHeading}"`);
+      await document.fonts.load(`bold 30px "${brand.fontBody}"`);
+      await document.fonts.load(`bold 24px "${brand.fontBody}"`);
       if (cancelled) return;
-
-      // Judul raksasa — elemen hero halaman, ciri khas referensi
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = `bold 62px "${brand.fontHeading}"`;
-      ctx.fillText('DAFTAR MENU', 50, headerH + 60);
-      const marginX = 50;
-      const stripX = marginX;
-      const stripW = photoSize + 40;
+      ctx.font = `bold 56px "${brand.fontHeading}"`;
+      ctx.fillText('MENU SPESIAL', marginX, headerH + 58);
 
-      // Strip warna vertikal di sepanjang badan menu — digambar penuh
-      // dari awal, terlepas dari isi konten pas atau tidak (sengaja,
-      // efek visual dari referensi).
-      ctx.fillStyle = cfg.dividerColor;
-      roundRectPath(ctx, stripX, bodyTop, stripW, A4_HEIGHT - bodyTop - bottomPad + 30, stripW / 2);
-      ctx.fill();
-      let y = bodyTop;
-      let itemIndex = 0;
-      for (const group of grouped) {
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = `bold 26px "${brand.fontHeading}"`;
-        ctx.fillText(group.cat.toUpperCase(), stripX + stripW + 20, y + 24);
-        y += catHeaderH;
-        for (const item of group.list) {
-          const cx = stripX + stripW / 2;
-          const cy = y + photoSize / 2;
-          if (item.photoUrl) {
-            try {
-              const thumbImg = await loadImg(item.photoUrl);
-              if (cancelled) return;
-              // Foto PERSEGI dimiringkan bergantian (kiri/kanan) — kesan
-              // tumpukan polaroid, bukan lingkaran lagi. Foto tetap apa
-              // adanya (tanpa crop bulat/cutout).
-              const tilt = itemIndex % 2 === 0 ? -0.09 : 0.09;
-              ctx.save();
-              ctx.translate(cx, cy);
-              ctx.rotate(tilt);
-              ctx.fillStyle = '#000000';
-              ctx.shadowColor = 'rgba(0,0,0,0.4)';
-              ctx.shadowBlur = 10;
-              roundRectPath(ctx, -photoSize / 2, -photoSize / 2, photoSize, photoSize, 8);
-              ctx.fill();
-              ctx.shadowBlur = 0;
-              ctx.save();
-              roundRectPath(ctx, -photoSize / 2, -photoSize / 2, photoSize, photoSize, 8);
-              ctx.clip();
-              drawCoverImage(ctx, thumbImg, -photoSize / 2, -photoSize / 2, photoSize, photoSize);
-              ctx.restore();
-              ctx.strokeStyle = '#FFFFFF';
-              ctx.lineWidth = 4;
-              roundRectPath(ctx, -photoSize / 2, -photoSize / 2, photoSize, photoSize, 8);
-              ctx.stroke();
-              ctx.restore();
-            } catch (e) {}
-          }
-          itemIndex++;
-          const textX = stripX + stripW + 24;
-          const textY = cy - (item.description ? 6 : -4);
-          const priceText = `Rp ${item.price.toLocaleString('id-ID')}`;
-          ctx.font = `bold ${Math.round(nameFontSize * 0.85)}px "${brand.fontBody}"`;
-          const priceW = ctx.measureText(priceText).width;
-          const priceX = width - marginX - priceW;
-          ctx.fillStyle = cfg.textMain;
-          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
-          ctx.fillText(item.name, textX, textY, priceX - textX - 20);
-          const nameW = Math.min(ctx.measureText(item.name).width, priceX - textX - 20);
-          if (item.featured) drawFeaturedBadge(ctx, textX + nameW + 12, textY - nameFontSize / 2 + 2, 0.5, 'left-middle');
-          drawDottedLeader(ctx, textX + nameW + 16, priceX - 10, textY - nameFontSize * 0.32, cfg.dividerColor);
-          ctx.fillStyle = brand.primaryColor;
-          ctx.font = `bold ${Math.round(nameFontSize * 0.85)}px "${brand.fontBody}"`;
-          ctx.fillText(priceText, priceX, textY);
-          if (item.description) {
-            ctx.fillStyle = cfg.textSub;
-            ctx.font = `${descFontSize}px "${brand.fontBody}"`;
-            ctx.fillText(item.description, textX, textY + descFontSize + 4, width - marginX - textX);
-          }
-          y += rowH;
-        }
+      // Foto BESAR — item unggulan utama, di kiri, memenuhi tinggi badan
+      const bx = marginX,
+        by = bodyTop;
+      if (bigItem) {
+        try {
+          const img = await loadImg(bigItem.photoUrl);
+          if (cancelled) return;
+          ctx.save();
+          roundRectPath(ctx, bx, by, bigW, bigH, 22);
+          ctx.clip();
+          drawCoverImage(ctx, img, bx, by, bigW, bigH);
+          const scrim = ctx.createLinearGradient(0, by + bigH * 0.55, 0, by + bigH);
+          scrim.addColorStop(0, 'rgba(0,0,0,0)');
+          scrim.addColorStop(1, 'rgba(0,0,0,0.85)');
+          ctx.fillStyle = scrim;
+          ctx.fillRect(bx, by, bigW, bigH);
+          ctx.restore();
+          ctx.strokeStyle = cfg.dividerColor;
+          ctx.lineWidth = 5;
+          roundRectPath(ctx, bx, by, bigW, bigH, 22);
+          ctx.stroke();
+          if (bigItem.featured) drawFeaturedBadge(ctx, bx + 34, by + 34, 0.6, 'inset-topright');
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = `bold 30px "${brand.fontBody}"`;
+          ctx.fillText(bigItem.name, bx + 24, by + bigH - 56, bigW - 48);
+          ctx.fillStyle = cfg.dividerColor;
+          ctx.font = `bold 26px "${brand.fontBody}"`;
+          ctx.fillText(`Rp ${bigItem.price.toLocaleString('id-ID')}`, bx + 24, by + bigH - 20, bigW - 48);
+        } catch (e) {}
+      }
+
+      // 2 foto KECIL — item unggulan pendukung, ditumpuk di kanan
+      const sx = bx + bigW + 24;
+      const sw = width - marginX - sx;
+      const sGap = 20;
+      const sh = (bigH - sGap) / 2;
+      for (let i = 0; i < 2; i++) {
+        const item = smallItems[i];
+        if (!item) continue;
+        const sy = by + i * (sh + sGap);
+        try {
+          const img = await loadImg(item.photoUrl);
+          if (cancelled) return;
+          ctx.save();
+          roundRectPath(ctx, sx, sy, sw, sh, 18);
+          ctx.clip();
+          drawCoverImage(ctx, img, sx, sy, sw, sh);
+          const scrim2 = ctx.createLinearGradient(0, sy + sh * 0.5, 0, sy + sh);
+          scrim2.addColorStop(0, 'rgba(0,0,0,0)');
+          scrim2.addColorStop(1, 'rgba(0,0,0,0.82)');
+          ctx.fillStyle = scrim2;
+          ctx.fillRect(sx, sy, sw, sh);
+          ctx.restore();
+          ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+          ctx.lineWidth = 3;
+          roundRectPath(ctx, sx, sy, sw, sh, 18);
+          ctx.stroke();
+          if (item.featured) drawFeaturedBadge(ctx, sx + 20, sy + 20, 0.45, 'inset-topright');
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = `bold ${Math.round(sh * 0.13)}px "${brand.fontBody}"`;
+          ctx.fillText(item.name, sx + 18, sy + sh - Math.round(sh * 0.22), sw - 36);
+          ctx.fillStyle = cfg.dividerColor;
+          ctx.font = `bold ${Math.round(sh * 0.11)}px "${brand.fontBody}"`;
+          ctx.fillText(`Rp ${item.price.toLocaleString('id-ID')}`, sx + 18, sy + sh - Math.round(sh * 0.06), sw - 36);
+        } catch (e) {}
       }
     };
 
@@ -3030,9 +3017,9 @@ const MenuPageCanvas = forwardRef(({
     };
 
     const LAYOUT_RENDERERS = {
-      colorBlock: renderColorBlockLayout,
+      galeriGrid: renderGaleriGridLayout,
       dinerList: renderDinerListLayout,
-      photoStack: renderPhotoStackLayout,
+      menuSpesial: renderMenuSpesialLayout,
       heroGlow: renderHeroGlowLayout,
       bentoGrid: renderBentoGridLayout,
       typographic: renderTypographicLayout
@@ -3277,6 +3264,7 @@ const PromoGenerator = memo(() => {
     let textInstruction = '';
     if (includeText) {
       const orientationHint = textOrientation === 'miring' ? ' (teks dimiringkan/dirotasi sekitar 10-15 derajat, bukan lurus datar)' : textOrientation === 'vertikal' ? ' (teks disusun VERTIKAL dari bawah ke atas, seperti label kemasan)' : '';
+      textParts.push(`Nama Produk: "${productSubject}" (WAJIB tertulis jelas di gambar, ukuran cukup menonjol — bisa disatukan secara visual dengan Headline kalau ada, atau berdiri sendiri kalau Headline kosong)`);
       if (adCopyDraft.headline) textParts.push(`Headline: "${adCopyDraft.headline}" (font besar, paling menonjol, di bagian atas${orientationHint})`);
       if (adCopyDraft.subheadline) textParts.push(`Sub-headline: "${adCopyDraft.subheadline}" (di bawah headline, ukuran sedang)`);
       if (adCopyDraft.cta) textParts.push(`Tombol CTA (Call to Action): "${adCopyDraft.cta}" (bentuk seperti tombol, warna kontras, paling bawah)`);
@@ -4874,6 +4862,7 @@ const BannerGenerator = memo(() => {
     const posKey = brand.logoPosition || 'bottom-right';
     const posPhrase = LOGO_POSITIONS[posKey].promptPhrase;
     const textParts = [];
+    textParts.push(`Nama Produk: "${fields.productName.trim()}" (WAJIB tertulis jelas di banner, ukuran cukup menonjol)`);
     if (fields.headline) textParts.push(`Headline: "${fields.headline}" (paling besar & menonjol)`);
     if (fields.subheadline) textParts.push(`Sub-headline: "${fields.subheadline}"`);
     if (fields.cta) textParts.push(`CTA: "${fields.cta}"`);
