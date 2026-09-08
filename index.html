@@ -2962,6 +2962,10 @@ const MenuPageCanvas = forwardRef(({
 const PromoGenerator = memo(() => {
   const [photoUrl, setPhotoUrl] = useState('');
   const [aiPromptHint, setAiPromptHint] = useState('');
+  // BARU — Fitur "Hindari (Negative Prompt)": field ini pernah tercatat
+  // selesai di v4 tapi ternyata tidak pernah benar-benar ada di kode.
+  // Dibangun ulang dari nol sesi ini.
+  const [negativePrompt, setNegativePrompt] = useState('');
   const [format, setFormat] = useState('feed');
   const [genError, setGenError] = useState('');
   const [lastGenUrl, setLastGenUrl] = useState('');
@@ -3193,7 +3197,11 @@ const PromoGenerator = memo(() => {
     // AI) — sebelumnya kebalikannya, menyalahi prinsip v5 poin 11 (elemen
     // wajib harus di posisi paling awal karena fungsi potong prompt jalur
     // ChatGPT/URL selalu memotong dari BELAKANG).
-    const full = `${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${textInstruction}${combinedHint ? ', ' + combinedHint : ''}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}`;
+    // BARU — klausa "Hindari" (Negative Prompt), diletakkan PALING AKHIR
+    // (paling boleh dikorbankan kalau prompt kepanjangan) karena ini
+    // instruksi tambahan opsional, bukan elemen wajib seperti teks iklan.
+    const negativePromptClause = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
+    const full = `${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${textInstruction}${combinedHint ? ', ' + combinedHint : ''}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}${negativePromptClause}`;
     return {
       productSubject,
       textParts,
@@ -3396,6 +3404,15 @@ const PromoGenerator = memo(() => {
     value: aiPromptHint,
     onChange: e => setAiPromptHint(e.target.value),
     placeholder: "Arahan AI (opsional)"
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Hindari (opsional)"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded text-sm",
+    maxLength: 200,
+    value: negativePrompt,
+    onChange: e => setNegativePrompt(e.target.value),
+    placeholder: "Contoh: jangan ada payung, jangan ada meja kayu"
   }), /*#__PURE__*/React.createElement("div", {
     className: "space-y-2 border border-[#242430] rounded p-3 bg-[#0A0A0D]"
   }, /*#__PURE__*/React.createElement("label", {
@@ -3790,6 +3807,8 @@ const ContentPlanGenerator = memo(({
   // Arahan AI GLOBAL (1 kotak, berlaku untuk SEMUA hari sekaligus) —
   // bukan per-hari, supaya tidak perlu isi 30 kotak terpisah.
   const [globalAiHint, setGlobalAiHint] = useState('');
+  // BARU — Fitur "Hindari (Negative Prompt)", dibangun ulang dari nol.
+  const [negativePrompt, setNegativePrompt] = useState('');
   const [voScript, setVoScript] = useState(''); // Naskah Voice Over global untuk fitur Video 10 Detik (Pro)
   const photoLibraryInputRef = useRef(null);
   const brand = useContext(BrandContext);
@@ -3980,7 +3999,8 @@ const ContentPlanGenerator = memo(({
       const matched = await pickBestMatchingPhoto(settings.geminiApiKey, topicText, photoLibrary);
       const visionClause = matched ? `. [Foto acuan]: ${matched.detail}` : '';
       const hintClause = globalAiHint.trim() ? `. [Arahan AI]: ${globalAiHint.trim()}` : '';
-      const url = openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} ${activeDay.promptGambar}${visionClause}${hintClause}. ${QUALITY_PROHIBITION_LAYER}`);
+      const negativePromptClause = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
+      const url = openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} ${activeDay.promptGambar}${visionClause}${hintClause}. ${QUALITY_PROHIBITION_LAYER}${negativePromptClause}`);
       setLastGenUrl(url);
     } finally {
       setDayGenBusy(false);
@@ -3998,7 +4018,8 @@ const ContentPlanGenerator = memo(({
       // dibanding model gambar — diulang tegas di awal & akhir prompt.
       const visionEmphasis = matched ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${matched.detail}.` : '';
       const visionReminder = matched ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas di setiap frame video, jangan mengarang variasi baru.` : '';
-      const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} ${activeDay.promptGambar}${visionClause}.${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
+      const negativePromptClauseVideo = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
+      const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} ${activeDay.promptGambar}${visionClause}.${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}${negativePromptClauseVideo} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
       try {
         await navigator.clipboard.writeText(videoPrompt);
       } catch (e) {}
@@ -4089,6 +4110,15 @@ const ContentPlanGenerator = memo(({
     value: globalAiHint,
     onChange: e => setGlobalAiHint(e.target.value),
     placeholder: "Contoh: selalu pakai nuansa ceria, hindari warna merah menyala"
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Hindari (opsional, berlaku untuk semua hari)"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded text-sm",
+    maxLength: 200,
+    value: negativePrompt,
+    onChange: e => setNegativePrompt(e.target.value),
+    placeholder: "Contoh: jangan ada payung, jangan ada meja kayu"
   }), /*#__PURE__*/React.createElement("button", {
     onClick: handleGeneratePlan,
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
@@ -4263,6 +4293,8 @@ const FeedCampaignGenerator = memo(() => {
   const [slotGenBusy, setSlotGenBusy] = useState(false);
   // Arahan AI GLOBAL (1 kotak, berlaku untuk SEMUA 9 slot sekaligus)
   const [globalAiHint, setGlobalAiHint] = useState('');
+  // BARU — Fitur "Hindari (Negative Prompt)", dibangun ulang dari nol.
+  const [negativePrompt, setNegativePrompt] = useState('');
   const photoLibraryInputRef = useRef(null);
   const brand = useContext(BrandContext);
   const settings = useContext(SettingsContext);
@@ -4289,7 +4321,8 @@ const FeedCampaignGenerator = memo(() => {
         frameRef: frameLastRef
       }, matched ? matched.detail : null);
       const hintClause = globalAiHint.trim() ? `. [Arahan AI]: ${globalAiHint.trim()}` : '';
-      const url = openChatGPTGenerate(`${basePrompt}${hintClause}`);
+      const negativePromptClause = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
+      const url = openChatGPTGenerate(`${basePrompt}${hintClause}${negativePromptClause}`);
       setLastGenUrl(url);
     } finally {
       setSlotGenBusy(false);
@@ -4558,6 +4591,15 @@ const FeedCampaignGenerator = memo(() => {
     value: globalAiHint,
     onChange: e => setGlobalAiHint(e.target.value),
     placeholder: "Contoh: selalu pakai nuansa ceria, hindari warna merah menyala"
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Hindari (opsional, berlaku untuk semua 9 slot)"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded text-sm",
+    maxLength: 200,
+    value: negativePrompt,
+    onChange: e => setNegativePrompt(e.target.value),
+    placeholder: "Contoh: jangan ada payung, jangan ada meja kayu"
   }), /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateSlot,
     disabled: slotGenBusy,
@@ -4597,6 +4639,9 @@ const BannerGenerator = memo(() => {
   const brand = useContext(BrandContext);
   const [size, setSize] = useState('3x1');
   const [purpose, setPurpose] = useState('promo');
+  // BARU — Fitur "Hindari (Negative Prompt)", dibangun ulang dari nol
+  // (tercatat selesai di v4 tapi tidak pernah benar-benar ada di kode).
+  const [negativePrompt, setNegativePrompt] = useState('');
   const [fields, setFields] = useState({
     productName: '',
     headline: '',
@@ -4682,7 +4727,8 @@ const BannerGenerator = memo(() => {
     // bukan paling minim pengaman dibanding tab lain (Promo/9 Feed/Konten
     // 30 Hari semuanya sudah punya ini).
     const bannerColorLock = `Palet warna WAJIB sesuai brand — ${brand.primaryColor} untuk aksen tegas, ${brand.secondaryColor} untuk kontras kuat. Warna TEKS/tulisan WAJIB kode HEX ${brand.secondaryColor}, JANGAN pakai putih/coklat kecuali kode HEX ini memang warna tersebut.`;
-    const full = `${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${bannerColorLock}, gaya sesuai brand ${brand.name}${textInstruction}${logoSpaceInstruction}. ${BANNER_DESIGN_GUIDELINE} ${QUALITY_PROHIBITION_LAYER}`;
+    const negativePromptClause = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
+    const full = `${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${bannerColorLock}, gaya sesuai brand ${brand.name}${textInstruction}${logoSpaceInstruction}. ${BANNER_DESIGN_GUIDELINE} ${QUALITY_PROHIBITION_LAYER}${negativePromptClause}`;
     return {
       productSubject: fields.productName.trim(),
       sizeLabel: sizeCfg.label,
@@ -4790,6 +4836,14 @@ const BannerGenerator = memo(() => {
     placeholder: "Contoh: 08.00 - 22.00 WIB",
     value: fields.jamBuka,
     onChange: e => updateField('jamBuka', e.target.value)
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+  }, "Hindari (opsional)"), /*#__PURE__*/React.createElement("input", {
+    className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
+    maxLength: 200,
+    placeholder: "Contoh: jangan ada payung, jangan ada meja kayu",
+    value: negativePrompt,
+    onChange: e => setNegativePrompt(e.target.value)
   }), /*#__PURE__*/React.createElement("div", {
     className: "space-y-1 border border-[#242430] rounded-lg p-3 bg-[#0A0A0D]"
   }, /*#__PURE__*/React.createElement("label", {
@@ -4887,6 +4941,8 @@ const TestCompose = ({
   const items = menu;
   const [selected, setSelected] = useState(null);
   const [aiPromptHint, setAiPromptHint] = useState('');
+  // BARU — Fitur "Hindari (Negative Prompt)", dibangun ulang dari nol.
+  const [negativePrompt, setNegativePrompt] = useState('');
   const [format, setFormat] = useState('feed');
   const [aiPhotoUrl, setAiPhotoUrl] = useState('');
   const [genError, setGenError] = useState('');
@@ -4917,7 +4973,8 @@ const TestCompose = ({
       return;
     }
     setGenError('');
-    openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} background untuk menu: ${selected.name} (${selected.category}), ${FORMAT_DESCRIPTIONS[format]}${aiPromptHint ? ', ' + aiPromptHint : ''}. ${QUALITY_PROHIBITION_LAYER}`);
+    const negativePromptClause = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
+    openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} background untuk menu: ${selected.name} (${selected.category}), ${FORMAT_DESCRIPTIONS[format]}${aiPromptHint ? ', ' + aiPromptHint : ''}. ${QUALITY_PROHIBITION_LAYER}${negativePromptClause}`);
   };
   const handleAiPhotoUpload = e => {
     const reader = new FileReader();
@@ -4987,6 +5044,15 @@ const TestCompose = ({
     value: aiPromptHint,
     onChange: e => setAiPromptHint(e.target.value),
     placeholder: "Arahan AI (opsional)"
+  })), selected && /*#__PURE__*/React.createElement("div", {
+    className: "mb-2"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    className: "w-full p-3 bg-[#0A0A0D] border border-[#222226] text-white rounded text-sm",
+    maxLength: 200,
+    value: negativePrompt,
+    onChange: e => setNegativePrompt(e.target.value),
+    placeholder: "Hindari (opsional) — contoh: jangan ada payung"
   })), selected && /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateAI,
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-3 rounded-lg mb-2 transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
