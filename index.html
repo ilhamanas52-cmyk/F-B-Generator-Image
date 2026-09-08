@@ -1253,7 +1253,9 @@ function MainDashboard({
     target: "_blank",
     rel: "noopener noreferrer",
     className: "block text-center text-xs bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white px-4 py-2 rounded-lg font-bold"
-  }, "Upgrade Pro - Hanya 49Rb"), /*#__PURE__*/React.createElement("button", {
+  }, "Upgrade Pro - Hanya 49Rb"), /*#__PURE__*/React.createElement("p", {
+    className: "text-center text-[11px] text-gray-500"
+  }, "Customer Service (WA Only): 0813-1776-6481"), /*#__PURE__*/React.createElement("button", {
     onClick: onLogout,
     className: "w-full text-center text-xs text-gray-400 hover:text-white border border-[#242430] rounded-lg py-2"
   }, "Keluar"))))), /*#__PURE__*/React.createElement("main", {
@@ -1617,7 +1619,9 @@ const BrandSettings = memo(({
       reader.readAsDataURL(e.target.files[0]);
     },
     className: "text-sm file:bg-[#4F46E5] file:text-white file:border-none file:px-4 file:py-2"
-  }), /*#__PURE__*/React.createElement("label", {
+  }), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500"
+  }, "Gunakan logo format PNG dengan latar belakang transparan/bersih, dan pastikan sudah di-crop rapat mengikuti sisi terluar logo."), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Posisi Logo & Tagline (di semua promo)"), /*#__PURE__*/React.createElement("select", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg focus:border-[#4F46E5]/60 focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-gray-600",
@@ -3672,7 +3676,9 @@ const PromoGenerator = memo(() => {
   }, "\u2139 Mode ikut Foto Referensi Gaya aktif untuk generate ini \u2014 warna & sudut kamera brand dilepas, mengikuti deskripsi referensi foto."), /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateAI,
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
-  }, "Buat Gambar dengan ChatGPT (Gratis)"), /*#__PURE__*/React.createElement(ClipboardFallbackModal, {
+  }, "Buat Gambar dengan ChatGPT (Gratis)"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500"
+  }, "Tab ChatGPT akan terbuka dengan prompt lengkap (sudah termasuk teks iklan). Anda hanya perlu klik tombol generate. Setelah gambar jadi, download lalu upload di bawah ini \u2014 logo & tagline brand akan otomatis ditempel di posisi yang sudah diatur di tab Brand."), /*#__PURE__*/React.createElement(ClipboardFallbackModal, {
     show: showClipboardModal,
     onClose: () => setShowClipboardModal(false)
   }), lastGenUrl && /*#__PURE__*/React.createElement("a", {
@@ -3708,9 +3714,7 @@ const PromoGenerator = memo(() => {
     className: "text-[11px] text-amber-500"
   }, "\uD83D\uDCA1 Pilih model Veo 3.1 di Google Flow untuk akses gratis. Prompt sudah tersalin otomatis \u2014 tinggal paste. Prompt ini juga bisa dipakai di platform video AI lain yang Anda punya akses \u2014 tidak terkunci ke satu platform saja.")), genError && /*#__PURE__*/React.createElement("p", {
     className: "text-red-500 text-sm"
-  }, genError), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-gray-500"
-  }, "Tab ChatGPT akan terbuka dengan prompt lengkap (sudah termasuk teks iklan & posisi ruang kosong logo). Setelah gambar jadi, download lalu upload di bawah ini \u2014 logo & tagline brand akan otomatis ditempel di posisi yang sudah diatur di tab Brand."), /*#__PURE__*/React.createElement("label", {
+  }, genError), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Upload Hasil Gambar AI"), /*#__PURE__*/React.createElement("input", {
     type: "file",
