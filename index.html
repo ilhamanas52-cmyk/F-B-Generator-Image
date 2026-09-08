@@ -31,7 +31,7 @@
 <script type="module">
 
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { getFirestore, doc, onSnapshot, setDoc, getDoc, deleteDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore';
 const { useState, useEffect, useRef, createContext, useContext, memo, forwardRef, useImperativeHandle } = React;
 
@@ -173,7 +173,7 @@ const isPro = plan => plan === 'reseller' || plan === 'reseller_client';
 // Link "Upgrade ke Pro" — SEMENTARA placeholder ('#') sampai user
 // menyediakan URL Scalev sungguhan. HANYA di sini nilainya diisi,
 // supaya nanti tinggal ganti 1 baris ini saat linknya sudah siap.
-const SCALEV_PRO_UPGRADE_URL = '#';
+const SCALEV_PRO_UPGRADE_URL = 'https://superstrikeshop.myscalev.com/upgrade-paket-pro';
 const PlanContext = createContext('single');
 
 // Komponen kunci "Khusus Pro" — dipakai BERULANG di semua fitur
@@ -1205,8 +1205,16 @@ function MainDashboard({
     className: "flex gap-2 sm:gap-4 overflow-x-auto items-center"
   }, ['brands', 'menu', 'promo', 'konten', 'feed9', 'banner'].map(t => /*#__PURE__*/React.createElement("button", {
     key: t,
-    onClick: () => setActiveTab(t),
-    className: `relative px-3 sm:px-4 py-1.5 rounded-lg transition-all whitespace-nowrap text-sm font-medium ${activeTab === t ? 'text-white bg-[#1a1a22]' : 'text-gray-500 hover:text-gray-300'}`
+    // BARU (Kelompok A4) — sebelumnya tab Banner TIDAK benar-benar
+    // terkunci, cuma ikon 🔒 kosmetik di sebelahnya (user Reguler tetap
+    // bisa klik & akses). Sekarang klik ke tab Banner benar-benar
+    // diblokir untuk non-Pro, sesuai catatan v4 ("tombol tab navigasi
+    // sendiri tidak bisa diklik sama sekali").
+    onClick: () => {
+      if (t === 'banner' && !isPro(profile && profile.plan)) return;
+      setActiveTab(t);
+    },
+    className: `relative px-3 sm:px-4 py-1.5 rounded-lg transition-all whitespace-nowrap text-sm font-medium ${t === 'banner' && !isPro(profile && profile.plan) ? 'cursor-not-allowed opacity-50' : ''} ${activeTab === t ? 'text-white bg-[#1a1a22]' : 'text-gray-500 hover:text-gray-300'}`
   }, t === 'konten' ? 'KONTEN 30 HARI' : t === 'feed9' ? '9 FEED KONSISTEN' : t === 'banner' ? 'BANNER CETAK' : t.toUpperCase(), t === 'banner' && !isPro(profile && profile.plan) && /*#__PURE__*/React.createElement("span", {
     className: "ml-1 text-amber-500 text-[10px]"
   }, "\uD83D\uDD12"), /*#__PURE__*/React.createElement("div", {
@@ -5197,6 +5205,10 @@ const LoginPage = ({
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // BARU (Kelompok A2) — Fitur Lupa Password, dibangun ulang dari nol
+  // (tercatat selesai di v4 tapi ternyata tidak pernah benar-benar ada
+  // di kode — regresi terkonfirmasi lewat audit verify-regresi.js).
+  const [resetStatus, setResetStatus] = useState(null); // null | 'sending' | 'sent' | { error }
   const handleEmailLogin = async e => {
     e.preventDefault();
     setError('');
@@ -5223,6 +5235,23 @@ const LoginPage = ({
       setLoading(false);
     }
   };
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setResetStatus({
+        error: 'Isi email Anda dulu di kolom di atas, baru klik "Lupa Kata Sandi?" lagi.'
+      });
+      return;
+    }
+    setResetStatus('sending');
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      setResetStatus('sent');
+    } catch (err) {
+      setResetStatus({
+        error: 'Gagal mengirim email reset. Pastikan email sudah benar/terdaftar.'
+      });
+    }
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "min-h-screen flex items-center justify-center bg-[#0c0c10] px-4"
   }, /*#__PURE__*/React.createElement("div", {
@@ -5246,7 +5275,18 @@ const LoginPage = ({
     value: password,
     onChange: e => setPassword(e.target.value),
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg outline-none"
-  }), error && /*#__PURE__*/React.createElement("p", {
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "text-right"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: handleForgotPassword,
+    disabled: resetStatus === 'sending',
+    className: "text-xs text-amber-500 hover:text-amber-400 underline disabled:opacity-50"
+  }, resetStatus === 'sending' ? 'Mengirim...' : 'Lupa Kata Sandi?')), resetStatus === 'sent' && /*#__PURE__*/React.createElement("p", {
+    className: "text-green-400 text-sm"
+  }, "Email reset kata sandi sudah dikirim. Cek inbox (atau folder spam) Anda."), resetStatus && resetStatus.error && /*#__PURE__*/React.createElement("p", {
+    className: "text-red-400 text-sm"
+  }, resetStatus.error), error && /*#__PURE__*/React.createElement("p", {
     className: "text-red-400 text-sm"
   }, error), /*#__PURE__*/React.createElement("button", {
     type: "submit",
@@ -5264,7 +5304,10 @@ const LoginPage = ({
     className: "w-full bg-white hover:bg-gray-100 text-gray-800 p-3 rounded-lg font-medium transition-colors"
   }, "Masuk dengan Google"), /*#__PURE__*/React.createElement("p", {
     className: "text-center text-sm text-gray-500"
-  }, "Belum punya akun? Hubungi tempat Anda membeli aplikasi ini untuk mendapatkan link pendaftaran.")));
+  }, "Belum punya akun?"), /*#__PURE__*/React.createElement("a", {
+    href: "/daftar/single",
+    className: "block w-full text-center bg-[#242430] hover:bg-[#2c2c3a] text-white p-3 rounded-lg font-medium transition-colors"
+  }, "Daftar Akun Baru")));
 };
 
 // Membuat profil (users/{uid}) saat pendaftaran baru.
