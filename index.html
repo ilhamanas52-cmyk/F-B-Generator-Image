@@ -241,27 +241,41 @@ const hudStyles = `
 `;
 
 // Batas aman panjang teks untuk dimasukkan ke URL ChatGPT. Kalau
-// prompt lebih panjang dari ini, browser/server ChatGPT bisa menolak
-// (error 431 "Request Header Fields Too Large"). Solusinya: salin ke
-// clipboard dan buka ChatGPT kosong, minta pengguna tempel manual —
-// daripada gagal total seperti membuka halaman error.
-// Batas aman PANJANG URL SETELAH DI-ENCODE (bukan panjang teks mentah)
-// — diukur dari prompt normal tab Promo (~2700 karakter encoded, itu
-// aman/normal), dikasih ruang lebih supaya tidak salah tangkap prompt
-// wajar sebagai "kepanjangan". Kalau memang melebihi ini, teks dipotong
-// otomatis (bukan clipboard/alert — itu sering diblokir di sandbox
-// Canvas) supaya tetap ada yang otomatis terisi, walau ujungnya terpotong.
+// BARU (Batch B, #11) — sebelumnya fungsi ini MEMOTONG prompt dari belakang
+// kalau kepanjangan (lihat riwayat di RINGKASAN_PROYEK v5 poin 12), yang
+// berarti sebagian instruksi/teks iklan bisa HILANG DIAM-DIAM tanpa user
+// sadar. Sekarang diganti pola HYBRID:
+//   - Prompt muat (<=4500 karakter encoded): tetap pakai URL ?q= seperti
+//     biasa — user dapat pengalaman 1-klik otomatis seperti sekarang.
+//   - Prompt kepanjangan (>4500): TIDAK dipotong lagi. Prompt LENGKAP
+//     disalin ke clipboard, tab ChatGPT kosong dibuka, pemanggil
+//     (komponen tab) menampilkan modal instruksi "tempel manual".
+// Video (Google Flow) sudah lama pakai pola clipboard-paste ini dan
+// terbukti aman >11.000 karakter — sekarang jalur gambar dapat jaring
+// pengaman yang sama, tanpa mengorbankan kenyamanan 1-klik di kasus normal.
 const MAX_ENCODED_URL_LENGTH = 4500;
 const openChatGPTWithPrompt = fullPrompt => {
-  let text = fullPrompt;
-  let encoded = encodeURIComponent(text);
-  while (encoded.length > MAX_ENCODED_URL_LENGTH && text.length > 200) {
-    text = text.slice(0, text.length - 200);
-    encoded = encodeURIComponent(text);
+  const encoded = encodeURIComponent(fullPrompt);
+  if (encoded.length <= MAX_ENCODED_URL_LENGTH) {
+    const url = `https://chatgpt.com/?q=${encoded}`;
+    window.open(url, '_blank');
+    return {
+      url,
+      usedClipboard: false
+    };
   }
-  const url = `https://chatgpt.com/?q=${encoded}`;
+  // Fallback clipboard — dibungkus try/catch karena Clipboard API bisa
+  // gagal tanpa izin browser di beberapa kondisi (sama seperti pola yang
+  // sudah dipakai di fitur Video).
+  try {
+    navigator.clipboard.writeText(fullPrompt);
+  } catch (e) {}
+  const url = 'https://chatgpt.com/';
   window.open(url, '_blank');
-  return url; // dikembalikan supaya pemanggil bisa tampilkan link cadangan manual
+  return {
+    url,
+    usedClipboard: true
+  };
 };
 
 // GENERATE AI — diarahkan ke ChatGPT (gratis, tanpa API key, tanpa billing).
@@ -277,6 +291,41 @@ const openChatGPTGenerate = promptText => {
 // prompt yang dikirim sudah lengkap apa adanya (tidak perlu dibungkus lagi).
 const openChatGPTText = promptText => {
   return openChatGPTWithPrompt(promptText);
+};
+
+// BARU (Batch B, #11) — Modal instruksi saat prompt kepanjangan dan
+// sistem fallback ke clipboard-paste. Didesain sebagai modal custom
+// (BUKAN alert() bawaan browser) supaya: (1) teks besar & kontras tinggi,
+// jelas terbaca — beda dari teks bantuan kecil/samar yang ada di tempat
+// lain, (2) tampilan konsisten di HP maupun desktop, tidak ikut gaya
+// sistem OS yang beda-beda seperti alert() bawaan.
+const ClipboardFallbackModal = ({
+  show,
+  onClose
+}) => {
+  if (!show) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-[#15151b] border border-[#E8102B]/40 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-lg font-bold text-white"
+  }, "\u26A0\uFE0F Prompt Anda Panjang"), /*#__PURE__*/React.createElement("p", {
+    className: "text-base text-gray-200 leading-relaxed"
+  }, "Prompt tidak bisa terisi otomatis karena terlalu panjang. Tapi jangan khawatir \u2014 ", /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold text-white"
+  }, "prompt LENGKAP sudah disalin ke clipboard"), "."), /*#__PURE__*/React.createElement("p", {
+    className: "text-base text-gray-200 leading-relaxed"
+  }, "Di tab ChatGPT yang baru terbuka: klik kolom chat, lalu tekan ", /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold text-white"
+  }, "Ctrl+V"), " (di HP: tahan lalu pilih ", /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold text-white"
+  }, "Tempel"), ") untuk menempelkan prompt-nya."), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "w-full bg-[#E8102B] hover:bg-[#C40E24] text-white p-3 rounded-lg font-semibold transition-colors"
+  }, "Paham, Lanjut ke ChatGPT")));
 };
 
 // Kaidah desain grafis default untuk iklan FB/IG — otomatis disertakan
@@ -1794,6 +1843,7 @@ const MenuPageGenerator = memo(({
   const [quality, setQuality] = useState('screen'); // 'screen' (ringan) | 'print' (tajam untuk A4)
   const [genError, setGenError] = useState('');
   const [lastGenUrl, setLastGenUrl] = useState('');
+  const [showClipboardModal, setShowClipboardModal] = useState(false);
   const canvasRef = useRef();
   const brand = useContext(BrandContext);
   const plan = useContext(PlanContext);
@@ -1845,8 +1895,9 @@ const MenuPageGenerator = memo(({
     setGenError('');
     const styleHint = MENU_STYLE_PRESETS[selectedStyle].promptHint;
     const lighting = pickVariant(LIGHTING_VARIANTS, lightingLastRef);
-    const url = openChatGPTGenerate(`background suasana untuk halaman menu restoran/cafe ${brand.name}, ${styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, seluruh area kosong bersih tanpa teks/watermark/elemen desain apapun (akan ditambahkan daftar menu secara terpisah), format vertikal poster. ${lighting} ${QUALITY_PROHIBITION_LAYER}`);
-    setLastGenUrl(url);
+    const result = openChatGPTGenerate(`background suasana untuk halaman menu restoran/cafe ${brand.name}, ${styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, seluruh area kosong bersih tanpa teks/watermark/elemen desain apapun (akan ditambahkan daftar menu secara terpisah), format vertikal poster. ${lighting} ${QUALITY_PROHIBITION_LAYER}`);
+    setLastGenUrl(result.url);
+    if (result.usedClipboard) setShowClipboardModal(true);
   };
   const download = () => {
     const data = canvasRef.current.toDataURL('image/png');
@@ -1900,7 +1951,10 @@ const MenuPageGenerator = memo(({
   }, c))), /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateAI,
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
-  }, "Buat Background dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
+  }, "Buat Background dengan ChatGPT (Gratis)"), /*#__PURE__*/React.createElement(ClipboardFallbackModal, {
+    show: showClipboardModal,
+    onClose: () => setShowClipboardModal(false)
+  }), lastGenUrl && /*#__PURE__*/React.createElement("a", {
     href: lastGenUrl,
     target: "_blank",
     rel: "noopener noreferrer",
@@ -2969,6 +3023,7 @@ const PromoGenerator = memo(() => {
   const [format, setFormat] = useState('feed');
   const [genError, setGenError] = useState('');
   const [lastGenUrl, setLastGenUrl] = useState('');
+  const [showClipboardModal, setShowClipboardModal] = useState(false);
   const [adCopyDraft, setAdCopyDraft] = useState({
     productName: '',
     headline: '',
@@ -3249,8 +3304,9 @@ const PromoGenerator = memo(() => {
     }
     setGenError('');
     const data = buildPromptData();
-    const url = openChatGPTGenerate(data.full);
-    setLastGenUrl(url);
+    const result = openChatGPTGenerate(data.full);
+    setLastGenUrl(result.url);
+    if (result.usedClipboard) setShowClipboardModal(true);
     rerollVisualVariant();
   };
   const download = () => {
@@ -3601,7 +3657,10 @@ const PromoGenerator = memo(() => {
   }, "\u2139 Mode ikut Foto Referensi Gaya aktif untuk generate ini \u2014 warna & sudut kamera brand dilepas, mengikuti deskripsi referensi foto."), /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateAI,
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
-  }, "Buat Gambar dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
+  }, "Buat Gambar dengan ChatGPT (Gratis)"), /*#__PURE__*/React.createElement(ClipboardFallbackModal, {
+    show: showClipboardModal,
+    onClose: () => setShowClipboardModal(false)
+  }), lastGenUrl && /*#__PURE__*/React.createElement("a", {
     href: lastGenUrl,
     target: "_blank",
     rel: "noopener noreferrer",
@@ -3793,6 +3852,7 @@ const ContentPlanGenerator = memo(({
   const [dayPhotos, setDayPhotos] = useState({});
   const [genError, setGenError] = useState('');
   const [lastGenUrl, setLastGenUrl] = useState('');
+  const [showClipboardModal, setShowClipboardModal] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
   const [ratio, setRatio] = useState('1:1');
   const [includeLogo, setIncludeLogo] = useState(true);
@@ -3833,8 +3893,9 @@ const ContentPlanGenerator = memo(({
     setSelectedThemes(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
   };
   const handleGeneratePlan = () => {
-    const url = openChatGPTText(buildContentPlanPrompt(brand, selectedThemes));
-    setLastGenUrl(url);
+    const result = openChatGPTText(buildContentPlanPrompt(brand, selectedThemes));
+    setLastGenUrl(result.url);
+    if (result.usedClipboard) setShowClipboardModal(true);
   };
   // Teks di kolom "Tempel Jawaban ChatGPT" disimpan permanen ke
   // Firestore (beda dari foto per-hari yang sengaja sesi-saja) —
@@ -4000,8 +4061,9 @@ const ContentPlanGenerator = memo(({
       const visionClause = matched ? `. [Foto acuan]: ${matched.detail}` : '';
       const hintClause = globalAiHint.trim() ? `. [Arahan AI]: ${globalAiHint.trim()}` : '';
       const negativePromptClause = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
-      const url = openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} ${activeDay.promptGambar}${visionClause}${hintClause}. ${QUALITY_PROHIBITION_LAYER}${negativePromptClause}`);
-      setLastGenUrl(url);
+      const result = openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} ${activeDay.promptGambar}${visionClause}${hintClause}. ${QUALITY_PROHIBITION_LAYER}${negativePromptClause}`);
+      setLastGenUrl(result.url);
+      if (result.usedClipboard) setShowClipboardModal(true);
     } finally {
       setDayGenBusy(false);
     }
@@ -4122,7 +4184,10 @@ const ContentPlanGenerator = memo(({
   }), /*#__PURE__*/React.createElement("button", {
     onClick: handleGeneratePlan,
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
-  }, "Buat Rencana 30 Hari dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
+  }, "Buat Rencana 30 Hari dengan ChatGPT (Gratis)"), /*#__PURE__*/React.createElement(ClipboardFallbackModal, {
+    show: showClipboardModal,
+    onClose: () => setShowClipboardModal(false)
+  }), lastGenUrl && /*#__PURE__*/React.createElement("a", {
     href: lastGenUrl,
     target: "_blank",
     rel: "noopener noreferrer",
@@ -4274,6 +4339,7 @@ const FeedCampaignGenerator = memo(() => {
   const [selectedSlot, setSelectedSlot] = useState(1);
   const [includeLogo, setIncludeLogo] = useState(true);
   const [lastGenUrl, setLastGenUrl] = useState('');
+  const [showClipboardModal, setShowClipboardModal] = useState(false);
   const [genError, setGenError] = useState('');
   // Kemudahan pakai: isi contoh dalam 1 klik — pola sama seperti tab Promo.
   const fillExample = () => {
@@ -4322,8 +4388,9 @@ const FeedCampaignGenerator = memo(() => {
       }, matched ? matched.detail : null);
       const hintClause = globalAiHint.trim() ? `. [Arahan AI]: ${globalAiHint.trim()}` : '';
       const negativePromptClause = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
-      const url = openChatGPTGenerate(`${basePrompt}${hintClause}${negativePromptClause}`);
-      setLastGenUrl(url);
+      const result = openChatGPTGenerate(`${basePrompt}${hintClause}${negativePromptClause}`);
+      setLastGenUrl(result.url);
+      if (result.usedClipboard) setShowClipboardModal(true);
     } finally {
       setSlotGenBusy(false);
     }
@@ -4604,7 +4671,10 @@ const FeedCampaignGenerator = memo(() => {
     onClick: handleGenerateSlot,
     disabled: slotGenBusy,
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg text-sm transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium disabled:opacity-60"
-  }, slotGenBusy ? 'Mencocokkan foto & menyiapkan prompt…' : "Buat Gambar dengan ChatGPT (Gratis)"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
+  }, slotGenBusy ? 'Mencocokkan foto & menyiapkan prompt…' : "Buat Gambar dengan ChatGPT (Gratis)"), /*#__PURE__*/React.createElement(ClipboardFallbackModal, {
+    show: showClipboardModal,
+    onClose: () => setShowClipboardModal(false)
+  }), lastGenUrl && /*#__PURE__*/React.createElement("a", {
     href: lastGenUrl,
     target: "_blank",
     rel: "noopener noreferrer",
@@ -4654,6 +4724,7 @@ const BannerGenerator = memo(() => {
   });
   const [genError, setGenError] = useState('');
   const [lastGenUrl, setLastGenUrl] = useState('');
+  const [showClipboardModal, setShowClipboardModal] = useState(false);
   const [photoUrl, setPhotoUrl] = useState('');
   const canvasRef = useRef();
   const updateField = (key, value) => setFields(prev => ({
@@ -4746,8 +4817,9 @@ const BannerGenerator = memo(() => {
     }
     setGenError('');
     const data = buildBannerPromptData();
-    const url = openChatGPTGenerate(data.full);
-    setLastGenUrl(url);
+    const result = openChatGPTGenerate(data.full);
+    setLastGenUrl(result.url);
+    if (result.usedClipboard) setShowClipboardModal(true);
   };
   const download = () => {
     const data = canvasRef.current.toDataURL('image/png');
@@ -4887,7 +4959,10 @@ const BannerGenerator = memo(() => {
     target: "_blank",
     rel: "noopener noreferrer",
     className: "underline font-semibold"
-  }, "Upgrade Pro - Hanya 49Rb")), lastGenUrl && /*#__PURE__*/React.createElement("a", {
+  }, "Upgrade Pro - Hanya 49Rb")), /*#__PURE__*/React.createElement(ClipboardFallbackModal, {
+    show: showClipboardModal,
+    onClose: () => setShowClipboardModal(false)
+  }), lastGenUrl && /*#__PURE__*/React.createElement("a", {
     href: lastGenUrl,
     target: "_blank",
     rel: "noopener noreferrer",
@@ -4946,6 +5021,7 @@ const TestCompose = ({
   const [format, setFormat] = useState('feed');
   const [aiPhotoUrl, setAiPhotoUrl] = useState('');
   const [genError, setGenError] = useState('');
+  const [showClipboardModal, setShowClipboardModal] = useState(false);
   const canvasRef = useRef();
   const brand = useContext(BrandContext);
   const dimsMap = {
@@ -4974,7 +5050,8 @@ const TestCompose = ({
     }
     setGenError('');
     const negativePromptClause = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
-    openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} background untuk menu: ${selected.name} (${selected.category}), ${FORMAT_DESCRIPTIONS[format]}${aiPromptHint ? ', ' + aiPromptHint : ''}. ${QUALITY_PROHIBITION_LAYER}${negativePromptClause}`);
+    const result = openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} background untuk menu: ${selected.name} (${selected.category}), ${FORMAT_DESCRIPTIONS[format]}${aiPromptHint ? ', ' + aiPromptHint : ''}. ${QUALITY_PROHIBITION_LAYER}${negativePromptClause}`);
+    if (result.usedClipboard) setShowClipboardModal(true);
   };
   const handleAiPhotoUpload = e => {
     const reader = new FileReader();
@@ -5056,7 +5133,10 @@ const TestCompose = ({
   })), selected && /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateAI,
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-3 rounded-lg mb-2 transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium"
-  }, "Buat Latar dengan ChatGPT (Gratis)"), selected && /*#__PURE__*/React.createElement("div", {
+  }, "Buat Latar dengan ChatGPT (Gratis)"), /*#__PURE__*/React.createElement(ClipboardFallbackModal, {
+    show: showClipboardModal,
+    onClose: () => setShowClipboardModal(false)
+  }), selected && /*#__PURE__*/React.createElement("div", {
     className: "mb-4"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-500 mb-2"
