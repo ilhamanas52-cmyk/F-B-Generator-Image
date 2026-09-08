@@ -320,15 +320,45 @@ const ClipboardFallbackModal = ({
     className: "text-base text-gray-200 leading-relaxed"
   }, "Di tab ChatGPT yang baru terbuka: klik kolom chat, lalu tekan ", /*#__PURE__*/React.createElement("span", {
     className: "font-semibold text-white"
-  }, "Ctrl+V"), " (di HP: tahan lalu pilih ", /*#__PURE__*/React.createElement("span", {
+  }, "Ctrl+V (PASTE)"), " (di HP: tahan lalu pilih ", /*#__PURE__*/React.createElement("span", {
     className: "font-semibold text-white"
-  }, "Tempel"), ") untuk menempelkan prompt-nya."), /*#__PURE__*/React.createElement("button", {
+  }, "Tempel / PASTE"), ") untuk menempelkan prompt-nya."), /*#__PURE__*/React.createElement("button", {
     onClick: onClose,
     className: "w-full bg-[#4F46E5] hover:bg-[#4338CA] text-white p-3 rounded-lg font-semibold transition-colors"
   }, "Paham, Lanjut ke ChatGPT")));
 };
 
-// Kaidah desain grafis default untuk iklan FB/IG — otomatis disertakan
+// Popup khusus jalur Video — beda platform tujuan (Google Flow, bukan
+// ChatGPT) dan SELALU muncul tiap generate video karena jalur video
+// selalu memakai clipboard (bukan cuma saat prompt kepanjangan).
+const VideoClipboardModal = ({
+  show,
+  onClose
+}) => {
+  if (!show) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-[#15151b] border border-[#4F46E5]/40 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-lg font-bold text-white"
+  }, "\u{1F3AC} Lanjut ke Google Flow"), /*#__PURE__*/React.createElement("p", {
+    className: "text-base text-gray-200 leading-relaxed"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold text-white"
+  }, "Prompt video sudah disalin ke clipboard"), "."), /*#__PURE__*/React.createElement("p", {
+    className: "text-base text-gray-200 leading-relaxed"
+  }, "Di tab Google Flow yang baru terbuka: klik kolom prompt, lalu tekan ", /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold text-white"
+  }, "Ctrl+V (PASTE)"), " (di HP: tahan lalu pilih ", /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold text-white"
+  }, "Tempel / PASTE"), ") sebelum klik Generate di sana."), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "w-full bg-[#4F46E5] hover:bg-[#4338CA] text-white p-3 rounded-lg font-semibold transition-colors"
+  }, "Paham, Lanjut ke Google Flow")));
+};
 // di prompt, tapi tetap teks biasa yang bisa dihapus/diedit pengguna.
 const DESIGN_GUIDELINE_PROMPT = "gunakan kaidah desain grafis yang kontras dan kuat dan membuat orang berhenti scroll dan membaca hingga tuntas. image akan digunakan sebagai materi iklan di FB dan IG. buat susunan warna mencolok kontras dengan timeline facebook dan Instagram, namun tetap mempertahankan kaidah psikologi warna dan teori warna serasi dan kaidah kekuatan desain grafis, dan color pallete. pastikan margin aman 10%-15%";
 
@@ -3043,6 +3073,7 @@ const PromoGenerator = memo(() => {
   const [genError, setGenError] = useState('');
   const [lastGenUrl, setLastGenUrl] = useState('');
   const [showClipboardModal, setShowClipboardModal] = useState(false);
+  const [showVideoClipboardModal, setShowVideoClipboardModal] = useState(false);
   const [adCopyDraft, setAdCopyDraft] = useState({
     productName: '',
     headline: '',
@@ -3207,7 +3238,7 @@ const PromoGenerator = memo(() => {
     setVisionBusy('style');
     setStylePhotoDesc('');
     try {
-      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA gaya visual foto ini untuk keperluan prompt AI image generation: komposisi, sudut pengambilan, pencahayaan, palet warna, dan mood/suasana. JANGAN sebutkan, kutip, atau tuliskan ulang teks/tulisan apa pun yang terlihat di foto ini walau ada — abaikan total semua teks di foto, fokus HANYA pada gaya visualnya. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
+      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA gaya visual foto ini untuk keperluan prompt AI image generation: komposisi, sudut pengambilan, pencahayaan, palet warna, mood/suasana, DAN gaya tipografi teks yang terlihat di foto (kalau ada) — misal: tebal/tipis, kapital/tidak, sans-serif/script/brush-stroke, ada tekstur kuas/dekoratif atau rata bersih, dll. JANGAN sebutkan, kutip, atau tuliskan ulang ISI KATA-KATA/tulisan apa pun yang terlihat di foto ini walau ada — abaikan isi katanya, tapi WAJIB tetap deskripsikan GAYA VISUAL huruf/tipografinya. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
       setStylePhotoDesc(text);
       setVisionAnalyzedForProduct(adCopyDraft.productName.trim());
     } catch (e) {
@@ -3389,11 +3420,18 @@ const PromoGenerator = memo(() => {
     // badge) diulang TEGAS di akhir prompt juga, sama seperti pola
     // vision hints di atas, supaya ejaan tidak "ngaco" di tengah video.
     const textEmphasis = data.textParts.length > 0 ? ` PENTING \u2014 EJAAN TEKS BERIKUT HARUS PERSIS SAMA DI SETIAP FRAME VIDEO, JANGAN MENGARANG KATA LAIN: ${data.textParts.join(', ')}.` : '';
-    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${data.full}${visionEmphasis}${textEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}${textEmphasis} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
+    // Selain bentuk fisik & ejaan teks, kualitas visual "juara" lain
+    // (mood/suasana, hierarki, kontras, hero shot produk, konsistensi
+    // gaya) juga cuma disebut sekali di awal lewat data.full, jadi
+    // rawan kalah rebutan perhatian dibanding 2 penegasan di atas yang
+    // diulang — ditegaskan ulang juga di sini dengan pola yang sama.
+    const visualQualityReminder = ' PENTING \u2014 KUALITAS VISUAL WAJIB DIJAGA DI SETIAP FRAME, JANGAN MENURUN DI TENGAH/AKHIR VIDEO: (1) Mood/suasana harus tetap PERSIS seperti dijelaskan di instruksi gaya di atas, jangan menjadi generik; (2) Hierarki visual harus tetap jelas \u2014 produk paling menonjol, lalu teks/promo, baru elemen pendukung; (3) Kontras teks terhadap background harus terjaga di setiap frame, jangan pudar/kurang terbaca; (4) Produk (hero shot) harus tetap tajam, segar, dan detail (droplet/tekstur terlihat jelas), jangan buram karena gerakan kamera; (5) Gaya visual harus konsisten dari frame pertama sampai terakhir, jangan berubah gaya di tengah video.';
+    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${data.full}${visionEmphasis}${textEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}${textEmphasis}${visualQualityReminder} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
     try {
       await navigator.clipboard.writeText(videoPrompt);
     } catch (e) {}
     window.open('https://labs.google/flow', '_blank');
+    setShowVideoClipboardModal(true);
   };
   const promptData = adCopyDraft.productName.trim() ? buildPromptData() : null;
   return /*#__PURE__*/React.createElement("div", {
@@ -3681,6 +3719,9 @@ const PromoGenerator = memo(() => {
   }, "Tab ChatGPT akan terbuka dengan prompt lengkap (sudah termasuk teks iklan). Anda hanya perlu klik tombol generate. Setelah gambar jadi, download lalu upload di bawah ini \u2014 logo & tagline brand akan otomatis ditempel di posisi yang sudah diatur di tab Brand."), /*#__PURE__*/React.createElement(ClipboardFallbackModal, {
     show: showClipboardModal,
     onClose: () => setShowClipboardModal(false)
+  }), /*#__PURE__*/React.createElement(VideoClipboardModal, {
+    show: showVideoClipboardModal,
+    onClose: () => setShowVideoClipboardModal(false)
   }), lastGenUrl && /*#__PURE__*/React.createElement("a", {
     href: lastGenUrl,
     target: "_blank",
@@ -3872,6 +3913,7 @@ const ContentPlanGenerator = memo(({
   const [genError, setGenError] = useState('');
   const [lastGenUrl, setLastGenUrl] = useState('');
   const [showClipboardModal, setShowClipboardModal] = useState(false);
+  const [showVideoClipboardModal, setShowVideoClipboardModal] = useState(false);
   // BARU (Kelompok B1) — feedback visual tombol "Salin Caption"
   const [captionCopied, setCaptionCopied] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
@@ -4113,11 +4155,17 @@ const ContentPlanGenerator = memo(({
       const visionEmphasis = matched ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${matched.detail}.` : '';
       const visionReminder = matched ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas di setiap frame video, jangan mengarang variasi baru.` : '';
       const negativePromptClauseVideo = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
-      const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} ${activeDay.promptGambar}${visionClause}.${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}${negativePromptClauseVideo} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
+      // Kualitas visual "juara" (mood, hierarki, kontras, hero shot,
+      // konsistensi gaya) ditegaskan ulang di akhir prompt, sama seperti
+      // pola penegasan bentuk fisik di atas, supaya tidak kalah rebutan
+      // perhatian AI dan video tidak terasa flat dibanding gambar.
+      const visualQualityReminder = ' PENTING \u2014 KUALITAS VISUAL WAJIB DIJAGA DI SETIAP FRAME, JANGAN MENURUN DI TENGAH/AKHIR VIDEO: (1) Mood/suasana harus tetap PERSIS seperti dijelaskan di instruksi gaya di atas, jangan menjadi generik; (2) Hierarki visual harus tetap jelas \u2014 produk paling menonjol, lalu teks/promo, baru elemen pendukung; (3) Kontras teks terhadap background harus terjaga di setiap frame, jangan pudar/kurang terbaca; (4) Produk (hero shot) harus tetap tajam, segar, dan detail (droplet/tekstur terlihat jelas), jangan buram karena gerakan kamera; (5) Gaya visual harus konsisten dari frame pertama sampai terakhir, jangan berubah gaya di tengah video.';
+      const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} ${activeDay.promptGambar}${visionClause}.${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}${visualQualityReminder}${negativePromptClauseVideo} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
       try {
         await navigator.clipboard.writeText(videoPrompt);
       } catch (e) {}
       window.open('https://labs.google/flow', '_blank');
+      setShowVideoClipboardModal(true);
     } finally {
       setDayGenBusy(false);
     }
@@ -4219,6 +4267,9 @@ const ContentPlanGenerator = memo(({
   }, "Buat Rencana 30 Hari dengan ChatGPT (Gratis)"), /*#__PURE__*/React.createElement(ClipboardFallbackModal, {
     show: showClipboardModal,
     onClose: () => setShowClipboardModal(false)
+  }), /*#__PURE__*/React.createElement(VideoClipboardModal, {
+    show: showVideoClipboardModal,
+    onClose: () => setShowVideoClipboardModal(false)
   }), lastGenUrl && /*#__PURE__*/React.createElement("a", {
     href: lastGenUrl,
     target: "_blank",
