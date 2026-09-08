@@ -2401,7 +2401,7 @@ const MenuPageCanvas = forwardRef(({
     const renderDinerListLayout = async (canvas, ctx, width, grouped, cfg) => {
       const headerH = await computeHeaderHeight(brand);
       const catHeaderHBase = 70,
-        rowHBase = 156,
+        rowHBase = 180,
         bottomPad = 60;
       const totalRows = grouped.reduce((sum, g) => sum + g.list.length, 0);
       const naturalBodyHeight = grouped.length * catHeaderHBase + totalRows * rowHBase;
@@ -2459,15 +2459,6 @@ const MenuPageCanvas = forwardRef(({
               await new Promise(r => thumbImg.onload = r);
               if (cancelled) return;
               drawCoverImage(ctx, thumbImg, marginX, y + 10, thumbSize, thumbSize);
-              // Badge harga PIL sejajar dengan foto (di tengah tinggi foto,
-              // menjorok sedikit ke kanan) — sebelumnya di sudut bawah foto,
-              // sampai tumpang tindih dengan baris item berikutnya.
-              drawPriceBadge(ctx, priceText, marginX + thumbSize, y + 10 + thumbSize / 2, {
-                scale: Math.max(vScale, 0.7),
-                shape: 'pill',
-                bg: brand.primaryColor,
-                fontSize: 22
-              });
             } catch (e) {}
           }
           const textX = item.photoUrl ? marginX + thumbSize + 24 : marginX;
@@ -2478,10 +2469,34 @@ const MenuPageCanvas = forwardRef(({
             const nameW = ctx.measureText(item.name).width;
             drawFeaturedBadge(ctx, textX + nameW + 14, y + nameFontSize / 2 + 2, 0.6, 'left-middle');
           }
+          let textBottomY = y + nameFontSize + 8;
           if (item.description) {
             ctx.fillStyle = cfg.textSub;
             ctx.font = `${descFontSize}px "${brand.fontBody}"`;
             ctx.fillText(item.description, textX, y + nameFontSize + descFontSize + 12, width - marginX - textX);
+            textBottomY = y + nameFontSize + descFontSize + 12;
+          }
+          // BARU — badge harga dipindah ke BAWAH kalimat (nama/deskripsi),
+          // lepas total dari foto (sebelumnya sejajar/menjorok ke tepi
+          // foto, atas permintaan user dipindah supaya tidak menempel
+          // foto sama sekali). Rata kiri sejajar teks, bukan lagi
+          // mengambang di sisi foto.
+          {
+            const badgeScale = Math.max(vScale, 0.7);
+            const badgeFontSize = 22;
+            ctx.font = `bold ${Math.round(badgeFontSize * badgeScale)}px sans-serif`;
+            const priceTextW = ctx.measureText(priceText).width;
+            const badgePadX = 16 * badgeScale;
+            const badgeW = priceTextW + badgePadX * 2;
+            const badgeH = Math.round(badgeFontSize * badgeScale) + 18 * badgeScale;
+            const badgeGapTop = 16;
+            const badgeCenterY = textBottomY + badgeGapTop + badgeH / 2;
+            drawPriceBadge(ctx, priceText, textX + badgeW / 2, badgeCenterY, {
+              scale: badgeScale,
+              shape: 'pill',
+              bg: brand.primaryColor,
+              fontSize: badgeFontSize
+            });
           }
           // Tanpa foto: harga tetap ditampilkan, sebagai pil kecil menempel setelah nama
           if (!item.photoUrl) {
@@ -2530,7 +2545,10 @@ const MenuPageCanvas = forwardRef(({
       const bigItem = spesial[0];
       const smallItems = spesial.slice(1, 3);
       const bigH = A4_HEIGHT - bodyTop - bottomPad;
-      const bigW = bigH * 0.86;
+      const gap = 24;
+      const availableW = width - marginX * 2 - gap;
+      const bigW = availableW * 0.62;
+      const sw = availableW - bigW;
       if (cancelled) return;
       canvas.width = A4_WIDTH * renderScale;
       canvas.height = A4_HEIGHT * renderScale;
@@ -2586,8 +2604,7 @@ const MenuPageCanvas = forwardRef(({
       }
 
       // 2 foto KECIL — item unggulan pendukung, ditumpuk di kanan
-      const sx = bx + bigW + 24;
-      const sw = width - marginX - sx;
+      const sx = bx + bigW + gap;
       const sGap = 20;
       const sh = (bigH - sGap) / 2;
       for (let i = 0; i < 2; i++) {
