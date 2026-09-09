@@ -470,11 +470,15 @@ const BANNER_PATTERNS = {
   kolase: {
     label: 'Kolase Dinamis',
     styleHint: 'tata letak KOLASE DINAMIS — beberapa foto/elemen kecil disusun tumpang-tindih dan sedikit miring, kesan energik dan penuh gerakan'
+  },
+  splitSeimbang: {
+    label: 'Split Teks-Foto Seimbang',
+    styleHint: 'tata letak SPLIT SEIMBANG — bagi bidang gambar jadi 2 sisi: sekitar 55-60% sisi foto (foto produk dipotong tegas dari latarnya sendiri, BUKAN menyatu-blend ke seluruh bidang gambar) dan 40-45% sisi teks (blok warna solid/gradasi gelap untuk kontras tulisan). Satu elemen paling penting (misal harga/diskon/headline utama) dibuat SANGAT BESAR sebagai fokus utama yang paling menonjol. Alamat/telepon/jam buka ditampilkan sebagai bar/pil kecil berikon, bukan kalimat memanjang. CTA berbentuk tombol/pil warna kontras tegas, bukan teks polos.'
   }
 };
 
 
-const BANNER_DESIGN_GUIDELINE = "gunakan kaidah desain grafis banner/spanduk luar ruang (outdoor) — tulisan HARUS besar dan terbaca jelas dari jarak 2-5 meter, bahkan dari kendaraan yang sedang bergerak. Kontras warna tinggi, hindari detail kecil yang tidak terbaca dari jauh, komposisi sederhana tidak berantakan. Pastikan margin aman 10-15% di semua sisi.";
+const BANNER_DESIGN_GUIDELINE = "gunakan kaidah desain grafis banner/spanduk luar ruang (outdoor) — tulisan utama WAJIB terbaca jelas dari jarak 5 meter, bahkan dari kendaraan yang sedang bergerak (setara tinggi huruf minimal sekitar 4-5% dari tinggi total banner untuk teks utama). Kontras warna teks-ke-latar WAJIB tinggi dan tegas (misal putih/kuning cerah di atas latar gelap pekat, hindari teks abu-abu/pastel redup di atas foto yang ramai/berwarna mirip). Buat hierarki ukuran yang jelas — 1 elemen paling penting jauh lebih besar dari elemen lain, bukan semua ukuran sama rata. Hindari detail kecil yang tidak terbaca dari jauh, komposisi sederhana tidak berantakan. Pastikan margin aman 10-15% di semua sisi.";
 
 
 const LOGO_POSITIONS = {
@@ -4423,10 +4427,10 @@ const BannerGenerator = memo(() => {
     const photoItems = productPhotos.filter(p => p.desc);
     let photoInstruction = '';
     if (photoItems.length === 1) {
-      photoInstruction = `. Foto asli ${fields.productName.trim()} sebagai acuan bentuk (JANGAN mengarang bentuk baru, ini WAJIB berupa ${fields.productName.trim()}, bukan makanan lain): ${photoItems[0].desc}`;
+      photoInstruction = `. Spesifikasi visual WAJIB untuk ${fields.productName.trim()}, ikuti persis detail berikut, JANGAN berimprovisasi bentuk lain: ${photoItems[0].desc}`;
     } else if (photoItems.length > 1) {
       const itemsText = photoItems.map((p, i) => `${p.label && p.label.trim() ? p.label.trim() : `Item ${i + 1}`}: ${p.desc}`).join('; ');
-      photoInstruction = `. Foto asli ${fields.productName.trim()} sebagai acuan bentuk (JANGAN mengarang bentuk baru) — ${itemsText}. Susun semua item ini sebagai bagian dari ${fields.productName.trim()} dalam satu komposisi banner secara natural.`;
+      photoInstruction = `. Spesifikasi visual WAJIB untuk ${fields.productName.trim()}, ikuti persis detail tiap item berikut, JANGAN berimprovisasi bentuk lain — ${itemsText}. Susun semua item ini sebagai bagian dari ${fields.productName.trim()} dalam satu komposisi banner secara natural.`;
     }
     const negativeInstruction = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
     const full = `${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor} (kode HEX internal untuk acuan warna, BUKAN teks yang ditulis di gambar), gaya sesuai brand ${brand.name}${textInstruction}${photoInstruction}.${logoSpaceInstruction} ${BANNER_DESIGN_GUIDELINE} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction} ${SHAPE_AUTHENTICITY_RECAP}`;
