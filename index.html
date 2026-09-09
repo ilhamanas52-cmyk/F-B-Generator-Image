@@ -4310,7 +4310,7 @@ const BannerGenerator = memo(() => {
       busy: true
     } : p));
     try {
-      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA bentuk fisik, warna, dan tekstur SATU POTONGAN/SAJIAN TUNGGAL makanan/minuman yang terlihat di foto ini secara presisi dan detail (misal: irisan melintang, isian, warna, tekstur permukaan) — untuk jadi acuan AI image generator supaya tidak mengarang/mendistorsi bentuk aslinya. JANGAN sebutkan atau deskripsikan JUMLAH potongan, cara penyusunan, atau komposisi keseluruhan di foto ini — itu BUKAN urusan foto ini, cukup fokus ke bentuk/warna/tekstur 1 potongan/sajian saja. JANGAN berkomentar soal gaya foto, pencahayaan, atau latar belakang. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
+      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan SEDETAIL MUNGKIN bentuk fisik, warna, dan tekstur SATU POTONGAN/SAJIAN TUNGGAL makanan/minuman yang terlihat di foto ini — untuk jadi acuan AI image generator supaya TIDAK mengarang/mendistorsi bentuk aslinya. Sebutkan SEMUA hal berikut kalau terlihat: bentuk & ukuran relatif (memanjang/bulat/pipih, proporsi), warna persis tiap bagian (kalau ada gradasi/variasi warna, sebutkan semua), tekstur permukaan (kasar/halus/berkerak/mengkilap/berminyak), tingkat kematangan (garing/juicy/empuk/renyah), potongan/irisan (kalau ada, bentuk potongannya), garnish/pelengkap yang menempel (taburan, saus, bumbu yang terlihat di permukaan), bahan pendukung yang menyatu (misal ada wijen/daun bawang/cabai di atasnya). JANGAN sebutkan atau deskripsikan JUMLAH potongan, cara penyusunan, atau komposisi keseluruhan di foto ini — itu BUKAN urusan foto ini, cukup fokus ke bentuk/warna/tekstur 1 potongan/sajian saja. JANGAN berkomentar soal gaya foto, pencahayaan, atau latar belakang. Jawab dalam 5-8 kalimat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet), sedetail dan sepresisi mungkin.');
       setProductPhotos(prev => prev.map(p => p.id === photoId ? {
         ...p,
         desc: text,
@@ -4338,6 +4338,7 @@ const BannerGenerator = memo(() => {
       id: photoId,
       url: dataUrl,
       desc: '',
+      label: '',
       busy: false,
       error: ''
     }]);
@@ -4346,6 +4347,12 @@ const BannerGenerator = memo(() => {
   };
   const removeProductPhoto = photoId => {
     setProductPhotos(prev => prev.filter(p => p.id !== photoId));
+  };
+  const updatePhotoLabel = (photoId, label) => {
+    setProductPhotos(prev => prev.map(p => p.id === photoId ? {
+      ...p,
+      label
+    } : p));
   };
   const updateField = (key, value) => setFields(prev => ({
     ...prev,
@@ -4413,13 +4420,13 @@ const BannerGenerator = memo(() => {
     const functionalTextLayoutHint = fields.alamat || fields.telepon || fields.jamBuka || fields.cta ? ` Bar/susunan Alamat/Telepon/Jam Buka/CTA (kalau ada) WAJIB berhenti sebelum mencapai 20% terakhir dari sisi ${posKey.endsWith('left') ? 'kiri' : 'kanan'} gambar — persempit bar-nya (termasuk item paling ujung) supaya tidak melewati batas itu, karena area 20% itu untuk logo brand yang ditempel terpisah. Latar/foto tetap boleh mengisi penuh area tersebut secara alami seramai apapun, hanya bar/susunan teks fungsional ini yang dibatasi lebarnya.` : '';
     const textInstruction = textParts.length > 0 ? `. Sertakan teks berikut, pastikan ejaan persis: ${textParts.join(', ')}.${functionalTextLayoutHint}` : '';
     const logoSpaceInstruction = ` Di area ${posPhrase} gambar, buat lebih tenang/tidak padat elemen (kurangi kepadatan objek/teks di situ saja) supaya nanti bisa ditumpangi logo brand transparan — TAPI tetap menyatu alami dengan keseluruhan foto/latar, JANGAN membuat kotak/blok/bidang putih polos terpisah yang terlihat seperti tempelan kosong.`;
-    const photoDescs = productPhotos.filter(p => p.desc).map(p => p.desc);
+    const photoItems = productPhotos.filter(p => p.desc);
     let photoInstruction = '';
-    if (photoDescs.length === 1) {
-      photoInstruction = `. Foto asli produk sebagai acuan bentuk (JANGAN mengarang bentuk baru): ${photoDescs[0]}`;
-    } else if (photoDescs.length > 1) {
-      const itemsText = photoDescs.map((d, i) => `Item ${i + 1}: ${d}`).join('; ');
-      photoInstruction = `. Foto asli produk sebagai acuan bentuk (JANGAN mengarang bentuk baru) — ${itemsText}. Susun semua item ini bersama dalam satu komposisi banner secara natural.`;
+    if (photoItems.length === 1) {
+      photoInstruction = `. Foto asli ${fields.productName.trim()} sebagai acuan bentuk (JANGAN mengarang bentuk baru, ini WAJIB berupa ${fields.productName.trim()}, bukan makanan lain): ${photoItems[0].desc}`;
+    } else if (photoItems.length > 1) {
+      const itemsText = photoItems.map((p, i) => `${p.label && p.label.trim() ? p.label.trim() : `Item ${i + 1}`}: ${p.desc}`).join('; ');
+      photoInstruction = `. Foto asli ${fields.productName.trim()} sebagai acuan bentuk (JANGAN mengarang bentuk baru) — ${itemsText}. Susun semua item ini sebagai bagian dari ${fields.productName.trim()} dalam satu komposisi banner secara natural.`;
     }
     const negativeInstruction = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
     const full = `${SHAPE_AUTHENTICITY_GUARD} ${NO_UNSOLICITED_TEXT_CLAUSE} Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor} (kode HEX internal untuk acuan warna, BUKAN teks yang ditulis di gambar), gaya sesuai brand ${brand.name}${textInstruction}${photoInstruction}.${logoSpaceInstruction} ${BANNER_DESIGN_GUIDELINE} ${NO_UNSOLICITED_TEXT_CLAUSE}${negativeInstruction} ${SHAPE_AUTHENTICITY_RECAP}`;
@@ -4429,12 +4436,13 @@ const BannerGenerator = memo(() => {
       purposeLabel: purposeCfg.label,
       patternLabel: patternCfg.label,
       textParts,
-      hasProductPhoto: photoDescs.length > 0,
-      photoCount: photoDescs.length,
+      hasProductPhoto: photoItems.length > 0,
+      photoCount: photoItems.length,
       full
     };
   };
   const promptData = fields.productName.trim() ? buildBannerPromptData() : null;
+  const [showPasteModal, setShowPasteModal] = useState(false);
   const handleGenerate = () => {
     if (!isPro(plan)) return;
     if (!fields.productName || !fields.productName.trim()) {
@@ -4443,8 +4451,21 @@ const BannerGenerator = memo(() => {
     }
     setGenError('');
     const data = buildBannerPromptData();
-    const url = openChatGPTGenerate(data.full);
-    setLastGenUrl(url);
+    // Cek dulu apakah prompt akan kepotong kalau lewat jalur URL biasa
+    // (tanpa mengubah fungsi global openChatGPTGenerate) — kalau lewat
+    // batas, pakai jalur salin-clipboard + modal instruksi paste manual,
+    // supaya prompt lengkap tidak terpotong.
+    const wrappedForLength = `Buatkan gambar: ${data.full}, high quality, appetizing food photography atmosphere`;
+    const wouldBeCut = encodeURIComponent(wrappedForLength).length > MAX_ENCODED_URL_LENGTH;
+    if (wouldBeCut) {
+      navigator.clipboard.writeText(wrappedForLength).catch(() => {});
+      window.open('https://chatgpt.com/', '_blank');
+      setShowPasteModal(true);
+      setLastGenUrl('https://chatgpt.com/');
+    } else {
+      const url = openChatGPTGenerate(data.full);
+      setLastGenUrl(url);
+    }
   };
   const download = () => {
     const data = canvasRef.current.toDataURL('image/png');
@@ -4554,6 +4575,8 @@ const BannerGenerator = memo(() => {
     className: "grid grid-cols-3 gap-2"
   }, productPhotos.map((p, i) => /*#__PURE__*/React.createElement("div", {
     key: p.id,
+    className: "space-y-1"
+  }, /*#__PURE__*/React.createElement("div", {
     className: "relative"
   }, /*#__PURE__*/React.createElement("img", {
     src: p.url,
@@ -4565,13 +4588,21 @@ const BannerGenerator = memo(() => {
     onClick: () => removeProductPhoto(p.id),
     "aria-label": `Hapus foto ${i + 1}`,
     className: "absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-500 text-white text-sm font-bold shadow-lg border-2 border-white/80"
-  }, "\u2715"), p.busy && /*#__PURE__*/React.createElement("p", {
-    className: "text-[10px] text-blue-400 animate-pulse mt-0.5"
+  }, "\u2715")), productPhotos.length > 1 && /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: p.label || '',
+    onChange: e => updatePhotoLabel(p.id, e.target.value),
+    placeholder: "Nama menu (opsional)",
+    className: "w-full text-[10px] px-1.5 py-1 bg-[#0D0D12] border border-[#242430] text-white rounded"
+  }), p.busy && /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] text-blue-400 animate-pulse"
   }, "Menganalisis\u2026"), p.desc && /*#__PURE__*/React.createElement("p", {
-    className: "text-[10px] text-green-400 mt-0.5"
+    className: "text-[10px] text-green-400"
   }, "\u2713 Tergabung ke prompt"), p.error && /*#__PURE__*/React.createElement("p", {
-    className: "text-[10px] text-red-400 mt-0.5"
-  }, p.error)))), productPhotos.length < MAX_PRODUCT_PHOTOS && /*#__PURE__*/React.createElement("label", {
+    className: "text-[10px] text-red-400"
+  }, p.error)))), productPhotos.length > 1 && /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] text-gray-500 italic"
+  }, "Nama menu di atas cuma dipakai untuk melabeli deskripsi di prompt (biar AI tidak salah cocok foto ke menu) \u2014 TIDAK ikut tertulis di gambar banner. Kalau dikosongkan, tetap dipakai sebagai \"Item 1/2/3\"."), productPhotos.length < MAX_PRODUCT_PHOTOS && /*#__PURE__*/React.createElement("label", {
     className: "flex flex-col items-center justify-center gap-1 border-2 border-dashed border-[#3a3a48] hover:border-[#4F46E5] rounded-lg py-4 cursor-pointer transition-colors bg-[#0D0D12]"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-xl"
@@ -4682,7 +4713,7 @@ const BannerGenerator = memo(() => {
     height: sizeCfg.canvasH,
     useGeometricScale: true
   }));
-  return /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-lg mx-auto space-y-4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "hud-corner top-0 left-0 border-t-2 border-l-2"
@@ -4704,7 +4735,27 @@ const BannerGenerator = memo(() => {
     type: "button",
     onClick: fillExample,
     className: "text-[11px] text-blue-400 hover:text-blue-300 underline"
-  }, "Isi Contoh")), formContent));
+  }, "Isi Contoh")), formContent)), showPasteModal && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4",
+    onClick: () => setShowPasteModal(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-[#16161d] border border-[#2d2d3a] rounded-2xl p-6 max-w-sm w-full space-y-3 shadow-2xl",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-base font-bold text-white"
+  }, "\uD83D\uDCCB Prompt Disalin ke Clipboard"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-300 leading-relaxed"
+  }, "Prompt Anda terlalu panjang untuk dikirim otomatis lewat link. Tapi tenang \u2014 teks lengkapnya sudah disalin."), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-300 leading-relaxed"
+  }, "Tab ChatGPT baru sudah terbuka kosong. Tinggal klik kotak chat-nya, lalu:"), /*#__PURE__*/React.createElement("p", {
+    className: "text-center text-sm font-bold text-amber-400 bg-[#0A0A0D] border border-amber-500/30 rounded-lg py-2"
+  }, "Tempel (Ctrl+V atau Cmd+V)"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-300"
+  }, "Lalu tekan Enter/kirim seperti biasa."), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => setShowPasteModal(false),
+    className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg font-semibold text-sm transition-all"
+  }, "Mengerti"))));
 });
 
 const TestCompose = ({
