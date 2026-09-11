@@ -3151,7 +3151,8 @@ const PromoGenerator = memo(() => {
       action: pickedAction,
       respectStyleRef: styleRefApplied
     });
-    const full = `${SHAPE_AUTHENTICITY_GUARD} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${combinedHint ? ', ' + combinedHint : ''}${textInstruction}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}`;
+    const authenticityReminder = combinedHint ? ' WAJIB ikuti bentuk wadah/alas dan warna saus/produk PERSIS seperti disebutkan di deskripsi acuan foto di atas — JANGAN mengganti ke bentuk/warna yang lebih umum atau sesuai stereotip nama produk (misal jangan asumsikan saus merah/oranye hanya karena nama produk mengandung kata "Korea", "Jepang", dll, atau bentuk wadah bulat hanya karena itu lebih umum) — ikuti HANYA fakta visual yang sudah dijelaskan di deskripsi tersebut, apa pun jenis produknya.' : '';
+    const full = `${SHAPE_AUTHENTICITY_GUARD} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${combinedHint ? ', ' + combinedHint : ''}${textInstruction}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}${authenticityReminder}`;
     return {
       productSubject,
       textParts,
