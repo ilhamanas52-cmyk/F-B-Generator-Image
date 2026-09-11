@@ -3092,7 +3092,7 @@ const PromoGenerator = memo(() => {
     setVisionBusy('style');
     setStylePhotoDesc('');
     try {
-      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA gaya visual foto ini untuk keperluan prompt AI image generation: komposisi, sudut pengambilan, pencahayaan, palet warna, mood/suasana, jumlah objek yang terlihat (sebutkan angka pasti, jangan pakai kata "beberapa"), posisi/susunan spasial tiap elemen dalam frame, dan orientasi/arah kemiringan elemen (kalau ada yang miring, sebutkan arahnya persis). JANGAN sebutkan, kutip, atau tuliskan ulang teks/tulisan apa pun yang terlihat di foto ini walau ada. JANGAN sebutkan logo, ikon, atau badge merek apa pun yang terlihat di foto ini. Abaikan total semua teks/logo di foto, fokus HANYA pada gaya visualnya. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
+      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA gaya visual foto ini untuk keperluan prompt AI image generation: komposisi, sudut pengambilan, pencahayaan, palet warna, mood/suasana, jumlah objek yang terlihat (sebutkan angka pasti, jangan pakai kata "beberapa"), posisi/susunan spasial tiap elemen dalam frame, dan orientasi/arah kemiringan elemen (kalau ada yang miring, sebutkan arahnya persis). JANGAN sebutkan jenis/identitas makanan atau minuman apa pun yang terlihat di foto ini (misal jangan tulis "nasi", "daging panggang", "kopi", dll) — kalau perlu merujuk objek utamanya, gunakan istilah generik seperti "objek makanan utama" atau "elemen pusat perhatian", fokus HANYA pada bentuk/posisi/gaya visualnya, bukan identitasnya. JANGAN sebutkan, kutip, atau tuliskan ulang teks/tulisan apa pun yang terlihat di foto ini walau ada. JANGAN sebutkan logo, ikon, atau badge merek apa pun yang terlihat di foto ini. Abaikan total semua teks/logo di foto, fokus HANYA pada gaya visualnya. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
       setStylePhotoDesc(text);
       setVisionAnalyzedForProduct(adCopyDraft.productName.trim());
     } catch (e) {
@@ -3275,7 +3275,7 @@ const PromoGenerator = memo(() => {
     // gambar — jadi detail dari Vision AI diulang TEGAS di awal & akhir
     // prompt (bukan cuma sekali di tengah), supaya lebih diprioritaskan.
     const visionEmphasis = data.visionHints.length > 0 ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${data.visionHints.join(' ')}.` : '';
-    const visionReminder = data.visionHints.length > 0 ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas (warna wadah dan ada/tidaknya es harus sama persis) di setiap frame video, jangan mengarang variasi baru.` : '';
+    const visionReminder = data.visionHints.length > 0 ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas di setiap frame video, jangan mengarang variasi baru.` : '';
     const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${data.full}${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}`;
     let copyOk = true;
     try {
