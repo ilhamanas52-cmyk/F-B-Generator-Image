@@ -3132,6 +3132,7 @@ const PromoGenerator = memo(() => {
     if (includeText) {
       const orientationHint = textOrientation === 'miring' ? ' (teks dimiringkan/dirotasi sekitar 10-15 derajat, bukan lurus datar)' : textOrientation === 'vertikal' ? ' (teks disusun VERTIKAL dari bawah ke atas, seperti label kemasan)' : '';
       if (adCopyDraft.headline) textParts.push(`Headline: "${adCopyDraft.headline}" (font besar, paling menonjol, di bagian atas${orientationHint})`);
+      if (productSubject) textParts.push(`Nama Produk: "${productSubject}" (di bawah headline, di atas sub-headline, ukuran menonjol — lebih kecil dari headline, lebih besar dari sub-headline)`);
       if (adCopyDraft.subheadline) textParts.push(`Sub-headline: "${adCopyDraft.subheadline}" (di bawah headline, ukuran sedang)`);
       if (adCopyDraft.cta) textParts.push(`Tombol CTA (Call to Action): "${adCopyDraft.cta}" (bentuk seperti tombol, warna kontras, paling bawah)`);
       if (adCopyDraft.badge) textParts.push(`Badge promo: "${adCopyDraft.badge}" (bentuk label/badge bulat mencolok, posisi menonjol, warna kontras)`);
