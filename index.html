@@ -3205,23 +3205,18 @@ const PromoGenerator = memo(() => {
     const data = buildPromptData();
     // Jalur khusus tombol ini (tidak memakai openChatGPTGenerate/openChatGPTWithPrompt
     // bersama, supaya tab lain yang masih pakai fungsi itu tidak ikut berubah):
-    // prompt pendek tetap 1-klik otomatis seperti biasa; prompt panjang TIDAK
-    // dipotong diam-diam lagi, melainkan disalin utuh ke clipboard + modal notif.
+    // SELALU salin ke clipboard + modal notif, TIDAK PERNAH lewat auto-fill URL
+    // (?q=...) lagi — walau di bawah MAX_ENCODED_URL_LENGTH, ChatGPT sendiri kadang
+    // memotong/menolak teks yang di-prefill lewat URL, di luar kendali kita. Paste
+    // manual dari clipboard menjamin prompt yang diterima ChatGPT selalu utuh.
     const fullPrompt = `Buatkan gambar: ${data.full}, high quality, appetizing food photography atmosphere`;
-    const encoded = encodeURIComponent(fullPrompt);
-    if (encoded.length <= MAX_ENCODED_URL_LENGTH) {
-      const url = `https://chatgpt.com/?q=${encoded}`;
-      window.open(url, '_blank');
-      setLastGenUrl(url);
-    } else {
-      try {
-        await navigator.clipboard.writeText(fullPrompt);
-      } catch (e) {}
-      const url = 'https://chatgpt.com/';
-      window.open(url, '_blank');
-      setLastGenUrl(url);
-      setPasteNotice('Prompt sudah disalin lengkap ke clipboard. Tab ChatGPT kosong akan terbuka \u2014 tinggal paste (Ctrl+V) lalu generate.');
-    }
+    try {
+      await navigator.clipboard.writeText(fullPrompt);
+    } catch (e) {}
+    const url = 'https://chatgpt.com/';
+    window.open(url, '_blank');
+    setLastGenUrl(url);
+    setPasteNotice('Prompt sudah disalin lengkap ke clipboard. Tab ChatGPT kosong akan terbuka \u2014 tinggal paste (Ctrl+V) lalu generate.');
     rerollVisualVariant();
   };
   const download = () => {
