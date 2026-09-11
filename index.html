@@ -497,7 +497,7 @@ const buildEnrichedPromptExtras = (brand, {
   if (respectStyleRef) {
     // Lewati pencahayaan/komposisi/sudut ACAK — biarkan deskripsi gaya
     // dari foto referensi (sudah ada di Arahan AI) yang jadi acuan.
-    parts.push('PENTING: Instruksi di atas SUDAH menyertakan deskripsi gaya visual (pencahayaan, komposisi, sudut kamera, palet warna) dari foto referensi yang diberikan user. WAJIB ikuti PERSIS deskripsi tersebut untuk pencahayaan, komposisi, sudut pengambilan gambar, dan palet warna — JANGAN gunakan variasi komposisi/sudut/warna lain di luar yang sudah dijelaskan di sana, dan JANGAN memakai warna brand default.');
+    parts.push('PENTING: Instruksi di atas SUDAH menyertakan deskripsi tertulis lengkap tentang gaya visual (pencahayaan, komposisi, sudut kamera, palet warna) — deskripsi teks itu SATU-SATUNYA acuan yang tersedia, TIDAK ADA file foto yang menyertai prompt ini. JANGAN meminta, menunggu, atau menyarankan upload foto apa pun — langsung buat gambarnya berdasarkan deskripsi teks tersebut. WAJIB ikuti PERSIS deskripsi tersebut untuk pencahayaan, komposisi, sudut pengambilan gambar, dan palet warna — JANGAN gunakan variasi komposisi/sudut/warna lain di luar yang sudah dijelaskan di sana, dan JANGAN memakai warna brand default.');
   } else {
     parts.push(lighting, composition, frameDepthContrast);
   }
@@ -3122,7 +3122,7 @@ const PromoGenerator = memo(() => {
   const buildPromptData = () => {
     if (!adCopyDraft.productName || !adCopyDraft.productName.trim()) return null;
     const styleRefApplied = styleMode === 'reference' && !!stylePhotoDesc;
-    const brandHint = styleRefApplied ? `gaya sesuai brand ${brand.name} (untuk generate ini, abaikan warna default brand — WAJIB ikuti persis palet warna & gaya visual dari foto referensi yang sudah dijelaskan di bawah)` : `nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}`;
+    const brandHint = styleRefApplied ? `gaya sesuai brand ${brand.name} (untuk generate ini, abaikan warna default brand — WAJIB ikuti persis palet warna & gaya visual sesuai deskripsi tertulis "Gaya visual referensi" di bawah ini; TIDAK ADA file foto yang menyertai prompt ini, JANGAN meminta atau menunggu upload foto apa pun, gunakan HANYA teks deskripsi tersebut sebagai acuan)` : `nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}`;
     const formatHint = FORMAT_DESCRIPTIONS[format];
     const posKey = brand.logoPosition || 'bottom-right';
     const posPhrase = LOGO_POSITIONS[posKey].promptPhrase;
