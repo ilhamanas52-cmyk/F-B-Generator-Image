@@ -497,10 +497,9 @@ const buildEnrichedPromptExtras = (brand, {
   if (respectStyleRef) {
     // Lewati pencahayaan/komposisi/sudut ACAK — biarkan deskripsi gaya
     // dari foto referensi (sudah ada di Arahan AI) yang jadi acuan.
-    // Sekarang deskripsi itu JUGA mencakup gaya font & tata letak teks
-    // (lihat instruksi Vision AI di runStyleRefAnalysis), jadi ikutan
-    // dilepas dari default brand di sini.
-    parts.push('PENTING: Instruksi di atas SUDAH menyertakan deskripsi gaya visual (pencahayaan, komposisi, sudut kamera, palet warna, gaya font/tipografi, dan tata letak elemen teks) dari foto referensi yang diberikan user. WAJIB ikuti PERSIS deskripsi tersebut untuk semua aspek itu — JANGAN gunakan variasi komposisi/sudut/warna/font/tata letak lain di luar yang sudah dijelaskan di sana, dan JANGAN memakai warna atau font brand default.');
+    // Deskripsi itu sekarang JUGA mencakup gaya font & tata letak
+    // elemen teks (lihat instruksi Vision AI di runStyleRefAnalysis).
+    parts.push('PENTING: Instruksi di atas SUDAH menyertakan deskripsi tertulis lengkap tentang gaya visual (pencahayaan, komposisi, sudut kamera, palet warna, gaya font/tipografi, dan tata letak/posisi elemen teks) — deskripsi teks itu SATU-SATUNYA acuan yang tersedia, TIDAK ADA file foto yang menyertai prompt ini. JANGAN meminta, menunggu, atau menyarankan upload foto apa pun — langsung buat gambarnya berdasarkan deskripsi teks tersebut. WAJIB ikuti PERSIS deskripsi tersebut untuk semua aspek itu — JANGAN gunakan variasi komposisi/sudut/warna/font/tata letak lain di luar yang sudah dijelaskan di sana, dan JANGAN memakai warna atau font brand default.');
   } else {
     parts.push(lighting, composition, frameDepthContrast);
   }
@@ -512,16 +511,8 @@ const buildEnrichedPromptExtras = (brand, {
     const colorLock = `Palet warna WAJIB sesuai brand — ${brand.primaryColor} untuk aksen tegas, ${brand.secondaryColor} untuk kontras kuat, ${brand.accentColor} untuk menonjolkan elemen promo/CTA, gunakan PERSIS kode HEX ini (bukan pendekatan warna lain).`;
     parts.push(colorLock);
   }
-  if (respectStyleRef) {
-    // Font & tata letak teks ikut deskripsi foto referensi (sudah
-    // dijelaskan di atas), BUKAN font brand — tapi kata-kata/isi teks
-    // yang ditampilkan tetap yang sudah ditentukan di instruksi ini
-    // (headline/CTA/badge dari input user), bukan diambil dari foto.
-    parts.push('Kalau ada teks, gunakan gaya font dan tata letak/posisi teks PERSIS seperti yang sudah dijelaskan pada deskripsi gaya foto referensi di atas (bukan font brand) — tapi kata-kata/isi teksnya WAJIB tetap persis seperti yang sudah ditentukan di instruksi ini, JANGAN diganti dengan kata-kata dari foto referensi.');
-  } else {
-    const typography = `Kalau ada teks, pakai gaya font tebal besar bergaya "${fh}" untuk judul/headline (dengan tekstur/finishing yang sesuai gaya font-nya, bukan flat polos), gaya bersih "${fb}" untuk isi. Badge (kalau ada) sedikit dimiringkan/dirotasi, jangan sejajar sempurna.`;
-    parts.push(typography);
-  }
+  const typography = respectStyleRef ? `Kalau ada teks, SEMUA elemen teks (Headline, Sub-headline, CTA, Badge) WAJIB mengikuti gaya font dan tata letak/posisi teks PERSIS seperti yang sudah dijelaskan pada deskripsi gaya foto referensi di atas — JANGAN gunakan font brand default ("${fh}"/"${fb}") untuk generate ini. Kata-kata/isi teksnya sendiri tetap WAJIB persis seperti yang sudah ditentukan di instruksi ini (bukan diambil dari foto referensi). Badge (kalau ada) sedikit dimiringkan/dirotasi, jangan sejajar sempurna.` : `Kalau ada teks, pakai gaya font tebal besar bergaya "${fh}" untuk judul/headline (dengan tekstur/finishing yang sesuai gaya font-nya, bukan flat polos), gaya bersih "${fb}" untuk isi. Badge (kalau ada) sedikit dimiringkan/dirotasi, jangan sejajar sempurna.`;
+  parts.push(typography);
   parts.push(QUALITY_PROHIBITION_LAYER);
   return parts.join(' ');
 };
@@ -2961,10 +2952,11 @@ const PromoGenerator = memo(() => {
   const [stylePhotoDesc, setStylePhotoDesc] = useState(''); // hasil analisis otomatis, langsung dipakai
   // Pilihan EKSPLISIT user (bukan otomatis lagi) — 'brand' = tetap
   // pakai warna & font Brand Identity, 'reference' = total ikuti gaya
-  // dari foto referensi (warna, font & tata letak brand dilepas untuk generate ini).
+  // dari foto referensi (warna & font brand dilepas untuk generate ini).
   const [styleMode, setStyleMode] = useState('brand');
   const [visionAnalyzedForProduct, setVisionAnalyzedForProduct] = useState(''); // Nama Produk saat analisis foto terakhir berhasil
   const [voScript, setVoScript] = useState(''); // Naskah Voice Over untuk fitur Video 10 Detik (Pro)
+  const [pasteNotice, setPasteNotice] = useState(''); // Pesan modal "prompt sudah disalin, tinggal paste" (tombol Generate ChatGPT & Generate Video)
   const [visionBusy, setVisionBusy] = useState(null); // null | 'product' | 'style'
   const [visionError, setVisionError] = useState('');
   const [visionErrorFor, setVisionErrorFor] = useState(''); // 'product' | 'style' \u2014 supaya error tampil di section yang benar
@@ -3086,7 +3078,7 @@ const PromoGenerator = memo(() => {
     setVisionBusy('product');
     setProductPhotoDesc('');
     try {
-      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA bentuk fisik, warna, tekstur, dan cara penyajian (plating) makanan/minuman yang terlihat di foto ini secara presisi dan detail, untuk jadi acuan AI image generator supaya tidak mengarang/mendistorsi bentuk aslinya. JANGAN berkomentar soal gaya foto, pencahayaan, atau latar belakang. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
+      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA bentuk fisik, warna, tekstur, dan cara penyajian (plating) makanan/minuman yang terlihat di foto ini secara presisi dan detail. WAJIB sebutkan secara eksplisit jenis wadah/alas penyajian yang terlihat (misal piring keramik, mangkuk, hotplate besi panas, wajan, gelas — sebutkan bahan & warnanya kalau terlihat), serta kondisi khusus yang tampak (misal berasap, mendesis, masih panas, ada es, dll — kalau ada, kalau tidak ada jangan disebut). WAJIB sebutkan juga bentuk/wujud alasnya secara presisi (bulat sempurna, oval memanjang seperti perahu/kano, persegi, dll — sebutkan juga fitur pembeda yang terlihat seperti gagang/pegangan di ujung, ujung lancip/tumpul, dudukan kayu terpisah dari bagian logam, dll, supaya tidak tertukar dengan bentuk wadah sejenis yang lebih umum). Sebutkan juga posisi setiap komponen relatif satu sama lain (misal "di sisi kiri", "di sisi kanan", "mengelilingi", dll) sesuai yang benar-benar terlihat di foto. WAJIB sebutkan SEMUA komponen/isi makanan yang benar-benar terlihat di foto secara lengkap dan spesifik (misal "steak, kentang goreng, dan sayuran rebus berupa brokoli & wortel" — bukan cuma nama hidangan utamanya saja). JANGAN menambahkan komponen/bahan apa pun yang TIDAK terlihat di foto (misal jangan sebut nasi kalau nasi tidak ada), dan JANGAN menghilangkan komponen pendamping yang terlihat (misal sayuran, saus, taburan) — deskripsi harus mencakup persis apa yang ada, tidak kurang tidak lebih. Semua ini untuk jadi acuan AI image generator supaya tidak mengarang/mendistorsi bentuk aslinya. JANGAN berkomentar soal gaya foto, pencahayaan, atau latar belakang. Jawab dalam 2-4 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
       setProductPhotoDesc(text);
       setVisionAnalyzedForProduct(adCopyDraft.productName.trim());
     } catch (e) {
@@ -3102,7 +3094,7 @@ const PromoGenerator = memo(() => {
     setVisionBusy('style');
     setStylePhotoDesc('');
     try {
-      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan gaya visual foto ini untuk keperluan prompt AI image generation: komposisi, sudut pengambilan, pencahayaan, palet warna, dan mood/suasana. Kalau ada elemen teks/tulisan di foto ini (headline, harga, badge, dll), JUGA deskripsikan (a) gaya font/tipografinya secara umum — misal tebal besar sans-serif modern, bergaya script/tulisan tangan, kaku/kotak-kotak, dsb — dan (b) tata letaknya — posisi tiap elemen teks, ukuran relatif satu sama lain, dan bagaimana teks itu disusun terhadap foto produk/latar. JANGAN sebutkan, kutip, atau tuliskan ulang KATA-KATA/ISI kalimat apa pun yang terlihat di foto ini walau ada — abaikan ISI teksnya sepenuhnya, fokus HANYA pada gaya visual, gaya font, dan tata letak. Jawab dalam 3-5 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
+      const text = await analyzeImageWithGemini(settings.geminiApiKey, dataUrl, 'Deskripsikan HANYA gaya visual foto ini untuk keperluan prompt AI image generation: komposisi, sudut pengambilan, pencahayaan, palet warna, mood/suasana, jumlah objek yang terlihat (sebutkan angka pasti, jangan pakai kata "beberapa"), posisi/susunan spasial tiap elemen dalam frame, dan orientasi/arah kemiringan elemen (kalau ada yang miring, sebutkan arahnya persis). JANGAN sebutkan jenis/identitas makanan atau minuman apa pun yang terlihat di foto ini (misal jangan tulis "nasi", "daging panggang", "kopi", dll) — kalau perlu merujuk objek utamanya, gunakan istilah generik seperti "objek makanan utama" atau "elemen pusat perhatian", fokus HANYA pada bentuk/posisi/gaya visualnya, bukan identitasnya. Kalau ada teks/tulisan di foto ini, JUGA deskripsikan (a) GAYA VISUAL huruf/font-nya secara generik (misal "font tebal besar bergaya modern sans-serif", "gaya tulisan tangan santai", "font tegas editorial") dan (b) TATA LETAKNYA — posisi tiap elemen teks dalam frame (misal "di sepertiga atas", "di sisi kiri bawah"), ukuran relatif satu elemen teks terhadap elemen teks lain, dan bagaimana susunannya terhadap objek/foto utama — TANPA menyebutkan isi kata/kalimatnya. JANGAN sebutkan, kutip, atau tuliskan ulang teks/tulisan apa pun yang terlihat di foto ini walau ada. JANGAN sebutkan logo, ikon, atau badge merek apa pun yang terlihat di foto ini. Abaikan ISI semua teks/logo di foto, fokus HANYA pada gaya visual, gaya font, dan tata letaknya. Jawab dalam 3-5 kalimat singkat berbahasa Indonesia, format prosa biasa (bukan daftar/bullet).');
       setStylePhotoDesc(text);
       setVisionAnalyzedForProduct(adCopyDraft.productName.trim());
     } catch (e) {
@@ -3132,7 +3124,7 @@ const PromoGenerator = memo(() => {
   const buildPromptData = () => {
     if (!adCopyDraft.productName || !adCopyDraft.productName.trim()) return null;
     const styleRefApplied = styleMode === 'reference' && !!stylePhotoDesc;
-    const brandHint = styleRefApplied ? `gaya sesuai brand ${brand.name} (untuk generate ini, abaikan warna default brand — WAJIB ikuti persis palet warna & gaya visual dari foto referensi yang sudah dijelaskan di bawah)` : `nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}`;
+    const brandHint = styleRefApplied ? `gaya sesuai brand ${brand.name} (untuk generate ini, abaikan warna default brand — WAJIB ikuti persis palet warna & gaya visual sesuai deskripsi tertulis "Gaya visual referensi" di bawah ini; TIDAK ADA file foto yang menyertai prompt ini, JANGAN meminta atau menunggu upload foto apa pun, gunakan HANYA teks deskripsi tersebut sebagai acuan)` : `nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}`;
     const formatHint = FORMAT_DESCRIPTIONS[format];
     const posKey = brand.logoPosition || 'bottom-right';
     const posPhrase = LOGO_POSITIONS[posKey].promptPhrase;
@@ -3142,6 +3134,7 @@ const PromoGenerator = memo(() => {
     if (includeText) {
       const orientationHint = textOrientation === 'miring' ? ' (teks dimiringkan/dirotasi sekitar 10-15 derajat, bukan lurus datar)' : textOrientation === 'vertikal' ? ' (teks disusun VERTIKAL dari bawah ke atas, seperti label kemasan)' : '';
       if (adCopyDraft.headline) textParts.push(`Headline: "${adCopyDraft.headline}" (font besar, paling menonjol, di bagian atas${orientationHint})`);
+      if (productSubject) textParts.push(`Nama Produk: "${productSubject}" (di bawah headline, di atas sub-headline, ukuran menonjol — lebih kecil dari headline, lebih besar dari sub-headline)`);
       if (adCopyDraft.subheadline) textParts.push(`Sub-headline: "${adCopyDraft.subheadline}" (di bawah headline, ukuran sedang)`);
       if (adCopyDraft.cta) textParts.push(`Tombol CTA (Call to Action): "${adCopyDraft.cta}" (bentuk seperti tombol, warna kontras, paling bawah)`);
       if (adCopyDraft.badge) textParts.push(`Badge promo: "${adCopyDraft.badge}" (bentuk label/badge bulat mencolok, posisi menonjol, warna kontras)`);
@@ -3149,7 +3142,7 @@ const PromoGenerator = memo(() => {
     } else {
       textInstruction = '. JANGAN sertakan teks/tulisan apapun di gambar — foto produk bersih murni tanpa elemen teks sama sekali.';
     }
-    const logoSpaceInstruction = `. Sisakan ruang kosong bersih di ${posPhrase} gambar (jangan taruh elemen desain penting di area itu), karena logo brand akan ditambahkan secara terpisah di posisi tersebut`;
+    const logoSpaceInstruction = `. Sisakan ruang di ${posPhrase} gambar bebas dari elemen desain penting/mengganggu (karena logo brand akan ditambahkan secara terpisah di posisi tersebut) — tapi area itu TETAP HARUS mengikuti warna, gradasi, atau tekstur latar belakang di sekitarnya secara menyatu, BUKAN kotak/blok putih kosong polos yang terpisah dari desain`;
     const visionHints = [];
     if (productPhotoDesc) visionHints.push(`[Bentuk asli produk]: ${productPhotoDesc}`);
     if (stylePhotoDesc) visionHints.push(`[Gaya visual referensi]: ${stylePhotoDesc}`);
@@ -3161,7 +3154,8 @@ const PromoGenerator = memo(() => {
       action: pickedAction,
       respectStyleRef: styleRefApplied
     });
-    const full = `${SHAPE_AUTHENTICITY_GUARD} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${combinedHint ? ', ' + combinedHint : ''}${textInstruction}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}`;
+    const authenticityReminder = combinedHint ? ' WAJIB ikuti bentuk wadah/alas dan warna saus/produk PERSIS seperti disebutkan di deskripsi acuan foto di atas — JANGAN mengganti ke bentuk/warna yang lebih umum atau sesuai stereotip nama produk (misal jangan asumsikan saus merah/oranye hanya karena nama produk mengandung kata "Korea", "Jepang", dll, atau bentuk wadah bulat hanya karena itu lebih umum) — ikuti HANYA fakta visual yang sudah dijelaskan di deskripsi tersebut, apa pun jenis produknya.' : '';
+    const full = `${SHAPE_AUTHENTICITY_GUARD} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${combinedHint ? ', ' + combinedHint : ''}${textInstruction}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}${authenticityReminder}`;
     return {
       productSubject,
       textParts,
@@ -3202,15 +3196,32 @@ const PromoGenerator = memo(() => {
     if (productPhotoInputRef.current) productPhotoInputRef.current.value = '';
     if (styleRefPhotoInputRef.current) styleRefPhotoInputRef.current.value = '';
   };
-  const handleGenerateAI = () => {
+  const handleGenerateAI = async () => {
     if (!adCopyDraft.productName || !adCopyDraft.productName.trim()) {
       setGenError('Isi Nama Produk dulu.');
       return;
     }
     setGenError('');
     const data = buildPromptData();
-    const url = openChatGPTGenerate(data.full);
-    setLastGenUrl(url);
+    // Jalur khusus tombol ini (tidak memakai openChatGPTGenerate/openChatGPTWithPrompt
+    // bersama, supaya tab lain yang masih pakai fungsi itu tidak ikut berubah):
+    // prompt pendek tetap 1-klik otomatis seperti biasa; prompt panjang TIDAK
+    // dipotong diam-diam lagi, melainkan disalin utuh ke clipboard + modal notif.
+    const fullPrompt = `Buatkan gambar: ${data.full}, high quality, appetizing food photography atmosphere`;
+    const encoded = encodeURIComponent(fullPrompt);
+    if (encoded.length <= MAX_ENCODED_URL_LENGTH) {
+      const url = `https://chatgpt.com/?q=${encoded}`;
+      window.open(url, '_blank');
+      setLastGenUrl(url);
+    } else {
+      try {
+        await navigator.clipboard.writeText(fullPrompt);
+      } catch (e) {}
+      const url = 'https://chatgpt.com/';
+      window.open(url, '_blank');
+      setLastGenUrl(url);
+      setPasteNotice('Prompt sudah disalin lengkap ke clipboard. Tab ChatGPT kosong akan terbuka \u2014 tinggal paste (Ctrl+V) lalu generate.');
+    }
     rerollVisualVariant();
   };
   const download = () => {
@@ -3268,12 +3279,20 @@ const PromoGenerator = memo(() => {
     // gambar — jadi detail dari Vision AI diulang TEGAS di awal & akhir
     // prompt (bukan cuma sekali di tengah), supaya lebih diprioritaskan.
     const visionEmphasis = data.visionHints.length > 0 ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${data.visionHints.join(' ')}.` : '';
-    const visionReminder = data.visionHints.length > 0 ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas (warna wadah dan ada/tidaknya es harus sama persis) di setiap frame video, jangan mengarang variasi baru.` : '';
+    const visionReminder = data.visionHints.length > 0 ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas di setiap frame video, jangan mengarang variasi baru.` : '';
     const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${data.full}${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}`;
+    let copyOk = true;
     try {
       await navigator.clipboard.writeText(videoPrompt);
-    } catch (e) {}
+    } catch (e) {
+      copyOk = false;
+    }
     window.open('https://labs.google/flow', '_blank');
+    if (copyOk) {
+      setPasteNotice('Prompt video sudah disalin lengkap ke clipboard. Tab Google Flow akan terbuka \u2014 tinggal paste (Ctrl+V) di kolom prompt lalu klik generate.');
+    } else {
+      setGenError('Gagal menyalin prompt ke clipboard. Coba lagi atau salin manual.');
+    }
   };
   const promptData = adCopyDraft.productName.trim() ? buildPromptData() : null;
   return /*#__PURE__*/React.createElement("div", {
@@ -3610,7 +3629,18 @@ const PromoGenerator = memo(() => {
     productImage: photoUrl,
     width: dims.w,
     height: dims.h
-  })));
+  })), pasteNotice && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4",
+    onClick: () => setPasteNotice('')
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-[#15151b] border border-[#242430] rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-200 leading-relaxed"
+  }, pasteNotice), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPasteNotice(''),
+    className: "w-full p-2.5 rounded-lg font-semibold text-sm bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white hover:from-[#6366F1] hover:to-[#4F46E5] hover:scale-[1.02] transition-all"
+  }, "Mengerti"))));
 });
 
 const CompositionCanvas = forwardRef(({
