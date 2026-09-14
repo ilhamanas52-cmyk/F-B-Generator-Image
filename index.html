@@ -233,6 +233,7 @@ const hudStyles = `
   .hud-corner-br { animation: hudPulse 2.6s ease-in-out infinite; }
   .hud-scanline { position: absolute; left: 0; width: 100%; height: 1px; background: linear-gradient(90deg, transparent, #E8102B, transparent); animation: hudScan 5s linear infinite; pointer-events: none; z-index: 1; opacity: 0; }
   .hud-panel:hover .hud-scanline { opacity: 0.8; }
+  .hud-corner, .hud-scanline { display: none; }
   .nav-underline { transition: transform 0.25s ease; }
   @keyframes attentionBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
   .attention-blink { animation: attentionBlink 1.1s ease-in-out infinite; }
@@ -517,8 +518,12 @@ const buildEnrichedPromptExtras = (brand, {
   if (!respectStyleRef) {
     const colorLock = `Palet warna WAJIB sesuai brand — ${brand.primaryColor} untuk aksen tegas, ${brand.secondaryColor} untuk kontras kuat, ${brand.accentColor} untuk menonjolkan elemen promo/CTA, gunakan PERSIS kode HEX ini (bukan pendekatan warna lain).`;
     parts.push(colorLock);
+    const textColorLock = `Warna TEKS (headline/sub-headline/CTA/badge) WAJIB ikut palet warna di atas atau warna yang benar-benar terlihat di deskripsi acuan (kalau ada) — BUKAN dipilih bebas oleh AI generator.`;
+    const textColorNoBias = `JANGAN otomatis memilih warna teks putih/krem/netral hanya karena itu "aman" atau kontras tinggi secara default — ikuti warna spesifik yang sudah ditentukan di atas, walau warnanya bukan putih/krem.`;
+    parts.push(textColorLock);
+    parts.push(textColorNoBias);
   }
-  const typography = respectStyleRef ? `Kalau ada teks, untuk HEADLINE (judul utama) gunakan gaya font DAN WARNA yang menyesuaikan mood/gaya visual (termasuk gaya font dan warna teks, kalau ada disebutkan) dari deskripsi foto referensi di atas — JANGAN gunakan font ATAU warna brand default untuk headline pada generate ini, dan JANGAN otomatis pakai warna kuning/merah generik ala iklan promo kalau warna itu tidak disebutkan di deskripsi referensi. Untuk Sub-headline dan teks CTA, tetap gunakan gaya font bersih "${fb}" (tidak ikut menyesuaikan referensi). Badge dan tombol CTA (kalau ada) WAJIB pakai warna yang diambil dari palet warna referensi di atas (bukan kuning/merah default) — kalau deskripsi referensi menyebutkan warna dominan elemen grafis/teksnya, pakai warna itu; kalau tidak disebutkan, pilih warna dari palet referensi yang paling kontras dengan latar. Badge sedikit dimiringkan/dirotasi, jangan sejajar sempurna.` : `Kalau ada teks, pakai gaya font tebal besar bergaya "${fh}" untuk judul/headline (dengan tekstur/finishing yang sesuai gaya font-nya, bukan flat polos), gaya bersih "${fb}" untuk isi. Badge (kalau ada) sedikit dimiringkan/dirotasi, jangan sejajar sempurna.`;
+  const typography = respectStyleRef ? `Kalau ada teks, untuk HEADLINE (judul utama) gunakan gaya font DAN WARNA yang menyesuaikan mood/gaya visual (termasuk gaya font dan warna teks, kalau ada disebutkan) dari deskripsi foto referensi di atas — JANGAN gunakan font ATAU warna brand default untuk headline pada generate ini, dan JANGAN otomatis pakai warna kuning/merah generik ala iklan promo kalau warna itu tidak disebutkan di deskripsi referensi. Untuk Sub-headline dan teks CTA, tetap gunakan gaya font bersih ${fb} (tidak ikut menyesuaikan referensi, ini nama gaya font acuan visual, BUKAN teks yang harus tertulis di gambar). Badge dan tombol CTA (kalau ada) WAJIB pakai warna yang diambil dari palet warna referensi di atas (bukan kuning/merah default) — kalau deskripsi referensi menyebutkan warna dominan elemen grafis/teksnya, pakai warna itu; kalau tidak disebutkan, pilih warna dari palet referensi yang paling kontras dengan latar. Badge sedikit dimiringkan/dirotasi, jangan sejajar sempurna.` : `Kalau ada teks, pakai gaya font tebal besar bergaya ${fh} untuk judul/headline (dengan tekstur/finishing yang sesuai gaya font-nya, bukan flat polos; ini nama gaya font acuan visual, BUKAN teks yang harus tertulis di gambar), gaya bersih ${fb} untuk isi. Badge (kalau ada) sedikit dimiringkan/dirotasi, jangan sejajar sempurna.`;
   parts.push(typography);
   parts.push(QUALITY_PROHIBITION_LAYER);
   return parts.join(' ');
@@ -3196,7 +3201,7 @@ const PromoGenerator = memo(() => {
       respectStyleRef: styleRefApplied
     });
     const authenticityReminder = combinedHint ? ' WAJIB ikuti bentuk, tekstur permukaan, wadah/alas, dan warna saus/produk PERSIS seperti disebutkan di deskripsi acuan foto di atas — JANGAN mengganti ke bentuk/warna/tekstur yang lebih umum atau sesuai stereotip nama produk (misal jangan asumsikan saus merah/oranye hanya karena nama produk mengandung kata "Korea", "Jepang", dll, atau bentuk wadah bulat hanya karena itu lebih umum) — ikuti HANYA fakta visual yang sudah dijelaskan di deskripsi tersebut, apa pun jenis produknya. JANGAN menambahkan elemen, hiasan, atau garnish apa pun (misal cabai, taburan, dedaunan hias) di sekitar produk atau saus yang TIDAK disebutkan secara eksplisit di deskripsi acuan foto — tampilkan HANYA yang benar-benar disebutkan, sesederhana apa pun itu.' : '';
-    const full = `${SHAPE_AUTHENTICITY_GUARD} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${combinedHint ? ', ' + combinedHint : ''}${textInstruction}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}${authenticityReminder} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
+    const full = `${SHAPE_AUTHENTICITY_GUARD} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${textInstruction}${combinedHint ? ', ' + combinedHint : ''}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}${authenticityReminder} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
     return {
       productSubject,
       textParts,
@@ -3321,7 +3326,9 @@ const PromoGenerator = memo(() => {
     // prompt (bukan cuma sekali di tengah), supaya lebih diprioritaskan.
     const visionEmphasis = data.visionHints.length > 0 ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${data.visionHints.join(' ')}.` : '';
     const visionReminder = data.visionHints.length > 0 ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas di setiap frame video, jangan mengarang variasi baru.` : '';
-    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${data.full}${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}`;
+    const rawTextValues = [adCopyDraft.headline, adCopyDraft.subheadline, adCopyDraft.cta, adCopyDraft.badge].filter(Boolean);
+    const textEmphasis = rawTextValues.length > 0 ? ` PENTING soal ejaan teks di video: pastikan ejaan "${rawTextValues.join('", "')}" tertulis PERSIS seperti itu, jangan salah eja atau mengubah kata.` : '';
+    const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${data.full}${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}${textEmphasis}`;
     let copyOk = true;
     try {
       await navigator.clipboard.writeText(videoPrompt);
@@ -4049,7 +4056,8 @@ const ContentPlanGenerator = memo(({
       // dibanding model gambar — diulang tegas di awal & akhir prompt.
       const visionEmphasis = matched ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${matched.detail}.` : '';
       const visionReminder = matched ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas di setiap frame video, jangan mengarang variasi baru.` : '';
-      const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}.${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
+      const textEmphasis = activeDay.tema ? ` PENTING soal ejaan teks di video (kalau ada teks tertulis): pastikan ejaan "${activeDay.tema}" tertulis PERSIS seperti itu, jangan salah eja atau mengubah kata.` : '';
+      const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}.${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder} ${NO_UNSOLICITED_TEXT_CLAUSE}${textEmphasis}`;
       try {
         await navigator.clipboard.writeText(videoPrompt);
       } catch (e) {}
@@ -4802,7 +4810,8 @@ const BannerGenerator = memo(() => {
     const logoSpaceInstruction = `. Sisakan ruang kosong bersih di ${posPhrase} gambar untuk logo brand (ditempel terpisah)`;
     const styleRefHint = styleRefDesc ? `. Referensi tambahan gaya visual (jadikan inspirasi, bukan wajib diikuti persis): ${styleRefDesc}` : '';
     const negativeClause = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
-    const full = `${SHAPE_AUTHENTICITY_GUARD} Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}${textInstruction}${logoSpaceInstruction}${styleRefHint}. ${BANNER_DESIGN_GUIDELINE}${negativeClause} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
+    const bannerColorLock = ` Palet warna WAJIB sesuai brand — ${brand.primaryColor} untuk aksen tegas, ${brand.secondaryColor} untuk kontras kuat, gunakan PERSIS kode HEX ini (bukan pendekatan warna lain), kecuali ada Foto Referensi Gaya yang secara eksplisit menyebutkan warna berbeda.`;
+    const full = `${SHAPE_AUTHENTICITY_GUARD} Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}${textInstruction}${logoSpaceInstruction}${styleRefHint}. ${BANNER_DESIGN_GUIDELINE}${negativeClause}${bannerColorLock} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
     return {
       productSubject: fields.productName.trim(),
       sizeLabel: sizeCfg.label,
