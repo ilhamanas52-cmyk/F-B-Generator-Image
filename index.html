@@ -31,7 +31,7 @@
 <script type="module">
 
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { getFirestore, doc, onSnapshot, setDoc, getDoc, deleteDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore';
 const { useState, useEffect, useRef, createContext, useContext, memo, forwardRef, useImperativeHandle } = React;
 
@@ -173,7 +173,7 @@ const isPro = plan => plan === 'reseller' || plan === 'reseller_client';
 // Link "Upgrade ke Pro" — SEMENTARA placeholder ('#') sampai user
 // menyediakan URL Scalev sungguhan. HANYA di sini nilainya diisi,
 // supaya nanti tinggal ganti 1 baris ini saat linknya sudah siap.
-const SCALEV_PRO_UPGRADE_URL = '#';
+const SCALEV_PRO_UPGRADE_URL = 'https://superstrikeshop.myscalev.com/upgrade-paket-pro';
 const PlanContext = createContext('single');
 
 // Komponen kunci "Khusus Pro" — dipakai BERULANG di semua fitur
@@ -295,6 +295,7 @@ const DESIGN_GUIDELINE_PROMPT = "gunakan kaidah desain grafis yang kontras dan k
 // nasi, helai mie, buih, dll) tidak berubah bentuk jadi generik,
 // walau boleh menggumpal/menumpuk secara alami.
 const SHAPE_AUTHENTICITY_GUARD = "Sebelum menggambar, eksplorasi dan cermati dulu bentuk fisik AUTENTIK dari hidangan/minuman yang diminta secara spesifik — bukan interpretasi generik bergaya ilustrasi AI pada umumnya. Prinsip utama: TIDAK BOLEH ADA DISTORSI BENTUK pada elemen individual apapun (butir nasi, helai mie, potongan buah, es batu, gelembung/buih, serat, dll). Elemen-elemen itu BOLEH menggumpal, saling menempel, tumpang tindih, atau tersusun rapat (itu wajar dan alami) — TAPI bentuk asli tiap elemen individual harus tetap konsisten, tidak berubah hanya karena menggumpal atau bertumpuk.";
+const NO_UNSOLICITED_TEXT_CLAUSE = "JANGAN menambahkan badge/label penghargaan, rating bintang, atau sertifikasi apa pun karangan sendiri (misal \"AWARD WINNING\", \"5 STAR\", logo sertifikasi halal/BPOM palsu) kecuali benar-benar diminta lewat teks yang disebutkan secara eksplisit. JANGAN menambahkan tagline, slogan, kutipan, atau kalimat dekoratif tambahan apa pun di luar teks yang sudah diminta. JANGAN menambahkan logo, watermark, atau ikon merek apa pun yang tidak diminta.";
 
 // SOP kebersihan — otomatis disisipkan setiap kali bank momen aksi
 // yang dipilih melibatkan tangan manusia (bukan pilihan, demi
@@ -799,7 +800,7 @@ const buildFeedSlotPrompt = (brand, brief, role, variantRefs, visionHint) => {
     action: null
   });
   const visionClause = visionHint ? `, [Foto acuan]: ${visionHint}` : '';
-  return `${SHAPE_AUTHENTICITY_GUARD} Foto promosi Instagram untuk produk: ${brief.productName || 'produk ini'}, ${role.hint}${contentHint}, ${brandHint}${visionClause}, format persegi (1:1) untuk feed Instagram. ${enrichedExtras}`;
+  return `${SHAPE_AUTHENTICITY_GUARD} Foto promosi Instagram untuk produk: ${brief.productName || 'produk ini'}, ${role.hint}${contentHint}, ${brandHint}${visionClause}, format persegi (1:1) untuk feed Instagram. ${enrichedExtras} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
 };
 const buildContentPlanPrompt = (brand, themes) => {
   const themeList = themes.length > 0 ? themes.join(', ') : 'bebas sesuai kreativitas, variatif';
@@ -1155,7 +1156,7 @@ function MainDashboard({
     className: "flex gap-2 sm:gap-4 overflow-x-auto items-center"
   }, ['brands', 'menu', 'promo', 'konten', 'feed9', 'banner'].map(t => /*#__PURE__*/React.createElement("button", {
     key: t,
-    onClick: () => setActiveTab(t),
+    onClick: () => t === 'banner' && !isPro(profile && profile.plan) ? window.open(SCALEV_PRO_UPGRADE_URL, '_blank', 'noopener,noreferrer') : setActiveTab(t),
     className: `relative px-3 sm:px-4 py-1.5 rounded-lg transition-all whitespace-nowrap text-sm font-medium ${activeTab === t ? 'text-white bg-[#1a1a22]' : 'text-gray-500 hover:text-gray-300'}`
   }, t === 'konten' ? 'KONTEN 30 HARI' : t === 'feed9' ? '9 FEED KONSISTEN' : t === 'banner' ? 'BANNER CETAK' : t.toUpperCase(), t === 'banner' && !isPro(profile && profile.plan) && /*#__PURE__*/React.createElement("span", {
     className: "ml-1 text-amber-500 text-[10px]"
@@ -3195,7 +3196,7 @@ const PromoGenerator = memo(() => {
       respectStyleRef: styleRefApplied
     });
     const authenticityReminder = combinedHint ? ' WAJIB ikuti bentuk, tekstur permukaan, wadah/alas, dan warna saus/produk PERSIS seperti disebutkan di deskripsi acuan foto di atas — JANGAN mengganti ke bentuk/warna/tekstur yang lebih umum atau sesuai stereotip nama produk (misal jangan asumsikan saus merah/oranye hanya karena nama produk mengandung kata "Korea", "Jepang", dll, atau bentuk wadah bulat hanya karena itu lebih umum) — ikuti HANYA fakta visual yang sudah dijelaskan di deskripsi tersebut, apa pun jenis produknya. JANGAN menambahkan elemen, hiasan, atau garnish apa pun (misal cabai, taburan, dedaunan hias) di sekitar produk atau saus yang TIDAK disebutkan secara eksplisit di deskripsi acuan foto — tampilkan HANYA yang benar-benar disebutkan, sesederhana apa pun itu.' : '';
-    const full = `${SHAPE_AUTHENTICITY_GUARD} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${combinedHint ? ', ' + combinedHint : ''}${textInstruction}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}${authenticityReminder}`;
+    const full = `${SHAPE_AUTHENTICITY_GUARD} background promosi untuk produk: ${productSubject}, ${brandHint}, ${formatHint}${combinedHint ? ', ' + combinedHint : ''}${textInstruction}${logoSpaceInstruction}. ${DESIGN_GUIDELINE_PROMPT}. ${enrichedExtras}${authenticityReminder} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
     return {
       productSubject,
       textParts,
@@ -3824,6 +3825,23 @@ const ContentPlanGenerator = memo(({
   // bukan per-hari, supaya tidak perlu isi 30 kotak terpisah.
   const [globalAiHint, setGlobalAiHint] = useState('');
   const [voScript, setVoScript] = useState(''); // Naskah Voice Over global untuk fitur Video 10 Detik (Pro)
+  const [captionCopied, setCaptionCopied] = useState(false);
+  const buildDayCaption = day => {
+    const hook = day.ide || day.konsep || day.tema;
+    const body = [day.konsep, day.ide].filter(Boolean).filter((v, i, arr) => arr.indexOf(v) === i && v !== hook).join(' ');
+    const baseWords = `${brand.name} ${day.tema}`.split(/\s+/).filter(w => w.length > 2).slice(0, 6);
+    const hashtags = Array.from(new Set(baseWords.map(w => '#' + w.replace(/[^a-zA-Z0-9]/g, '')))).filter(h => h.length > 1).join(' ');
+    return `${hook}\n\n${body}\n\n${hashtags}`.replace(/\n{3,}/g, '\n\n').trim();
+  };
+  const handleCopyCaption = async day => {
+    try {
+      await navigator.clipboard.writeText(buildDayCaption(day));
+      setCaptionCopied(true);
+      setTimeout(() => setCaptionCopied(false), 2000);
+    } catch (e) {
+      setGenError('Gagal menyalin caption ke clipboard.');
+    }
+  };
   const photoLibraryInputRef = useRef(null);
   const brand = useContext(BrandContext);
   const settings = useContext(SettingsContext);
@@ -4013,7 +4031,7 @@ const ContentPlanGenerator = memo(({
       const matched = await pickBestMatchingPhoto(settings.geminiApiKey, topicText, photoLibrary);
       const visionClause = matched ? `. [Foto acuan]: ${matched.detail}` : '';
       const hintClause = globalAiHint.trim() ? `. [Arahan AI]: ${globalAiHint.trim()}` : '';
-      const url = openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}${hintClause}. ${QUALITY_PROHIBITION_LAYER}`);
+      const url = openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}${hintClause}. ${QUALITY_PROHIBITION_LAYER} ${NO_UNSOLICITED_TEXT_CLAUSE}`);
       setLastGenUrl(url);
     } finally {
       setDayGenBusy(false);
@@ -4031,7 +4049,7 @@ const ContentPlanGenerator = memo(({
       // dibanding model gambar — diulang tegas di awal & akhir prompt.
       const visionEmphasis = matched ? ` PENTING \u2014 WAJIB IKUTI PERSIS detail bentuk fisik berikut, JANGAN mengarang/mengubah elemen apa pun (termasuk warna wadah/kemasan, ada-tidaknya es, tekstur): ${matched.detail}.` : '';
       const visionReminder = matched ? ` Sekali lagi, pastikan bentuk fisik produk PERSIS seperti dijelaskan di atas di setiap frame video, jangan mengarang variasi baru.` : '';
-      const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}.${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder}`;
+      const videoPrompt = `Buatkan video singkat berdurasi 10 detik: ${SHAPE_AUTHENTICITY_GUARD} ${activeDay.promptGambar}${visionClause}.${visionEmphasis}${voClause} Gerakan kamera halus sinematik, transisi mulus, cocok untuk konten promosi Instagram/TikTok.${visionReminder} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
       try {
         await navigator.clipboard.writeText(videoPrompt);
       } catch (e) {}
@@ -4190,7 +4208,16 @@ const ContentPlanGenerator = memo(({
     className: "text-amber-500 font-semibold"
   }, "Prompt Gambar: "), activeDay.promptGambar), photoLibrary.length > 0 && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-gray-500"
-  }, "Foto Arahan AI: ", photoLibrary.length, " foto tersedia, dicocokkan otomatis saat generate.")), /*#__PURE__*/React.createElement("button", {
+  }, "Foto Arahan AI: ", photoLibrary.length, " foto tersedia, dicocokkan otomatis saat generate.")), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1 border border-[#242430] rounded-lg p-3 bg-[#0A0A0D]"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block"
+  }, "Caption Instagram"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400 whitespace-pre-line"
+  }, buildDayCaption(activeDay)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleCopyCaption(activeDay),
+    className: "w-full bg-[#242430] hover:bg-[#2c2c3a] text-gray-200 p-2 rounded-lg text-xs transition-colors"
+  }, captionCopied ? '✓ Caption tersalin!' : 'Salin Caption')), /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateDayImage,
     disabled: dayGenBusy,
     className: "w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-2.5 rounded-lg text-sm transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30 font-medium disabled:opacity-60"
@@ -4775,7 +4802,7 @@ const BannerGenerator = memo(() => {
     const logoSpaceInstruction = `. Sisakan ruang kosong bersih di ${posPhrase} gambar untuk logo brand (ditempel terpisah)`;
     const styleRefHint = styleRefDesc ? `. Referensi tambahan gaya visual (jadikan inspirasi, bukan wajib diikuti persis): ${styleRefDesc}` : '';
     const negativeClause = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
-    const full = `Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}${textInstruction}${logoSpaceInstruction}${styleRefHint}. ${BANNER_DESIGN_GUIDELINE}${negativeClause}`;
+    const full = `${SHAPE_AUTHENTICITY_GUARD} Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}${textInstruction}${logoSpaceInstruction}${styleRefHint}. ${BANNER_DESIGN_GUIDELINE}${negativeClause} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
     return {
       productSubject: fields.productName.trim(),
       sizeLabel: sizeCfg.label,
@@ -4790,6 +4817,7 @@ const BannerGenerator = memo(() => {
   // TIDAK PERNAH auto-buka tab ChatGPT (permintaan eksplisit user) —
   // tidak memakai openChatGPTGenerate/openChatGPTWithPrompt bersama
   // supaya tab lain yang masih pakai fungsi itu tidak ikut berubah.
+  const [lastGenUrl, setLastGenUrl] = useState('');
   const handleGenerate = async () => {
     if (!isPro(plan)) return;
     if (!fields.productName || !fields.productName.trim()) {
@@ -4799,11 +4827,22 @@ const BannerGenerator = memo(() => {
     setGenError('');
     const data = buildBannerPromptData();
     const fullPrompt = `Buatkan gambar: ${data.full}, high quality, appetizing food/beverage advertising photography`;
-    try {
-      await navigator.clipboard.writeText(fullPrompt);
-      setPasteNotice('Prompt banner sudah disalin lengkap ke clipboard. Buka ChatGPT sendiri (chatgpt.com), lalu paste (Ctrl+V) ke kolom chat dan kirim.');
-    } catch (e) {
-      setGenError('Gagal menyalin prompt ke clipboard. Coba lagi, atau salin manual dari kotak Preview Prompt di atas.');
+    const encoded = encodeURIComponent(fullPrompt);
+    if (encoded.length <= MAX_ENCODED_URL_LENGTH) {
+      const url = `https://chatgpt.com/?q=${encoded}`;
+      window.open(url, '_blank');
+      setLastGenUrl(url);
+      setPasteNotice('');
+    } else {
+      try {
+        await navigator.clipboard.writeText(fullPrompt);
+        const url = 'https://chatgpt.com/';
+        window.open(url, '_blank');
+        setLastGenUrl(url);
+        setPasteNotice('Prompt banner sudah disalin lengkap ke clipboard (prompt terlalu panjang untuk 1-klik otomatis). Tab ChatGPT kosong akan terbuka \u2014 tinggal paste (Ctrl+V) lalu kirim.');
+      } catch (e) {
+        setGenError('Gagal menyalin prompt ke clipboard. Coba lagi, atau salin manual dari kotak Preview Prompt di atas.');
+      }
     }
   };
   const download = () => {
@@ -4928,6 +4967,8 @@ const BannerGenerator = memo(() => {
   }, "Menganalisis foto\u2026"), visionError && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-red-500"
   }, visionError), styleRefDesc && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-emerald-400"
+  }, "\u2713 Gaya visual berhasil dianalisis."), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-400 italic"
   }, styleRefDesc), /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -4975,7 +5016,7 @@ const BannerGenerator = memo(() => {
     onClick: handleGenerate,
     disabled: !isPro(plan),
     className: `w-full p-3 rounded-lg text-base font-bold transition-all bg-gradient-to-r from-purple-600 to-purple-700 text-white ${isPro(plan) ? 'hover:from-purple-500 hover:to-purple-600 hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-600/30' : 'cursor-not-allowed pro-glow'}`
-  }, "Salin Prompt untuk ChatGPT (Gratis)"), !isPro(plan) && /*#__PURE__*/React.createElement(ProBadgeCorner, null)), !isPro(plan) && /*#__PURE__*/React.createElement("p", {
+  }, "Buat Gambar dengan ChatGPT (Gratis)"), !isPro(plan) && /*#__PURE__*/React.createElement(ProBadgeCorner, null)), !isPro(plan) && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500 text-center"
   }, "Fitur eksklusif Pro \u2014 ", /*#__PURE__*/React.createElement("a", {
     href: SCALEV_PRO_UPGRADE_URL,
@@ -5079,7 +5120,7 @@ const TestCompose = ({
       return;
     }
     setGenError('');
-    openChatGPTGenerate(`background untuk menu: ${selected.name} (${selected.category}), ${FORMAT_DESCRIPTIONS[format]}${aiPromptHint ? ', ' + aiPromptHint : ''}`);
+    openChatGPTGenerate(`${SHAPE_AUTHENTICITY_GUARD} background untuk menu: ${selected.name} (${selected.category}), ${FORMAT_DESCRIPTIONS[format]}${aiPromptHint ? ', ' + aiPromptHint : ''}. ${NO_UNSOLICITED_TEXT_CLAUSE}`);
   };
   const handleAiPhotoUpload = e => {
     const reader = new FileReader();
@@ -5213,6 +5254,24 @@ const LoginPage = ({
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetMsg, setResetMsg] = useState('');
+  const handleForgotPassword = async () => {
+    setError('');
+    setResetMsg('');
+    if (!email) {
+      setError('Isi email Anda dulu di kolom di atas, lalu klik "Lupa Kata Sandi?" lagi.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetMsg('Link reset kata sandi sudah dikirim ke ' + email + '. Cek inbox/folder spam Anda.');
+    } catch (err) {
+      setError('Gagal mengirim email reset. Pastikan email terdaftar dan coba lagi.');
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleEmailLogin = async e => {
     e.preventDefault();
     setError('');
@@ -5264,7 +5323,13 @@ const LoginPage = ({
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg outline-none"
   }), error && /*#__PURE__*/React.createElement("p", {
     className: "text-red-400 text-sm"
-  }, error), /*#__PURE__*/React.createElement("button", {
+  }, error), resetMsg && /*#__PURE__*/React.createElement("p", {
+    className: "text-emerald-400 text-sm"
+  }, resetMsg), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: handleForgotPassword,
+    className: "text-xs text-amber-500 hover:underline text-right w-full"
+  }, "Lupa Kata Sandi?"), /*#__PURE__*/React.createElement("button", {
     type: "submit",
     disabled: loading,
     className: "w-full bg-amber-600 hover:bg-amber-500 text-white p-3 rounded-lg font-medium transition-colors disabled:opacity-50"
@@ -5278,9 +5343,10 @@ const LoginPage = ({
     onClick: handleGoogleLogin,
     disabled: loading,
     className: "w-full bg-white hover:bg-gray-100 text-gray-800 p-3 rounded-lg font-medium transition-colors"
-  }, "Masuk dengan Google"), /*#__PURE__*/React.createElement("p", {
-    className: "text-center text-sm text-gray-500"
-  }, "Belum punya akun? Hubungi tempat Anda membeli aplikasi ini untuk mendapatkan link pendaftaran.")));
+  }, "Masuk dengan Google"), /*#__PURE__*/React.createElement("a", {
+    href: "/daftar/single",
+    className: "block text-center text-sm text-amber-500 hover:underline pt-1"
+  }, "Belum punya akun? Daftar Akun Baru")));
 };
 
 // Membuat profil (users/{uid}) saat pendaftaran baru.
