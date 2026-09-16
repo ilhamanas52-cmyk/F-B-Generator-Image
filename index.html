@@ -3290,10 +3290,12 @@ const MenuPageCanvas = forwardRef(({
       const bottomPad = 100;
       const availableBody = A4_HEIGHT - headerH - 20 - bottomPad;
       const cardH = (availableBody - rowGap * (rows - 1)) / rows;
-      const photoH = cardH * 0.58;
+      // REVISI: foto dipersempit sedikit (0.58 -> 0.5) supaya area
+      // nama+deskripsi+harga di bawah lebih lega, tidak mepet.
+      const photoH = cardH * 0.5;
       const nameFontSize = 22,
         descFontSize = 15,
-        priceFontSize = 20;
+        priceFontSize = 18;
       if (cancelled) return;
       canvas.width = A4_WIDTH * renderScale;
       canvas.height = A4_HEIGHT * renderScale;
@@ -3307,6 +3309,10 @@ const MenuPageCanvas = forwardRef(({
       await document.fonts.load(`bold ${priceFontSize}px "${brand.fontBody}"`);
       await document.fonts.load(`${descFontSize}px "${brand.fontBody}"`);
       const startY = headerH + 20;
+      // REVISI: area kartu di bawah foto sekarang GELAP (bukan putih),
+      // sedikit lebih terang dari background halaman supaya kartu
+      // masih terbaca sebagai bentuk terpisah.
+      const cardBg = '#1E332A';
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const col = i % cols,
@@ -3314,13 +3320,13 @@ const MenuPageCanvas = forwardRef(({
         const cx = marginX + col * (cardW + colGap);
         const cy = startY + row * (cardH + rowGap);
 
-        // Kartu putih, sudut rounded, shadow halus
+        // Kartu GELAP, sudut rounded, shadow halus
         ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.25)';
+        ctx.shadowColor = 'rgba(0,0,0,0.35)';
         ctx.shadowBlur = 18;
         ctx.shadowOffsetY = 4;
         roundRectPath(ctx, cx, cy, cardW, cardH, 20);
-        ctx.fillStyle = '#FFFFFF';
+        ctx.fillStyle = cardBg;
         ctx.fill();
         ctx.restore();
 
@@ -3336,45 +3342,64 @@ const MenuPageCanvas = forwardRef(({
             drawCoverImage(ctx, img, cx, cy, cardW, photoH);
           } catch (e) {}
         } else {
-          ctx.fillStyle = '#EEEEEE';
+          ctx.fillStyle = '#333333';
           ctx.fillRect(cx, cy, cardW, photoH);
         }
         ctx.restore();
 
-        // Badge harga — pil HITAM solid menempel pojok kiri-bawah foto
-        ctx.font = `bold ${priceFontSize}px "${brand.fontBody}"`;
-        const priceText = `Rp ${item.price.toLocaleString('id-ID')}`;
-        const priceW = ctx.measureText(priceText).width;
-        const badgeW = priceW + 28,
-          badgeH = 34;
-        const badgeX = cx + 14,
-          badgeY = cy + photoH - badgeH / 2;
-        roundRectPath(ctx, badgeX, badgeY, badgeW, badgeH, badgeH / 2);
-        ctx.fillStyle = 'rgba(15,15,15,0.92)';
-        ctx.fill();
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(priceText, badgeX + 14, badgeY + badgeH / 2 + priceFontSize * 0.35);
-
-        // Nama (kapital bold) + deskripsi (abu-abu kecil) di bawah foto
+        // Nama, deskripsi, dan badge harga — SEMUA di bawah foto,
+        // teks TERANG, konten di-tengah VERTIKAL dalam sisa ruang
+        // supaya tidak ada area kosong menganggur di bawah (REVISI).
         const padIn = 18;
         const textMaxW = cardW - padIn * 2;
-        let ty = cy + photoH + 14 + nameFontSize * 0.8;
         ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
-        ctx.fillStyle = '#1A1A1A';
         const nameLines = wrapWords(item.name.toUpperCase().split(' '), textMaxW).slice(0, 2);
+        let descLines = [];
+        if (item.description) {
+          ctx.font = `${descFontSize}px "${brand.fontBody}"`;
+          descLines = wrapWords(item.description.split(' '), textMaxW).slice(0, 2);
+        }
+        const priceText = `Rp ${item.price.toLocaleString('id-ID')}`;
+        ctx.font = `bold ${priceFontSize}px "${brand.fontBody}"`;
+        const priceW = ctx.measureText(priceText).width;
+        const badgeW = priceW + 28,
+          badgeH = 32;
+
+        const nameBlockH = nameLines.length * (nameFontSize + 4);
+        const descBlockH = descLines.length ? 10 + descLines.length * (descFontSize + 6) : 0;
+        const priceBlockH = 16 + badgeH;
+        const contentH = nameBlockH + descBlockH + priceBlockH;
+        const belowPhotoZoneH = cardH - photoH;
+        let ty = cy + photoH + Math.max((belowPhotoZoneH - contentH) / 2, 12) + nameFontSize * 0.8;
+
+        ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
+        ctx.fillStyle = cfg.textMain;
         for (let li = 0; li < nameLines.length; li++) {
           ctx.fillText(nameLines[li], cx + padIn, ty + li * (nameFontSize + 4));
         }
         ty += (nameLines.length - 1) * (nameFontSize + 4);
-        if (item.description) {
+
+        if (descLines.length) {
           ctx.font = `${descFontSize}px "${brand.fontBody}"`;
-          ctx.fillStyle = '#8A8A8A';
-          const descLines = wrapWords(item.description.split(' '), textMaxW).slice(0, 2);
+          ctx.fillStyle = cfg.textSub;
           for (const line of descLines) {
             ty += descFontSize + 6;
             ctx.fillText(line, cx + padIn, ty);
           }
         }
+
+        // Badge harga — pil warna AKSEN BRAND, di BAWAH nama+deskripsi
+        // (bukan lagi menempel di pojok foto).
+        ty += 16;
+        const badgeX = cx + padIn,
+          badgeY = ty;
+        roundRectPath(ctx, badgeX, badgeY, badgeW, badgeH, badgeH / 2);
+        ctx.fillStyle = brand.primaryColor;
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = `bold ${priceFontSize}px "${brand.fontBody}"`;
+        ctx.fillText(priceText, badgeX + 14, badgeY + badgeH / 2 + priceFontSize * 0.35);
+
         if (item.featured) {
           drawFeaturedBadge(ctx, cx + cardW - 26, cy + 22, 0.55);
         }
@@ -3654,12 +3679,14 @@ const MenuPageCanvas = forwardRef(({
       const marginX = 46;
       const colGap = 18;
       const rowGap = 14;
-      const labelH = 38;
+      // REVISI: labelH diperbesar untuk menampung nama + deskripsi +
+      // badge harga (sebelumnya cuma nama).
+      const labelH = 92;
       const bottomPad = 100;
       const heroFontSize = 19,
         sideFontSize = 14,
-        priceFontSize = 16;
-      const cardPad = 8; // margin putih di dalam kartu, di sekeliling foto
+        descFontSize = 12,
+        priceFontSize = 15;
 
       const availableW = width - marginX * 2 - colGap * 2;
       const sideColW = availableW * 0.26;
@@ -3679,14 +3706,15 @@ const MenuPageCanvas = forwardRef(({
       await document.fonts.load(`bold ${heroFontSize}px "${brand.fontBody}"`);
       await document.fonts.load(`bold ${sideFontSize}px "${brand.fontBody}"`);
       await document.fonts.load(`bold ${priceFontSize}px "${brand.fontBody}"`);
+      await document.fonts.load(`${descFontSize}px "${brand.fontBody}"`);
       const startY = headerH + 20;
 
-      // Menggambar 1 foto: kartu putih + foto (contain, letterbox putih
-      // kalau rasio tidak pas) + badge harga menempel foto + nama di
-      // BAWAH kartu (bukan menjorok di dalam foto lagi). Kalau item
-      // belum dipilih (slot kosong), gambar PLACEHOLDER kotak
-      // putus-putus + teks "Belum dipilih" — tanda visual jelas kalau
-      // pilihan masih kurang, tanpa memblokir preview keseluruhan.
+      // Menggambar 1 foto: foto POLOS (tanpa bingkai kartu putih lagi),
+      // mode COVER (mengisi penuh, boleh terpotong) supaya foto selalu
+      // tampil maksimal mentok lebar/tinggi kotaknya — sesuai revisi.
+      // Nama + deskripsi + badge harga SEMUA persis di bawah foto,
+      // teks TERANG. Slot kosong (belum dipilih) tetap jadi placeholder
+      // putus-putus.
       const drawCard = async (x, y, w, h, item, nameFontSize) => {
         if (!item) {
           ctx.save();
@@ -3704,64 +3732,57 @@ const MenuPageCanvas = forwardRef(({
           ctx.restore();
           return;
         }
+        // Foto — POLOS, shadow tipis sebagai pemisah (bukan kartu putih)
         ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.3)';
-        ctx.shadowBlur = 16;
+        ctx.shadowColor = 'rgba(0,0,0,0.4)';
+        ctx.shadowBlur = 14;
         ctx.shadowOffsetY = 3;
-        roundRectPath(ctx, x, y, w, h, 16);
-        ctx.fillStyle = '#FFFFFF';
+        roundRectPath(ctx, x, y, w, h, 14);
+        ctx.fillStyle = '#2A2A2A';
         ctx.fill();
         ctx.restore();
-
-        const px = x + cardPad,
-          py = y + cardPad,
-          pw = w - cardPad * 2,
-          ph = h - cardPad * 2;
         ctx.save();
-        roundRectPath(ctx, px, py, pw, ph, 10);
+        roundRectPath(ctx, x, y, w, h, 14);
         ctx.clip();
-        ctx.fillStyle = '#F0F0F0';
-        ctx.fillRect(px, py, pw, ph);
-        if (item && item.photoUrl) {
+        if (item.photoUrl) {
           try {
             const img = await loadImg(item.photoUrl);
             if (!cancelled) {
-              const {
-                w: iw,
-                h: ih
-              } = computeContainSize(img, pw, ph);
-              ctx.drawImage(img, px + (pw - iw) / 2, py + (ph - ih) / 2, iw, ih);
+              drawCoverImage(ctx, img, x, y, w, h);
             }
           } catch (e) {}
         }
         ctx.restore();
 
-        if (item) {
-          // Badge harga — pil putih solid, teks gelap, menempel pojok
-          // kanan-atas FOTO (bukan di area kartu putihnya).
-          ctx.font = `bold ${priceFontSize}px "${brand.fontBody}"`;
-          const priceText = `Rp ${item.price.toLocaleString('id-ID')}`;
-          const priceW = ctx.measureText(priceText).width;
-          const badgeW = Math.min(priceW + 22, pw - 12),
-            badgeH = 26;
-          const badgeX = px + pw - badgeW - 8,
-            badgeY = py + 8;
-          ctx.save();
-          ctx.shadowColor = 'rgba(0,0,0,0.25)';
-          ctx.shadowBlur = 6;
-          roundRectPath(ctx, badgeX, badgeY, badgeW, badgeH, badgeH / 2);
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fill();
-          ctx.restore();
-          ctx.fillStyle = '#1A1A1A';
-          ctx.fillText(truncate(priceText, badgeW - 16), badgeX + 10, badgeY + badgeH / 2 + priceFontSize * 0.35);
+        // Nama + deskripsi + badge harga — di BAWAH foto, teks TERANG.
+        const padIn = 4;
+        const textMaxW = w - padIn * 2;
+        let ty = y + h + 6 + nameFontSize * 0.8;
+        ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
+        ctx.fillStyle = cfg.textMain;
+        ctx.fillText(truncate(item.name, textMaxW), x + padIn, ty);
 
-          // Nama — di BAWAH kartu, teks gelap, dipotong 1 baris (ellipsis)
-          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
-          ctx.fillStyle = '#1A1A1A';
-          const nameY = y + h + labelH / 2 + nameFontSize * 0.35;
-          ctx.fillText(truncate(item.name, w), x, nameY);
+        if (item.description) {
+          ty += descFontSize + 8;
+          ctx.font = `${descFontSize}px "${brand.fontBody}"`;
+          ctx.fillStyle = cfg.textSub;
+          ctx.fillText(truncate(item.description, textMaxW), x + padIn, ty);
         }
+
+        // Badge harga — pil warna AKSEN BRAND, di bawah nama+deskripsi.
+        ty += 10;
+        ctx.font = `bold ${priceFontSize}px "${brand.fontBody}"`;
+        const priceText = `Rp ${item.price.toLocaleString('id-ID')}`;
+        const priceW = ctx.measureText(priceText).width;
+        const badgeW = Math.min(priceW + 22, textMaxW),
+          badgeH = 24;
+        const badgeX = x + padIn,
+          badgeY = ty;
+        roundRectPath(ctx, badgeX, badgeY, badgeW, badgeH, badgeH / 2);
+        ctx.fillStyle = brand.primaryColor;
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(truncate(priceText, badgeW - 16), badgeX + 11, badgeY + badgeH / 2 + priceFontSize * 0.35);
       };
 
       // Kolom KIRI — 3 foto kecil bertumpuk
@@ -3771,7 +3792,8 @@ const MenuPageCanvas = forwardRef(({
         ly += sideRowH + labelH + rowGap;
       }
 
-      // HERO — tengah, memanjang penuh, mode contain di dalam kartu
+      // HERO — tengah, memanjang penuh, mode COVER (mentok lebar,
+      // boleh terpotong atas/bawah) supaya foto selalu tampil besar.
       const centerX = marginX + sideColW + colGap;
       await drawCard(centerX, startY, centerColW, centerPhotoH, heroItem, heroFontSize);
 
