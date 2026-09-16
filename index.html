@@ -694,7 +694,7 @@ const DEFAULT_MENU_BACKGROUNDS = {
 
 const MENU_STYLE_PRESETS = {
   colorBlock: {
-    label: 'Blok Warna Berani',
+    label: 'Signature Showcase',
     layoutKey: 'colorBlock',
     // Blok warna solid pil per item, foto BULAT menjorok di dalam blok,
     // harga jadi badge di tengah-vertikal sisi kanan blok (REVISI —
@@ -707,7 +707,7 @@ const MENU_STYLE_PRESETS = {
     promptHint: 'gaya poster promo makanan warna-warni berani, blok warna solid besar, kontras tinggi, kesan energik street-food, pencahayaan terang merata'
   },
   heroGlow: {
-    label: 'Hero Glow Dramatis',
+    label: 'Best Seller Spotlight',
     layoutKey: 'heroGlow',
     // Kolase foto persegi diagonal di atas + daftar tipografi glow di
     // bawah (tanpa foto lagi di daftarnya) — struktur ini sudah beda
@@ -720,12 +720,13 @@ const MENU_STYLE_PRESETS = {
     promptHint: 'gaya poster promo dramatis malam hari, latar gelap gulita, cahaya lampu sorot hangat, glow/bloom di sekitar objek, kesan bold dan modern'
   },
   butcherStyle: {
-    label: 'Butcher Style',
+    label: 'Rekomendasi Chef',
     layoutKey: 'butcherStyle',
-    // BARU — terinspirasi menu steakhouse: 4 item/halaman, alternating
-    // kiri-kanan (kotak teks vs foto gantian posisi), kotak teks border
-    // tipis rounded, foto mode CONTAIN (tidak crop) sudut rounded.
-    itemCap: 4,
+    // REVISI TOTAL — bukan lagi alternating kiri-kanan, sekarang grid
+    // 2 kolom x 3 baris (6 item/halaman), kartu putih seragam, foto
+    // rounded di atas, badge harga pil hitam menempel pojok kiri-bawah
+    // foto, nama kapital bold di bawah (referensi: menu "Ensaladas").
+    itemCap: 6,
     pageBg: '#13221B',
     textMain: '#FFFFFF',
     textSub: 'rgba(255,255,255,0.75)',
@@ -733,7 +734,7 @@ const MENU_STYLE_PRESETS = {
     promptHint: 'gaya menu steakhouse premium, nuansa hijau tua elegan, pencahayaan studio dramatis lembut, kesan mewah restoran daging'
   },
   gridNomor: {
-    label: 'Grid Nomor',
+    label: 'Menu Juara',
     layoutKey: 'gridNomor',
     // BARU — grid 3 kolom per kategori, nomor urut restart per
     // kategori, foto kotak 1:1 mode CONTAIN, badge harga bentuk bintang.
@@ -745,7 +746,7 @@ const MENU_STYLE_PRESETS = {
     promptHint: 'gaya menu makanan modern ceria, latar krem hangat, foto bulat framing kayu, kesan homey dan approachable'
   },
   kolomKategori: {
-    label: 'Kolom Kategori',
+    label: 'Menu Andalan',
     layoutKey: 'kolomKategori',
     // BARU — 3 kolom vertikal gaya "koran", kategori dibagi berurutan
     // ke tiap kolom, ribbon warna kategori ikut brand identity, daftar
@@ -760,11 +761,12 @@ const MENU_STYLE_PRESETS = {
   sorotFavorit: {
     label: 'Sorot Favorit',
     layoutKey: 'sorotFavorit',
-    // BARU (poin D) — HANYA 3 foto: 1 hero besar (dipilih user) + 2
-    // foto kecil di bawahnya. Ukuran area hero menyesuaikan rasio asli
-    // foto (tidak dipaksa landscape/potrait). Item dipilih manual lewat
-    // UI khusus (bukan otomatis dari kategori/urutan).
-    itemCap: 3,
+    // REVISI TOTAL (referensi: Chili's Menu) — 7 foto: 1 hero besar di
+    // TENGAH (memanjang penuh, mode contain), 3 foto kecil kolom kiri,
+    // 3 foto kecil kolom kanan. Bingkai kartu putih di tiap foto, nama
+    // & harga teks gelap. Dipilih user lewat klik urutan (klik ke-1 =
+    // hero, ke-2..7 = isi kiri lalu kanan).
+    itemCap: 7,
     pageBg: '#141414',
     textMain: '#FFFFFF',
     textSub: 'rgba(255,255,255,0.75)',
@@ -1252,7 +1254,7 @@ function MainDashboard({
       showBarcode: false
     },
     saveAppData: saveAppData
-  }), /*#__PURE__*/React.createElement(CoverGenerator, null)), activeTab === 'promo' && /*#__PURE__*/React.createElement(PromoGenerator, null), activeTab === 'konten' && /*#__PURE__*/React.createElement(ContentPlanGenerator, {
+  })), activeTab === 'promo' && /*#__PURE__*/React.createElement(PromoGenerator, null), activeTab === 'konten' && /*#__PURE__*/React.createElement(ContentPlanGenerator, {
     contentPlan: appData.contentPlan || [],
     rawText: appData.contentPlanRawText || '',
     saveAppData: saveAppData
@@ -1618,7 +1620,7 @@ const BrandSettings = memo(({
     className: "text-xs text-gray-400 font-bold uppercase"
   }, "Kontak & Elemen Pelengkap"), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-gray-500"
-  }, "Dipakai untuk Cover Buku Menu & footer opsional di tab Menu."), /*#__PURE__*/React.createElement("label", {
+  }, "Dipakai untuk footer opsional di tab Menu."), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Nomor Telepon"), /*#__PURE__*/React.createElement("input", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg outline-none",
@@ -2068,8 +2070,10 @@ const MenuPageGenerator = memo(({
   const [genError, setGenError] = useState('');
   const [lastGenUrl, setLastGenUrl] = useState('');
   // Poin D — Sorot Favorit: pilihan manual TEPAT 3 item + 1 di antaranya jadi hero.
-  const [sorotSelectedIds, setSorotSelectedIds] = useState([]);
-  const [sorotHeroId, setSorotHeroId] = useState('');
+  // Sorot Favorit — sistem KLIK URUTAN (bukan lagi checkbox+radio
+  // terpisah). Array ini menyimpan id item PERSIS sesuai urutan klik:
+  // index 0 = hero, index 1-3 = kolom kiri, index 4-6 = kolom kanan.
+  const [sorotOrderedIds, setSorotOrderedIds] = useState([]);
   const canvasRef = useRef();
   const brand = useContext(BrandContext);
   const plan = useContext(PlanContext);
@@ -2085,25 +2089,28 @@ const MenuPageGenerator = memo(({
   // dipaksa menyusut ekstrem atau halaman memanjang.
   const ITEM_CAP = MENU_STYLE_PRESETS[selectedStyle].itemCap;
   const isSorotFavorit = selectedStyle === 'sorotFavorit';
-  // Poin D — Sorot Favorit pakai 3 item PILIHAN MANUAL (bukan filter
-  // kategori/urutan otomatis seperti gaya lain).
-  const sorotReady = isSorotFavorit && sorotSelectedIds.length === 3 && sorotSelectedIds.includes(sorotHeroId);
-  const displayedMenu = isSorotFavorit ? menu.filter(m => sorotSelectedIds.includes(m.id)) : filteredMenu.slice(0, ITEM_CAP);
+  // Rekomendasi Chef (butcherStyle) & Sorot Favorit sekarang pakai
+  // background SOLID (bukan gambar) — panel ganti gambar latar
+  // disembunyikan untuk 2 gaya ini supaya tidak menyesatkan user.
+  const usesBackgroundImage = !isSorotFavorit && selectedStyle !== 'butcherStyle';
+  // Sorot Favorit siap generate kalau PERSIS 7 item sudah diklik urutan.
+  const sorotReady = isSorotFavorit && sorotOrderedIds.length === 7;
+  const displayedMenu = isSorotFavorit ? menu.filter(m => sorotOrderedIds.includes(m.id)) : filteredMenu.slice(0, ITEM_CAP);
   const isTruncated = !isSorotFavorit && filteredMenu.length > ITEM_CAP;
   // Style config dikirim ke canvas — untuk Sorot Favorit disisipi
-  // heroId (item mana yang jadi foto besar), dipilih user lewat radio.
+  // orderedIds (urutan klik user: [0]=hero, [1..3]=kiri, [4..6]=kanan).
   const effectiveStyleConfig = isSorotFavorit ? {
     ...MENU_STYLE_PRESETS[selectedStyle],
-    heroId: sorotHeroId
+    orderedIds: sorotOrderedIds
   } : MENU_STYLE_PRESETS[selectedStyle];
   const toggleSorotSelect = id => {
-    setSorotSelectedIds(prev => {
+    setSorotOrderedIds(prev => {
       if (prev.includes(id)) {
-        const next = prev.filter(x => x !== id);
-        if (sorotHeroId === id) setSorotHeroId('');
-        return next;
+        // Klik ulang item yang sudah dipilih = batal pilih, urutan
+        // sesudahnya otomatis mundur.
+        return prev.filter(x => x !== id);
       }
-      if (prev.length >= 3) return prev; // sudah 3, tidak bisa tambah lagi
+      if (prev.length >= 7) return prev; // sudah pas 7, tidak bisa tambah lagi
       return [...prev, id];
     });
   };
@@ -2246,7 +2253,7 @@ const MenuPageGenerator = memo(({
         }
       }
     })
-  }), "Tampilkan Barcode")), /*#__PURE__*/React.createElement("label", {
+  }), "Tampilkan Barcode")), usesBackgroundImage && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
     className: "text-sm font-semibold tracking-wide uppercase text-gray-500 block mb-1 pt-2"
   }, "Ganti Gambar Latar (Opsional)"), /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-gray-500"
@@ -2268,7 +2275,7 @@ const MenuPageGenerator = memo(({
     type: "button",
     onClick: () => setPhotoUrl(''),
     className: "text-sm text-gray-500 underline"
-  }, "Pakai gambar bawaan lagi"), /*#__PURE__*/React.createElement("label", {
+  }, "Pakai gambar bawaan lagi")), /*#__PURE__*/React.createElement("label", {
     className: "text-sm font-semibold tracking-wide uppercase text-gray-500 block mb-1 pt-2"
   }, "Kualitas File"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2"
@@ -2282,36 +2289,28 @@ const MenuPageGenerator = memo(({
     className: "space-y-2 pt-2 border-t border-[#242430]"
   }, /*#__PURE__*/React.createElement("label", {
     className: "text-sm font-semibold tracking-wide uppercase text-gray-500 block"
-  }, "Pilih Tepat 3 Menu"), /*#__PURE__*/React.createElement("p", {
+  }, "Klik 7 Menu Sesuai Urutan"), /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-gray-500"
-  }, "Centang 3 menu, lalu tandai salah satu jadi foto besar (hero)."), menu.length === 0 && /*#__PURE__*/React.createElement("p", {
+  }, "Klik pertama jadi foto besar (hero) di tengah. Klik ke-2 sampai ke-4 mengisi kolom kiri, klik ke-5 sampai ke-7 mengisi kolom kanan. Klik lagi item yang sudah dipilih untuk membatalkan."), menu.length === 0 && /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-yellow-500"
   }, "Belum ada menu — tambah dulu di atas."), menu.map(item => {
-    const checked = sorotSelectedIds.includes(item.id);
-    return /*#__PURE__*/React.createElement("div", {
+    const orderIdx = sorotOrderedIds.indexOf(item.id);
+    const selected = orderIdx !== -1;
+    const roleLabel = orderIdx === 0 ? 'Hero' : orderIdx >= 1 && orderIdx <= 3 ? 'Kiri' : orderIdx >= 4 ? 'Kanan' : '';
+    return /*#__PURE__*/React.createElement("button", {
       key: item.id,
-      className: "flex items-center gap-3 bg-[#0D0D12] border border-[#242430] rounded-lg p-2.5"
-    }, /*#__PURE__*/React.createElement("input", {
-      type: "checkbox",
-      className: "w-5 h-5",
-      checked: checked,
-      onChange: () => toggleSorotSelect(item.id)
-    }), /*#__PURE__*/React.createElement("span", {
+      onClick: () => toggleSorotSelect(item.id),
+      className: `w-full flex items-center gap-3 rounded-lg p-2.5 text-left border transition-colors ${selected ? 'bg-[#E8102B]/10 border-[#E8102B]' : 'bg-[#0D0D12] border-[#242430]'}`
+    }, /*#__PURE__*/React.createElement("span", {
+      className: `w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-sm font-bold ${selected ? 'bg-[#E8102B] text-white' : 'bg-[#242430] text-gray-500'}`
+    }, selected ? orderIdx + 1 : ''), /*#__PURE__*/React.createElement("span", {
       className: "flex-1 text-base text-gray-300"
-    }, item.name), checked && /*#__PURE__*/React.createElement("label", {
-      className: "flex items-center gap-1.5 text-sm text-gray-400"
-    }, /*#__PURE__*/React.createElement("input", {
-      type: "radio",
-      name: "sorotHero",
-      className: "w-4 h-4",
-      checked: sorotHeroId === item.id,
-      onChange: () => setSorotHeroId(item.id)
-    }), "Jadikan Hero"));
-  }), sorotSelectedIds.length > 0 && sorotSelectedIds.length !== 3 && /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-yellow-500"
-  }, "Terpilih ", sorotSelectedIds.length, " dari 3 — centang sampai tepat 3."), sorotSelectedIds.length === 3 && !sorotHeroId && /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-yellow-500"
-  }, "Tandai salah satu jadi Hero.")), /*#__PURE__*/React.createElement("button", {
+    }, item.name), selected && /*#__PURE__*/React.createElement("span", {
+      className: "text-sm text-gray-500"
+    }, roleLabel));
+  }), /*#__PURE__*/React.createElement("p", {
+    className: `text-sm ${sorotReady ? 'text-green-500' : 'text-yellow-500'}`
+  }, sorotOrderedIds.length, " dari 7 dipilih", !sorotReady && ' — klik menu sampai pas 7.')), /*#__PURE__*/React.createElement("button", {
     onClick: download,
     disabled: isSorotFavorit && !sorotReady,
     className: `w-full min-h-[44px] text-white p-3.5 rounded-lg transition-all font-semibold text-base ${isSorotFavorit && !sorotReady ? 'bg-gray-700 cursor-not-allowed opacity-60' : 'bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30'}`
@@ -2598,6 +2597,19 @@ const roundRectPath = (ctx, x, y, w, h, r) => {
   ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+};
+// Kotak dengan sudut rounded HANYA di 2 sudut atas (bawah tetap siku) —
+// dipakai untuk area foto di atas kartu putih Rekomendasi Chef, supaya
+// menyatu rapi dengan sudut atas kartu tanpa celah.
+const roundRectPathTop = (ctx, x, y, w, h, r) => {
+  ctx.beginPath();
+  ctx.moveTo(x, y + h);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h);
   ctx.closePath();
 };
 const MenuPageCanvas = forwardRef(({
@@ -3220,10 +3232,17 @@ const MenuPageCanvas = forwardRef(({
     // Tanpa harga lama dicoret (dibatalkan), tanpa footer bawaan
     // (footer sekarang universal lewat drawFooter + toggle).
     // ============================================================
+    // ============================================================
+    // REKOMENDASI CHEF (dulu Butcher Style) — REVISI TOTAL, bukan lagi
+    // alternating kiri-kanan. Sekarang grid 2 kolom x 3 baris (6
+    // item/halaman), kartu PUTIH seragam sudut rounded, foto di atas
+    // (rounded, mode cover mengisi penuh kotak foto), badge harga pil
+    // HITAM menempel pojok kiri-bawah foto, nama kapital bold di bawah
+    // foto, deskripsi kecil abu-abu di bawahnya. Background halaman
+    // tetap warna solid gelap yang sudah ada (bukan gambar/marmer lagi).
+    // Referensi: menu "Ensaladas" (kartu putih 2 kolom).
+    // ============================================================
     const renderButcherStyleLayout = async (canvas, ctx, width, grouped, cfg) => {
-      // Helper word-wrap (poin C) — memenggal teks ke banyak baris
-      // berdasar lebar sebenarnya, supaya TIDAK terkompres/gepeng
-      // seperti risiko ctx.fillText+maxWidth bawaan canvas.
       const wrapWords = (words, maxWidth) => {
         const lines = [];
         let current = '';
@@ -3239,149 +3258,105 @@ const MenuPageCanvas = forwardRef(({
         if (current) lines.push(current);
         return lines;
       };
-      const items = grouped.reduce((acc, g) => acc.concat(g.list), []).slice(0, 4);
+      const items = grouped.reduce((acc, g) => acc.concat(g.list), []).slice(0, 6);
       const headerH = await computeCompactHeaderHeight(brand);
-      const bottomPad = 100;
-      const availableBody = A4_HEIGHT - headerH - bottomPad;
-      // REVISI (poin B3): jarak antar 4 item diperlebar (24 → 40)
-      const rowGap = 40;
-      const rowH = (availableBody - rowGap * (items.length - 1 || 0)) / Math.max(items.length, 1);
       const marginX = 50;
-      const colGap = 30;
-      // REVISI (poin B2): kotak teks dipersempit, area foto dibuat
-      // lebih dominan — sebelumnya 50:50 kaku, sekarang 40:60.
-      const dualWidth = width - marginX * 2 - colGap;
-      const textColW = dualWidth * 0.4;
-      const photoColW = dualWidth * 0.6;
-      const nameFontSize = 30,
-        descFontSize = 19,
-        priceFontSize = 26;
+      const colGap = 26;
+      const rowGap = 30;
+      const cols = 2,
+        rows = 3;
+      const cardW = (width - marginX * 2 - colGap * (cols - 1)) / cols;
+      const bottomPad = 100;
+      const availableBody = A4_HEIGHT - headerH - 20 - bottomPad;
+      const cardH = (availableBody - rowGap * (rows - 1)) / rows;
+      const photoH = cardH * 0.58;
+      const nameFontSize = 22,
+        descFontSize = 15,
+        priceFontSize = 20;
       if (cancelled) return;
       canvas.width = A4_WIDTH * renderScale;
       canvas.height = A4_HEIGHT * renderScale;
       ctx.scale(renderScale, renderScale);
+      // Background halaman SOLID (tidak lagi pakai gambar latar default
+      // ataupun upload manual) — sesuai keputusan revisi.
       ctx.fillStyle = cfg.pageBg;
       ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
-      // Poin A: background efektif (upload user atau default bawaan),
-      // overlay 60% gelap supaya teks & foto tetap jelas terbaca.
-      if (backgroundImage) {
-        try {
-          const bgImg = await loadImg(backgroundImage);
-          if (cancelled) return;
-          drawCoverImage(ctx, bgImg, 0, 0, A4_WIDTH, A4_HEIGHT);
-          ctx.fillStyle = 'rgba(0,0,0,0.6)';
-          ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
-        } catch (e) {}
-      }
       await renderCompactHeader(ctx, brand);
       await document.fonts.load(`bold ${nameFontSize}px "${brand.fontBody}"`);
-      await document.fonts.load(`italic bold ${nameFontSize}px "${brand.fontBody}"`);
+      await document.fonts.load(`bold ${priceFontSize}px "${brand.fontBody}"`);
       await document.fonts.load(`${descFontSize}px "${brand.fontBody}"`);
-      let y = headerH;
+      const startY = headerH + 20;
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        const photoOnRight = i % 2 === 0; // ganjil(index genap)=teks kiri/foto kanan, gantian
-        const textX = photoOnRight ? marginX : marginX + photoColW + colGap;
-        const photoX = photoOnRight ? marginX + textColW + colGap : marginX;
-        const boxY = y,
-          boxH = rowH;
+        const col = i % cols,
+          row = Math.floor(i / cols);
+        const cx = marginX + col * (cardW + colGap);
+        const cy = startY + row * (cardH + rowGap);
 
-        // Kotak teks — border tipis putih semi-transparan, sudut sangat rounded
+        // Kartu putih, sudut rounded, shadow halus
         ctx.save();
-        roundRectPath(ctx, textX, boxY, textColW, boxH, 28);
-        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+        ctx.shadowColor = 'rgba(0,0,0,0.25)';
+        ctx.shadowBlur = 18;
+        ctx.shadowOffsetY = 4;
+        roundRectPath(ctx, cx, cy, cardW, cardH, 20);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
         ctx.restore();
-        const padIn = 30;
-        const textMaxW = textColW - padIn * 2;
-        let ty = boxY + padIn + nameFontSize * 0.8;
-        // Nama: kata pertama bold tegak + sisanya bold italic — DIBUNGKUS
-        // ke banyak baris (poin C) kalau kepanjangan untuk kotak sempit ini.
-        const words = item.name.split(' ');
-        const firstWord = words[0] || '';
-        const restWords = words.slice(1);
-        ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
-        const firstW = ctx.measureText(firstWord).width;
-        ctx.font = `italic bold ${nameFontSize}px "${brand.fontBody}"`;
-        // Baris pertama: sisa lebar setelah kata pertama; baris berikut: lebar penuh
-        const restLine0Width = textMaxW - firstW - 8;
-        let restLines = [];
-        if (restWords.length) {
-          // Coba muat sebanyak mungkin kata di baris pertama (sisa lebar),
-          // sisanya lanjut ke baris berikut (lebar penuh).
-          let idx = 0;
-          let line0 = '';
-          while (idx < restWords.length) {
-            const test = line0 ? line0 + ' ' + restWords[idx] : restWords[idx];
-            if (ctx.measureText(test).width > restLine0Width && line0) break;
-            line0 = test;
-            idx++;
-          }
-          if (line0) restLines.push(line0);
-          if (idx < restWords.length) {
-            restLines = restLines.concat(wrapWords(restWords.slice(idx), textMaxW));
-          }
-        }
-        ctx.fillStyle = cfg.textMain;
-        ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
-        ctx.fillText(firstWord, textX + padIn, ty);
-        ctx.font = `italic bold ${nameFontSize}px "${brand.fontBody}"`;
-        if (restLines[0]) ctx.fillText(' ' + restLines[0], textX + padIn + firstW, ty);
-        for (let li = 1; li < restLines.length; li++) {
-          ty += nameFontSize + 6;
-          ctx.fillText(restLines[li], textX + padIn, ty);
-        }
-        ty += 16;
-        if (item.description) {
-          ctx.font = `${descFontSize}px "${brand.fontBody}"`;
-          const descLines = wrapWords(item.description.split(' '), textMaxW).slice(0, 2);
-          ctx.fillStyle = cfg.textSub;
-          for (const line of descLines) {
-            ty += descFontSize + 6;
-            ctx.fillText(line, textX + padIn, ty);
-          }
-        }
-        ty += priceFontSize + 20;
-        ctx.fillStyle = brand.primaryColor;
-        ctx.font = `bold ${priceFontSize}px "${brand.fontBody}"`;
-        ctx.fillText(`Rp ${item.price.toLocaleString('id-ID')}`, textX + padIn, ty);
-        if (item.featured) {
-          const priceW = ctx.measureText(`Rp ${item.price.toLocaleString('id-ID')}`).width;
-          drawFeaturedBadge(ctx, textX + padIn + priceW + 16, ty - priceFontSize / 2 + 2, 0.5, 'left-middle');
-        }
 
-        // Kotak foto — mode CONTAIN (tidak crop). REVISI (poin B1):
-        // shadow & sudut rounded sekarang mengikuti UKURAN FOTO YANG
-        // BENAR-BENAR TAMPIL (hasil hitung contain), bukan kotak
-        // pembungkus penuh — ruang sisa dibiarkan KOSONG menyatu ke
-        // latar halaman, tidak ada kotak/isian apa pun di situ.
+        // Foto — mode COVER mengisi penuh area foto atas kartu, sudut
+        // rounded cuma di 2 sudut atas (ikut lengkung kartu).
+        ctx.save();
+        roundRectPathTop(ctx, cx, cy, cardW, photoH, 20);
+        ctx.clip();
         if (item.photoUrl) {
           try {
             const img = await loadImg(item.photoUrl);
             if (cancelled) return;
-            const {
-              w: iw,
-              h: ih
-            } = computeContainSize(img, photoColW, boxH);
-            const ix = photoX + (photoColW - iw) / 2,
-              iy = boxY + (boxH - ih) / 2;
-            ctx.save();
-            ctx.shadowColor = 'rgba(0,0,0,0.3)';
-            ctx.shadowBlur = 28;
-            ctx.shadowOffsetY = 3;
-            roundRectPath(ctx, ix, iy, iw, ih, 24);
-            ctx.fillStyle = cfg.pageBg;
-            ctx.fill();
-            ctx.restore();
-            ctx.save();
-            roundRectPath(ctx, ix, iy, iw, ih, 24);
-            ctx.clip();
-            ctx.drawImage(img, ix, iy, iw, ih);
-            ctx.restore();
+            drawCoverImage(ctx, img, cx, cy, cardW, photoH);
           } catch (e) {}
+        } else {
+          ctx.fillStyle = '#EEEEEE';
+          ctx.fillRect(cx, cy, cardW, photoH);
         }
-        y += boxH + rowGap;
+        ctx.restore();
+
+        // Badge harga — pil HITAM solid menempel pojok kiri-bawah foto
+        ctx.font = `bold ${priceFontSize}px "${brand.fontBody}"`;
+        const priceText = `Rp ${item.price.toLocaleString('id-ID')}`;
+        const priceW = ctx.measureText(priceText).width;
+        const badgeW = priceW + 28,
+          badgeH = 34;
+        const badgeX = cx + 14,
+          badgeY = cy + photoH - badgeH / 2;
+        roundRectPath(ctx, badgeX, badgeY, badgeW, badgeH, badgeH / 2);
+        ctx.fillStyle = 'rgba(15,15,15,0.92)';
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(priceText, badgeX + 14, badgeY + badgeH / 2 + priceFontSize * 0.35);
+
+        // Nama (kapital bold) + deskripsi (abu-abu kecil) di bawah foto
+        const padIn = 18;
+        const textMaxW = cardW - padIn * 2;
+        let ty = cy + photoH + 14 + nameFontSize * 0.8;
+        ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
+        ctx.fillStyle = '#1A1A1A';
+        const nameLines = wrapWords(item.name.toUpperCase().split(' '), textMaxW).slice(0, 2);
+        for (let li = 0; li < nameLines.length; li++) {
+          ctx.fillText(nameLines[li], cx + padIn, ty + li * (nameFontSize + 4));
+        }
+        ty += (nameLines.length - 1) * (nameFontSize + 4);
+        if (item.description) {
+          ctx.font = `${descFontSize}px "${brand.fontBody}"`;
+          ctx.fillStyle = '#8A8A8A';
+          const descLines = wrapWords(item.description.split(' '), textMaxW).slice(0, 2);
+          for (const line of descLines) {
+            ty += descFontSize + 6;
+            ctx.fillText(line, cx + padIn, ty);
+          }
+        }
+        if (item.featured) {
+          drawFeaturedBadge(ctx, cx + cardW - 26, cy + 22, 0.55);
+        }
       }
       await drawFooter(ctx, width, brand, footerToggles);
     };
@@ -3625,70 +3600,88 @@ const MenuPageCanvas = forwardRef(({
     // sebagai overlay di bagian bawah foto hero, alas supaya tag nama
     // tetap terbaca.
     // ============================================================
+    // ============================================================
+    // SOROT FAVORIT — REVISI TOTAL (referensi: Chili's Menu). 7 foto:
+    // 1 hero besar di TENGAH (memanjang penuh setinggi gabungan 3 foto
+    // samping, mode CONTAIN — foto utuh, boleh ada ruang kosong), 3
+    // foto kecil kolom KIRI, 3 foto kecil kolom KANAN. Tiap foto
+    // dibingkai kartu PUTIH tipis sudut rounded. Nama & harga pakai
+    // TEKS GELAP (bukan putih lagi). Background halaman tetap solid
+    // gelap (bukan gambar). Urutan foto ditentukan cfg.orderedIds
+    // (hasil klik-urutan user: [0]=hero, [1..3]=kiri, [4..6]=kanan) —
+    // BUKAN dari pengelompokan kategori, supaya urutan pilihan user
+    // selalu akurat lintas kategori.
+    // ============================================================
     const renderSorotFavoritLayout = async (canvas, ctx, width, grouped, cfg) => {
       const allItems = grouped.reduce((acc, g) => acc.concat(g.list), []);
-      const heroItem = allItems.find(i => i.id === cfg.heroId) || allItems[0];
-      const smallItems = allItems.filter(i => i !== heroItem).slice(0, 2);
+      const orderedIds = Array.isArray(cfg.orderedIds) ? cfg.orderedIds : [];
+      const orderedItems = orderedIds.map(id => allItems.find(it => it.id === id)).filter(Boolean);
+      const heroItem = orderedItems[0];
+      const leftItems = orderedItems.slice(1, 4);
+      const rightItems = orderedItems.slice(4, 7);
+
+      const truncate = (text, maxWidth) => {
+        if (ctx.measureText(text).width <= maxWidth) return text;
+        let t = text;
+        while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) {
+          t = t.slice(0, -1);
+        }
+        return t + '…';
+      };
+
       const headerH = await computeCompactHeaderHeight(brand);
-      const marginX = 60;
-      const gap = 24;
-      const maxHeroW = width - marginX * 2;
-      const maxHeroH = 620;
-      const nameFontSize = 22,
-        priceFontSize = 20;
+      const marginX = 46;
+      const colGap = 18;
+      const rowGap = 14;
+      const labelH = 38;
+      const bottomPad = 100;
+      const heroFontSize = 19,
+        sideFontSize = 14,
+        priceFontSize = 16;
+      const cardPad = 8; // margin putih di dalam kartu, di sekeliling foto
+
+      const availableW = width - marginX * 2 - colGap * 2;
+      const sideColW = availableW * 0.26;
+      const centerColW = availableW - sideColW * 2;
+      const availableH = A4_HEIGHT - headerH - 20 - bottomPad;
+      const sideRowH = (availableH - labelH * 3 - rowGap * 2) / 3;
+      const centerPhotoH = availableH - labelH;
+
       if (cancelled) return;
       canvas.width = A4_WIDTH * renderScale;
       canvas.height = A4_HEIGHT * renderScale;
       ctx.scale(renderScale, renderScale);
+      // Background halaman SOLID gelap (tidak lagi pakai gambar latar).
       ctx.fillStyle = cfg.pageBg;
       ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
-      if (backgroundImage) {
-        try {
-          const bgImg = await loadImg(backgroundImage);
-          if (cancelled) return;
-          drawCoverImage(ctx, bgImg, 0, 0, A4_WIDTH, A4_HEIGHT);
-          ctx.fillStyle = 'rgba(0,0,0,0.6)';
-          ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
-        } catch (e) {}
-      }
       await renderCompactHeader(ctx, brand);
-      await document.fonts.load(`bold ${nameFontSize}px "${brand.fontBody}"`);
-      let y = headerH + 20;
+      await document.fonts.load(`bold ${heroFontSize}px "${brand.fontBody}"`);
+      await document.fonts.load(`bold ${sideFontSize}px "${brand.fontBody}"`);
+      await document.fonts.load(`bold ${priceFontSize}px "${brand.fontBody}"`);
+      const startY = headerH + 20;
 
-      // Helper: tag nama pojok kiri-bawah + badge harga pojok kanan-atas,
-      // dipakai sama untuk hero maupun 2 foto kecil.
-      const drawLabelAndPrice = (x, boxY, w, h, item) => {
-        // Gradien gelap tipis di BAWAH foto — alas supaya tag nama tetap
-        // terbaca (ini satu-satunya pemakaian gradien, BUKAN sebagai
-        // pemisah antar foto).
-        const grad = ctx.createLinearGradient(x, boxY + h * 0.6, x, boxY + h);
-        grad.addColorStop(0, 'rgba(0,0,0,0)');
-        grad.addColorStop(1, 'rgba(0,0,0,0.65)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(x, boxY + h * 0.6, w, h * 0.4);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
-        ctx.fillText(item.name, x + 16, boxY + h - 18, w - 32);
-        drawPriceBadge(ctx, `Rp ${item.price.toLocaleString('id-ID')}`, x + w - 60, boxY + 34, {
-          scale: 0.85,
-          shape: 'pill',
-          bg: '#FFFFFF',
-          textColor: cfg.pageBg,
-          fontSize: priceFontSize
-        });
-      };
-      const drawPhotoBox = async (x, boxY, w, h, item, radius) => {
+      // Menggambar 1 foto: kartu putih + foto (contain, letterbox putih
+      // kalau rasio tidak pas) + badge harga menempel foto + nama di
+      // BAWAH kartu (bukan menjorok di dalam foto lagi).
+      const drawCard = async (x, y, w, h, item, nameFontSize) => {
         ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.35)';
-        ctx.shadowBlur = 26;
-        ctx.shadowOffsetY = 4;
-        roundRectPath(ctx, x, boxY, w, h, radius);
-        ctx.fillStyle = '#1E1E22';
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 16;
+        ctx.shadowOffsetY = 3;
+        roundRectPath(ctx, x, y, w, h, 16);
+        ctx.fillStyle = '#FFFFFF';
         ctx.fill();
         ctx.restore();
+
+        const px = x + cardPad,
+          py = y + cardPad,
+          pw = w - cardPad * 2,
+          ph = h - cardPad * 2;
         ctx.save();
-        roundRectPath(ctx, x, boxY, w, h, radius);
+        roundRectPath(ctx, px, py, pw, ph, 10);
         ctx.clip();
+        ctx.fillStyle = '#F0F0F0';
+        ctx.fillRect(px, py, pw, ph);
         if (item && item.photoUrl) {
           try {
             const img = await loadImg(item.photoUrl);
@@ -3696,39 +3689,60 @@ const MenuPageCanvas = forwardRef(({
               const {
                 w: iw,
                 h: ih
-              } = computeContainSize(img, w, h);
-              ctx.drawImage(img, x + (w - iw) / 2, boxY + (h - ih) / 2, iw, ih);
+              } = computeContainSize(img, pw, ph);
+              ctx.drawImage(img, px + (pw - iw) / 2, py + (ph - ih) / 2, iw, ih);
             }
           } catch (e) {}
         }
-        if (item) drawLabelAndPrice(x, boxY, w, h, item);
         ctx.restore();
+
+        if (item) {
+          // Badge harga — pil putih solid, teks gelap, menempel pojok
+          // kanan-atas FOTO (bukan di area kartu putihnya).
+          ctx.font = `bold ${priceFontSize}px "${brand.fontBody}"`;
+          const priceText = `Rp ${item.price.toLocaleString('id-ID')}`;
+          const priceW = ctx.measureText(priceText).width;
+          const badgeW = Math.min(priceW + 22, pw - 12),
+            badgeH = 26;
+          const badgeX = px + pw - badgeW - 8,
+            badgeY = py + 8;
+          ctx.save();
+          ctx.shadowColor = 'rgba(0,0,0,0.25)';
+          ctx.shadowBlur = 6;
+          roundRectPath(ctx, badgeX, badgeY, badgeW, badgeH, badgeH / 2);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fill();
+          ctx.restore();
+          ctx.fillStyle = '#1A1A1A';
+          ctx.fillText(truncate(priceText, badgeW - 16), badgeX + 10, badgeY + badgeH / 2 + priceFontSize * 0.35);
+
+          // Nama — di BAWAH kartu, teks gelap, dipotong 1 baris (ellipsis)
+          ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
+          ctx.fillStyle = '#1A1A1A';
+          const nameY = y + h + labelH / 2 + nameFontSize * 0.35;
+          ctx.fillText(truncate(item.name, w), x, nameY);
+        }
       };
 
-      // Hero — ukuran AREA menyesuaikan rasio asli foto (dalam batas
-      // maksimum maxHeroW x maxHeroH), bukan foto dipaksa ke kotak tetap.
-      let heroW = maxHeroW,
-        heroH = 380; // fallback kalau belum ada foto sama sekali
-      if (heroItem && heroItem.photoUrl) {
-        try {
-          const img = await loadImg(heroItem.photoUrl);
-          if (cancelled) return;
-          const size = computeContainSize(img, maxHeroW, maxHeroH);
-          heroW = size.w;
-          heroH = size.h;
-        } catch (e) {}
+      // Kolom KIRI — 3 foto kecil bertumpuk
+      let ly = startY;
+      for (let i = 0; i < 3; i++) {
+        await drawCard(marginX, ly, sideColW, sideRowH, leftItems[i], sideFontSize);
+        ly += sideRowH + labelH + rowGap;
       }
-      const heroX = marginX + (maxHeroW - heroW) / 2;
-      if (heroItem) await drawPhotoBox(heroX, y, heroW, heroH, heroItem, 28);
-      y += heroH + gap;
 
-      // 2 foto kecil PERSEGI berjajar di bawah hero
-      const smallSize = (maxHeroW - gap) / 2;
-      for (let i = 0; i < 2; i++) {
-        const sx = marginX + i * (smallSize + gap);
-        await drawPhotoBox(sx, y, smallSize, smallSize, smallItems[i], 22);
+      // HERO — tengah, memanjang penuh, mode contain di dalam kartu
+      const centerX = marginX + sideColW + colGap;
+      await drawCard(centerX, startY, centerColW, centerPhotoH, heroItem, heroFontSize);
+
+      // Kolom KANAN — 3 foto kecil bertumpuk
+      const rightX = centerX + centerColW + colGap;
+      let ry = startY;
+      for (let i = 0; i < 3; i++) {
+        await drawCard(rightX, ry, sideColW, sideRowH, rightItems[i], sideFontSize);
+        ry += sideRowH + labelH + rowGap;
       }
-      y += smallSize;
+
       await drawFooter(ctx, width, brand, footerToggles);
     };
 
