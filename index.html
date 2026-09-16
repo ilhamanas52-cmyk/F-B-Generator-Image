@@ -2069,6 +2069,7 @@ const MenuPageGenerator = memo(({
   const [photoUrl, setPhotoUrl] = useState(''); // override manual dari default (poin A)
   const [genError, setGenError] = useState('');
   const [lastGenUrl, setLastGenUrl] = useState('');
+  const [pasteNotice, setPasteNotice] = useState(''); // Pesan modal "prompt sudah disalin, tinggal paste" (poin 2)
   // Poin D — Sorot Favorit: pilihan manual TEPAT 3 item + 1 di antaranya jadi hero.
   // Sorot Favorit — sistem KLIK URUTAN (bukan lagi checkbox+radio
   // terpisah). Array ini menyimpan id item PERSIS sesuai urutan klik:
@@ -2158,7 +2159,7 @@ const MenuPageGenerator = memo(({
     };
     reader.readAsDataURL(file);
   };
-  const handleGenerateAI = () => {
+  const handleGenerateAI = async () => {
     if (filteredMenu.length === 0) {
       setGenError("Belum ada menu untuk kategori ini");
       return;
@@ -2166,8 +2167,17 @@ const MenuPageGenerator = memo(({
     setGenError('');
     const styleHint = MENU_STYLE_PRESETS[selectedStyle].promptHint;
     const lighting = pickVariant(LIGHTING_VARIANTS, lightingLastRef);
-    const url = openChatGPTGenerate(`background suasana untuk halaman menu restoran/cafe ${brand.name}, ${styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, seluruh area kosong bersih tanpa teks/watermark/elemen desain apapun (akan ditambahkan daftar menu secara terpisah), format vertikal poster. ${lighting} ${QUALITY_PROHIBITION_LAYER}`);
+    const promptText = `background suasana untuk halaman menu restoran/cafe ${brand.name}, ${styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, seluruh area kosong bersih tanpa teks/watermark/elemen desain apapun (akan ditambahkan daftar menu secara terpisah), format vertikal poster. ${lighting} ${QUALITY_PROHIBITION_LAYER}`;
+    const fullPrompt = `Buatkan gambar: ${promptText}, high quality, appetizing food photography atmosphere`;
+    // REVISI: SELALU copy manual ke clipboard + notif (bukan lagi auto-buka
+    // tab dengan teks otomatis terisi), apa pun panjang promptnya.
+    try {
+      await navigator.clipboard.writeText(fullPrompt);
+    } catch (e) {}
+    const url = 'https://chatgpt.com/';
+    window.open(url, '_blank');
     setLastGenUrl(url);
+    setPasteNotice('Prompt sudah disalin ke clipboard. Tab ChatGPT kosong akan terbuka — tinggal paste (Ctrl+V) lalu kirim.');
   };
   const download = () => {
     const data = canvasRef.current.toDataURL('image/png');
@@ -2287,17 +2297,7 @@ const MenuPageGenerator = memo(({
     type: "button",
     onClick: () => setPhotoUrl(''),
     className: "text-sm text-gray-500 underline"
-  }, "Pakai gambar bawaan lagi")), /*#__PURE__*/React.createElement("label", {
-    className: "text-sm font-semibold tracking-wide uppercase text-gray-500 block mb-1 pt-2"
-  }, "Kualitas File"), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-2"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setQuality('screen'),
-    className: `p-3.5 min-h-[44px] rounded text-base font-bold ${quality === 'screen' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
-  }, "Untuk Layar"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setQuality('print'),
-    className: `p-3.5 min-h-[44px] rounded text-base font-bold ${quality === 'print' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
-  }, "Untuk Cetak")), isSorotFavorit && /*#__PURE__*/React.createElement("div", {
+  }, "Pakai gambar bawaan lagi")), isSorotFavorit && /*#__PURE__*/React.createElement("div", {
     className: "space-y-2 pt-2 border-t border-[#242430]"
   }, /*#__PURE__*/React.createElement("label", {
     className: "text-sm font-semibold tracking-wide uppercase text-gray-500 block"
@@ -2331,11 +2331,7 @@ const MenuPageGenerator = memo(({
     }, "▼")));
   }), /*#__PURE__*/React.createElement("p", {
     className: `text-sm ${sorotReady ? 'text-green-500' : 'text-yellow-500'}`
-  }, sorotOrderedIds.length, " dari 7 dipilih", !sorotReady && ' — klik menu sampai pas 7.')), /*#__PURE__*/React.createElement("button", {
-    onClick: download,
-    disabled: isSorotFavorit && !sorotReady,
-    className: `w-full min-h-[44px] text-white p-3.5 rounded-lg transition-all font-semibold text-base ${isSorotFavorit && !sorotReady ? 'bg-gray-700 cursor-not-allowed opacity-60' : 'bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30'}`
-  }, "Unduh Halaman Menu"), isTruncated && /*#__PURE__*/React.createElement("p", {
+  }, sorotOrderedIds.length, " dari 7 dipilih", !sorotReady && ' — klik menu sampai pas 7.')), isTruncated && /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-yellow-500 bg-[#0A0A0D] border border-yellow-700 rounded p-2"
   }, "⚠ Menampilkan ", displayedMenu.length, " dari ", filteredMenu.length, " menu — gaya ", MENU_STYLE_PRESETS[selectedStyle].label, " maksimal ", ITEM_CAP, " menu per halaman supaya tetap terbaca jelas. Saring kategori atau ganti gaya untuk menu lebih banyak."), /*#__PURE__*/React.createElement(MenuPageCanvas, {
     ref: canvasRef,
@@ -2344,9 +2340,33 @@ const MenuPageGenerator = memo(({
     styleConfig: effectiveStyleConfig,
     renderScale: quality === 'print' ? PRINT_SCALE : SCREEN_SCALE,
     footerToggles: footerToggles
-  }));
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-sm font-semibold tracking-wide uppercase text-gray-500 block mb-1 pt-2"
+  }, "Kualitas File"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setQuality('screen'),
+    className: `p-3.5 min-h-[44px] rounded text-base font-bold ${quality === 'screen' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, "Untuk Layar"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setQuality('print'),
+    className: `p-3.5 min-h-[44px] rounded text-base font-bold ${quality === 'print' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, "Untuk Cetak")), /*#__PURE__*/React.createElement("button", {
+    onClick: download,
+    disabled: isSorotFavorit && !sorotReady,
+    className: `w-full min-h-[44px] text-white p-3.5 rounded-lg transition-all font-semibold text-base ${isSorotFavorit && !sorotReady ? 'bg-gray-700 cursor-not-allowed opacity-60' : 'bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30'}`
+  }, "Unduh Halaman Menu"), pasteNotice && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4",
+    onClick: () => setPasteNotice('')
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-[#15151b] border border-[#242430] rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-200 leading-relaxed"
+  }, pasteNotice), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPasteNotice(''),
+    className: "w-full p-2.5 rounded-lg font-semibold text-sm bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white hover:from-[#6366F1] hover:to-[#4F46E5] hover:scale-[1.02] transition-all"
+  }, "Mengerti"))));
 });
-
 // ============================================================
 // COVER BUKU MENU (BARU, poin H) — section TERPISAH di dalam tab
 // Menu (bukan tab navigasi baru), untuk halaman sampul depan buku
@@ -3290,12 +3310,22 @@ const MenuPageCanvas = forwardRef(({
       const bottomPad = 100;
       const availableBody = A4_HEIGHT - headerH - 20 - bottomPad;
       const cardH = (availableBody - rowGap * (rows - 1)) / rows;
-      // REVISI: foto dipersempit sedikit (0.58 -> 0.5) supaya area
-      // nama+deskripsi+harga di bawah lebih lega, tidak mepet.
-      const photoH = cardH * 0.5;
-      const nameFontSize = 22,
-        descFontSize = 15,
-        priceFontSize = 18;
+      // REVISI: zona teks dikunci TETAP ~110px (bukan proporsi persen),
+      // sisanya (jauh lebih besar) diberikan ke foto — supaya tidak ada
+      // ruang kosong menganggur seperti sebelumnya.
+      const textZoneH = 110;
+      const photoH = cardH - textZoneH;
+      const nameFontSize = 20,
+        descFontSize = 13,
+        priceFontSize = 16;
+      const truncate = (text, maxWidth) => {
+        if (ctx.measureText(text).width <= maxWidth) return text;
+        let t = text;
+        while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) {
+          t = t.slice(0, -1);
+        }
+        return t + '…';
+      };
       if (cancelled) return;
       canvas.width = A4_WIDTH * renderScale;
       canvas.height = A4_HEIGHT * renderScale;
@@ -3330,8 +3360,8 @@ const MenuPageCanvas = forwardRef(({
         ctx.fill();
         ctx.restore();
 
-        // Foto — mode COVER mengisi penuh area foto atas kartu, sudut
-        // rounded cuma di 2 sudut atas (ikut lengkung kartu).
+        // Foto — mode COVER mengisi penuh area foto atas kartu (sekarang
+        // jauh lebih besar), sudut rounded cuma di 2 sudut atas.
         ctx.save();
         roundRectPathTop(ctx, cx, cy, cardW, photoH, 20);
         ctx.clip();
@@ -3347,58 +3377,43 @@ const MenuPageCanvas = forwardRef(({
         }
         ctx.restore();
 
-        // Nama, deskripsi, dan badge harga — SEMUA di bawah foto,
-        // teks TERANG, konten di-tengah VERTIKAL dalam sisa ruang
-        // supaya tidak ada area kosong menganggur di bawah (REVISI).
+        // Zona teks — nama+deskripsi di KIRI (rata atas, 1 baris
+        // dipotong "..."), badge harga di KANAN (sejajar vertikal,
+        // di-tengah zona) — SERAGAM tinggi & posisi di semua kartu
+        // (tidak bergantung ada/tidaknya deskripsi).
         const padIn = 18;
-        const textMaxW = cardW - padIn * 2;
-        ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
-        const nameLines = wrapWords(item.name.toUpperCase().split(' '), textMaxW).slice(0, 2);
-        let descLines = [];
-        if (item.description) {
-          ctx.font = `${descFontSize}px "${brand.fontBody}"`;
-          descLines = wrapWords(item.description.split(' '), textMaxW).slice(0, 2);
-        }
-        const priceText = `Rp ${item.price.toLocaleString('id-ID')}`;
-        ctx.font = `bold ${priceFontSize}px "${brand.fontBody}"`;
-        const priceW = ctx.measureText(priceText).width;
-        const badgeW = priceW + 28,
-          badgeH = 32;
-
-        const nameBlockH = nameLines.length * (nameFontSize + 4);
-        const descBlockH = descLines.length ? 10 + descLines.length * (descFontSize + 6) : 0;
-        const priceBlockH = 16 + badgeH;
-        const contentH = nameBlockH + descBlockH + priceBlockH;
-        const belowPhotoZoneH = cardH - photoH;
-        let ty = cy + photoH + Math.max((belowPhotoZoneH - contentH) / 2, 12) + nameFontSize * 0.8;
+        const textZoneY = cy + photoH;
+        const splitX = cx + cardW * 0.62;
+        const leftMaxW = splitX - (cx + padIn) - 10;
+        const rightX = splitX;
+        const rightMaxW = cx + cardW - padIn - rightX;
 
         ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
         ctx.fillStyle = cfg.textMain;
-        for (let li = 0; li < nameLines.length; li++) {
-          ctx.fillText(nameLines[li], cx + padIn, ty + li * (nameFontSize + 4));
-        }
-        ty += (nameLines.length - 1) * (nameFontSize + 4);
+        let ty = textZoneY + 18 + nameFontSize * 0.8;
+        ctx.fillText(truncate(item.name.toUpperCase(), leftMaxW), cx + padIn, ty);
 
-        if (descLines.length) {
+        if (item.description) {
+          ty += descFontSize + 8;
           ctx.font = `${descFontSize}px "${brand.fontBody}"`;
           ctx.fillStyle = cfg.textSub;
-          for (const line of descLines) {
-            ty += descFontSize + 6;
-            ctx.fillText(line, cx + padIn, ty);
-          }
+          ctx.fillText(truncate(item.description, leftMaxW), cx + padIn, ty);
         }
 
-        // Badge harga — pil warna AKSEN BRAND, di BAWAH nama+deskripsi
-        // (bukan lagi menempel di pojok foto).
-        ty += 16;
-        const badgeX = cx + padIn,
-          badgeY = ty;
+        // Badge harga — pil warna AKSEN BRAND, di KANAN, di-tengah
+        // vertikal zona teks.
+        const priceText = `Rp ${item.price.toLocaleString('id-ID')}`;
+        ctx.font = `bold ${priceFontSize}px "${brand.fontBody}"`;
+        const priceW = Math.min(ctx.measureText(priceText).width, rightMaxW - 22);
+        const badgeW = priceW + 22,
+          badgeH = 30;
+        const badgeX = rightX,
+          badgeY = textZoneY + (textZoneH - badgeH) / 2;
         roundRectPath(ctx, badgeX, badgeY, badgeW, badgeH, badgeH / 2);
         ctx.fillStyle = brand.primaryColor;
         ctx.fill();
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = `bold ${priceFontSize}px "${brand.fontBody}"`;
-        ctx.fillText(priceText, badgeX + 14, badgeY + badgeH / 2 + priceFontSize * 0.35);
+        ctx.fillText(truncate(priceText, badgeW - 16), badgeX + 11, badgeY + badgeH / 2 + priceFontSize * 0.35);
 
         if (item.featured) {
           drawFeaturedBadge(ctx, cx + cardW - 26, cy + 22, 0.55);
@@ -3709,13 +3724,31 @@ const MenuPageCanvas = forwardRef(({
       await document.fonts.load(`${descFontSize}px "${brand.fontBody}"`);
       const startY = headerH + 20;
 
+      // REVISI (poin 4): mode foto khusus HERO — foto TIDAK lagi
+      // mengikuti sisi terpanjang kotak (yang bikin crop kiri-kanan
+      // parah). Sebagai gantinya: potong 10% dari KIRI dan 10% dari
+      // KANAN foto asli (sisakan 80% tengah), lalu pas-kan sisa lebar
+      // itu MENTOK selebar kotak (tidak ada celah kiri-kanan). Kalau
+      // hasil tingginya lebih PENDEK dari kotak → dibiarkan kosong
+      // (di-tengah vertikal). Kalau lebih PANJANG → dipotong (clip,
+      // sudah ditangani oleh clip-path pemanggil).
+      const drawHeroPhoto = (img, x, y, w, h) => {
+        const trimmedW = img.width * 0.8;
+        const srcX = img.width * 0.1;
+        const scale = w / trimmedW;
+        const destH = img.height * scale;
+        const destY = y + (h - destH) / 2;
+        ctx.drawImage(img, srcX, 0, trimmedW, img.height, x, destY, w, destH);
+      };
+
       // Menggambar 1 foto: foto POLOS (tanpa bingkai kartu putih lagi),
       // mode COVER (mengisi penuh, boleh terpotong) supaya foto selalu
       // tampil maksimal mentok lebar/tinggi kotaknya — sesuai revisi.
       // Nama + deskripsi + badge harga SEMUA persis di bawah foto,
       // teks TERANG. Slot kosong (belum dipilih) tetap jadi placeholder
-      // putus-putus.
-      const drawCard = async (x, y, w, h, item, nameFontSize) => {
+      // putus-putus. photoMode: 'cover' (default, 6 foto samping) atau
+      // 'hero' (foto utama, pakai drawHeroPhoto).
+      const drawCard = async (x, y, w, h, item, nameFontSize, photoMode = 'cover') => {
         if (!item) {
           ctx.save();
           ctx.strokeStyle = 'rgba(255,255,255,0.35)';
@@ -3748,7 +3781,11 @@ const MenuPageCanvas = forwardRef(({
           try {
             const img = await loadImg(item.photoUrl);
             if (!cancelled) {
-              drawCoverImage(ctx, img, x, y, w, h);
+              if (photoMode === 'hero') {
+                drawHeroPhoto(img, x, y, w, h);
+              } else {
+                drawCoverImage(ctx, img, x, y, w, h);
+              }
             }
           } catch (e) {}
         }
@@ -3792,10 +3829,10 @@ const MenuPageCanvas = forwardRef(({
         ly += sideRowH + labelH + rowGap;
       }
 
-      // HERO — tengah, memanjang penuh, mode COVER (mentok lebar,
-      // boleh terpotong atas/bawah) supaya foto selalu tampil besar.
+      // HERO — tengah, memanjang penuh, mode trim 10% kiri-kanan +
+      // fit-lebar (lihat drawHeroPhoto) supaya foto selalu tampil besar.
       const centerX = marginX + sideColW + colGap;
-      await drawCard(centerX, startY, centerColW, centerPhotoH, heroItem, heroFontSize);
+      await drawCard(centerX, startY, centerColW, centerPhotoH, heroItem, heroFontSize, 'hero');
 
       // Kolom KANAN — 3 foto kecil bertumpuk
       const rightX = centerX + centerColW + colGap;
