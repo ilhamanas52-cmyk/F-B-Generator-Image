@@ -2114,6 +2114,18 @@ const MenuPageGenerator = memo(({
       return [...prev, id];
     });
   };
+  // Tukar posisi urutan item terpilih (tombol panah ▲▼) — supaya user
+  // bisa perbaiki urutan tanpa batal-pilih-ulang dari awal.
+  const moveSorotOrder = (id, dir) => {
+    setSorotOrderedIds(prev => {
+      const idx = prev.indexOf(id);
+      const newIdx = idx + dir;
+      if (idx === -1 || newIdx < 0 || newIdx >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+      return next;
+    });
+  };
   // Poin A: gambar latar bawaan otomatis ada per gaya — panel ini cuma
   // untuk GANTI (opsional), bukan wajib.
   const handlePhoto = e => {
@@ -2296,18 +2308,27 @@ const MenuPageGenerator = memo(({
   }, "Belum ada menu — tambah dulu di atas."), menu.map(item => {
     const orderIdx = sorotOrderedIds.indexOf(item.id);
     const selected = orderIdx !== -1;
-    const roleLabel = orderIdx === 0 ? 'Hero' : orderIdx >= 1 && orderIdx <= 3 ? 'Kiri' : orderIdx >= 4 ? 'Kanan' : '';
-    return /*#__PURE__*/React.createElement("button", {
+    return /*#__PURE__*/React.createElement("div", {
       key: item.id,
+      className: `flex items-center gap-2 rounded-lg p-2 border transition-colors ${selected ? 'bg-[#E8102B]/10 border-[#E8102B]' : 'bg-[#0D0D12] border-[#242430]'}`
+    }, /*#__PURE__*/React.createElement("button", {
       onClick: () => toggleSorotSelect(item.id),
-      className: `w-full flex items-center gap-3 rounded-lg p-2.5 text-left border transition-colors ${selected ? 'bg-[#E8102B]/10 border-[#E8102B]' : 'bg-[#0D0D12] border-[#242430]'}`
+      className: "flex items-center gap-3 flex-1 min-h-[44px] text-left"
     }, /*#__PURE__*/React.createElement("span", {
       className: `w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-sm font-bold ${selected ? 'bg-[#E8102B] text-white' : 'bg-[#242430] text-gray-500'}`
     }, selected ? orderIdx + 1 : ''), /*#__PURE__*/React.createElement("span", {
       className: "flex-1 text-base text-gray-300"
-    }, item.name), selected && /*#__PURE__*/React.createElement("span", {
-      className: "text-sm text-gray-500"
-    }, roleLabel));
+    }, item.name)), selected && /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-col shrink-0"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => moveSorotOrder(item.id, -1),
+      disabled: orderIdx === 0,
+      className: `w-8 h-6 flex items-center justify-center rounded text-sm ${orderIdx === 0 ? 'text-gray-700 cursor-not-allowed' : 'text-gray-400 hover:bg-[#242430]'}`
+    }, "▲"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => moveSorotOrder(item.id, 1),
+      disabled: orderIdx === sorotOrderedIds.length - 1,
+      className: `w-8 h-6 flex items-center justify-center rounded text-sm ${orderIdx === sorotOrderedIds.length - 1 ? 'text-gray-700 cursor-not-allowed' : 'text-gray-400 hover:bg-[#242430]'}`
+    }, "▼")));
   }), /*#__PURE__*/React.createElement("p", {
     className: `text-sm ${sorotReady ? 'text-green-500' : 'text-yellow-500'}`
   }, sorotOrderedIds.length, " dari 7 dipilih", !sorotReady && ' — klik menu sampai pas 7.')), /*#__PURE__*/React.createElement("button", {
@@ -2316,7 +2337,7 @@ const MenuPageGenerator = memo(({
     className: `w-full min-h-[44px] text-white p-3.5 rounded-lg transition-all font-semibold text-base ${isSorotFavorit && !sorotReady ? 'bg-gray-700 cursor-not-allowed opacity-60' : 'bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30'}`
   }, "Unduh Halaman Menu"), isTruncated && /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-yellow-500 bg-[#0A0A0D] border border-yellow-700 rounded p-2"
-  }, "⚠ Menampilkan ", displayedMenu.length, " dari ", filteredMenu.length, " menu — gaya ", MENU_STYLE_PRESETS[selectedStyle].label, " maksimal ", ITEM_CAP, " menu per halaman supaya tetap terbaca jelas. Saring kategori atau ganti gaya untuk menu lebih banyak."), (!isSorotFavorit || sorotReady) && /*#__PURE__*/React.createElement(MenuPageCanvas, {
+  }, "⚠ Menampilkan ", displayedMenu.length, " dari ", filteredMenu.length, " menu — gaya ", MENU_STYLE_PRESETS[selectedStyle].label, " maksimal ", ITEM_CAP, " menu per halaman supaya tetap terbaca jelas. Saring kategori atau ganti gaya untuk menu lebih banyak."), /*#__PURE__*/React.createElement(MenuPageCanvas, {
     ref: canvasRef,
     backgroundImage: photoUrl,
     items: displayedMenu,
@@ -3662,8 +3683,27 @@ const MenuPageCanvas = forwardRef(({
 
       // Menggambar 1 foto: kartu putih + foto (contain, letterbox putih
       // kalau rasio tidak pas) + badge harga menempel foto + nama di
-      // BAWAH kartu (bukan menjorok di dalam foto lagi).
+      // BAWAH kartu (bukan menjorok di dalam foto lagi). Kalau item
+      // belum dipilih (slot kosong), gambar PLACEHOLDER kotak
+      // putus-putus + teks "Belum dipilih" — tanda visual jelas kalau
+      // pilihan masih kurang, tanpa memblokir preview keseluruhan.
       const drawCard = async (x, y, w, h, item, nameFontSize) => {
+        if (!item) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([8, 6]);
+          roundRectPath(ctx, x, y, w, h, 16);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(255,255,255,0.35)';
+          ctx.font = `${Math.max(nameFontSize - 3, 11)}px "${brand.fontBody}"`;
+          ctx.textAlign = 'center';
+          ctx.fillText('Belum dipilih', x + w / 2, y + h / 2);
+          ctx.textAlign = 'left';
+          ctx.restore();
+          return;
+        }
         ctx.save();
         ctx.shadowColor = 'rgba(0,0,0,0.3)';
         ctx.shadowBlur = 16;
