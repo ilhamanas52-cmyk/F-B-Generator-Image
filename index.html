@@ -675,6 +675,23 @@ const LOGO_POSITIONS = {
 // atas permintaan user) — pembeda kerangka datang dari SUSUNAN
 // layoutnya, bukan dari bentuk potongan foto.
 // Klasik & Elegan SENGAJA tidak pernah diubah sama sekali.
+// ============================================================
+// GAMBAR LATAR DEFAULT (poin A, direvisi) — dipindah dari base64
+// tertanam ke URL GitHub (raw.githubusercontent.com) supaya index.html
+// tetap ringan. Server GitHub mengizinkan akses lintas-domain
+// (Access-Control-Allow-Origin: *) sehingga aman dipakai di kanvas
+// selama loadImg/loadImgLocal meminta crossOrigin='anonymous'.
+const GITHUB_ASSET_BASE = 'https://raw.githubusercontent.com/ilhamanas52-cmyk/F-B-Generator-Image/main/assets/menu-backgrounds';
+const DEFAULT_MENU_BACKGROUNDS = {
+  colorBlock: `${GITHUB_ASSET_BASE}/colorBlock.jpg`,
+  heroGlow: `${GITHUB_ASSET_BASE}/heroGlow.jpg`,
+  butcherStyle: `${GITHUB_ASSET_BASE}/butcherStyle.jpg`,
+  gridNomor: `${GITHUB_ASSET_BASE}/gridNomor.jpg`,
+  kolomKategori: `${GITHUB_ASSET_BASE}/kolomKategori.jpg`,
+  sorotFavorit: `${GITHUB_ASSET_BASE}/sorotFavorit.jpg`,
+  cover: `${GITHUB_ASSET_BASE}/cover.jpg`
+};
+
 const MENU_STYLE_PRESETS = {
   colorBlock: {
     label: 'Blok Warna Berani',
@@ -739,6 +756,20 @@ const MENU_STYLE_PRESETS = {
     textSub: 'rgba(255,255,255,0.7)',
     dividerColor: '#F2A23D',
     promptHint: 'gaya menu cetak padat ala koran/majalah, latar gelap solid, tipografi rapi terstruktur 3 kolom'
+  },
+  sorotFavorit: {
+    label: 'Sorot Favorit',
+    layoutKey: 'sorotFavorit',
+    // BARU (poin D) — HANYA 3 foto: 1 hero besar (dipilih user) + 2
+    // foto kecil di bawahnya. Ukuran area hero menyesuaikan rasio asli
+    // foto (tidak dipaksa landscape/potrait). Item dipilih manual lewat
+    // UI khusus (bukan otomatis dari kategori/urutan).
+    itemCap: 3,
+    pageBg: '#141414',
+    textMain: '#FFFFFF',
+    textSub: 'rgba(255,255,255,0.75)',
+    dividerColor: '#E8C468',
+    promptHint: 'gaya poster menu spotlight, 1 foto utama besar dikelilingi foto pendukung, kesan premium dan mengundang'
   }
 };
 
@@ -2033,10 +2064,17 @@ const MenuPageGenerator = memo(({
   const [selectedStyle, setSelectedStyle] = useState('colorBlock');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [quality, setQuality] = useState('screen'); // 'screen' (ringan) | 'print' (tajam untuk A4)
+  const [photoUrl, setPhotoUrl] = useState(''); // override manual dari default (poin A)
+  const [genError, setGenError] = useState('');
+  const [lastGenUrl, setLastGenUrl] = useState('');
+  // Poin D — Sorot Favorit: pilihan manual TEPAT 3 item + 1 di antaranya jadi hero.
+  const [sorotSelectedIds, setSorotSelectedIds] = useState([]);
+  const [sorotHeroId, setSorotHeroId] = useState('');
   const canvasRef = useRef();
   const brand = useContext(BrandContext);
   const plan = useContext(PlanContext);
-  // Reguler dapat 2 gaya (Blok Warna Berani, Hero Glow), Pro dapat semua gaya termasuk 3 gaya baru.
+  const lightingLastRef = useRef(-1);
+  // Reguler dapat 2 gaya (Blok Warna Berani, Hero Glow), Pro dapat semua gaya termasuk 4 gaya baru.
   const FREE_MENU_STYLES = ['colorBlock', 'heroGlow'];
   // Kategori diturunkan langsung dari data item (tidak ada lagi state
   // kategori terpisah) — urutan sesuai kemunculan pertama di daftar menu.
@@ -2046,8 +2084,72 @@ const MenuPageGenerator = memo(({
   // masing-masing halaman — supaya halaman SELALU pas A4 tanpa foto/font
   // dipaksa menyusut ekstrem atau halaman memanjang.
   const ITEM_CAP = MENU_STYLE_PRESETS[selectedStyle].itemCap;
-  const displayedMenu = filteredMenu.slice(0, ITEM_CAP);
-  const isTruncated = filteredMenu.length > ITEM_CAP;
+  const isSorotFavorit = selectedStyle === 'sorotFavorit';
+  // Poin D — Sorot Favorit pakai 3 item PILIHAN MANUAL (bukan filter
+  // kategori/urutan otomatis seperti gaya lain).
+  const sorotReady = isSorotFavorit && sorotSelectedIds.length === 3 && sorotSelectedIds.includes(sorotHeroId);
+  const displayedMenu = isSorotFavorit ? menu.filter(m => sorotSelectedIds.includes(m.id)) : filteredMenu.slice(0, ITEM_CAP);
+  const isTruncated = !isSorotFavorit && filteredMenu.length > ITEM_CAP;
+  // Style config dikirim ke canvas — untuk Sorot Favorit disisipi
+  // heroId (item mana yang jadi foto besar), dipilih user lewat radio.
+  const effectiveStyleConfig = isSorotFavorit ? {
+    ...MENU_STYLE_PRESETS[selectedStyle],
+    heroId: sorotHeroId
+  } : MENU_STYLE_PRESETS[selectedStyle];
+  const toggleSorotSelect = id => {
+    setSorotSelectedIds(prev => {
+      if (prev.includes(id)) {
+        const next = prev.filter(x => x !== id);
+        if (sorotHeroId === id) setSorotHeroId('');
+        return next;
+      }
+      if (prev.length >= 3) return prev; // sudah 3, tidak bisa tambah lagi
+      return [...prev, id];
+    });
+  };
+  // Poin A: gambar latar bawaan otomatis ada per gaya — panel ini cuma
+  // untuk GANTI (opsional), bukan wajib.
+  const handlePhoto = e => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1400;
+        let w = img.width,
+          h = img.height;
+        if (w > h) {
+          if (w > maxDim) {
+            h *= maxDim / w;
+            w = maxDim;
+          }
+        } else {
+          if (h > maxDim) {
+            w *= maxDim / h;
+            h = maxDim;
+          }
+        }
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        setPhotoUrl(c.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  const handleGenerateAI = () => {
+    if (filteredMenu.length === 0) {
+      setGenError("Belum ada menu untuk kategori ini");
+      return;
+    }
+    setGenError('');
+    const styleHint = MENU_STYLE_PRESETS[selectedStyle].promptHint;
+    const lighting = pickVariant(LIGHTING_VARIANTS, lightingLastRef);
+    const url = openChatGPTGenerate(`background suasana untuk halaman menu restoran/cafe ${brand.name}, ${styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, seluruh area kosong bersih tanpa teks/watermark/elemen desain apapun (akan ditambahkan daftar menu secara terpisah), format vertikal poster. ${lighting} ${QUALITY_PROHIBITION_LAYER}`);
+    setLastGenUrl(url);
+  };
   const download = () => {
     const data = canvasRef.current.toDataURL('image/png');
     const a = document.createElement('a');
@@ -2145,7 +2247,29 @@ const MenuPageGenerator = memo(({
       }
     })
   }), "Tampilkan Barcode")), /*#__PURE__*/React.createElement("label", {
-    className: "text-sm font-semibold tracking-wide uppercase text-gray-500 block mb-1"
+    className: "text-sm font-semibold tracking-wide uppercase text-gray-500 block mb-1 pt-2"
+  }, "Ganti Gambar Latar (Opsional)"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-500"
+  }, "Tiap gaya sudah punya gambar latar bawaan. Kosongkan saja kalau sudah cocok — isi kalau mau ganti."), /*#__PURE__*/React.createElement("button", {
+    onClick: handleGenerateAI,
+    className: "w-full min-h-[44px] bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-3.5 rounded-lg transition-all font-medium text-base"
+  }, "Buat Gambar Latar"), lastGenUrl && /*#__PURE__*/React.createElement("a", {
+    href: lastGenUrl,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "block text-center text-sm text-purple-400 hover:text-purple-300 underline"
+  }, "Tab tidak otomatis terbuka? Klik di sini"), genError && /*#__PURE__*/React.createElement("p", {
+    className: "text-red-500 text-sm"
+  }, genError), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    onChange: handlePhoto,
+    className: "text-gray-400 text-base"
+  }), photoUrl && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => setPhotoUrl(''),
+    className: "text-sm text-gray-500 underline"
+  }, "Pakai gambar bawaan lagi"), /*#__PURE__*/React.createElement("label", {
+    className: "text-sm font-semibold tracking-wide uppercase text-gray-500 block mb-1 pt-2"
   }, "Kualitas File"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2"
   }, /*#__PURE__*/React.createElement("button", {
@@ -2154,16 +2278,50 @@ const MenuPageGenerator = memo(({
   }, "Untuk Layar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setQuality('print'),
     className: `p-3.5 min-h-[44px] rounded text-base font-bold ${quality === 'print' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
-  }, "Untuk Cetak")), /*#__PURE__*/React.createElement("button", {
+  }, "Untuk Cetak")), isSorotFavorit && /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 pt-2 border-t border-[#242430]"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-sm font-semibold tracking-wide uppercase text-gray-500 block"
+  }, "Pilih Tepat 3 Menu"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-500"
+  }, "Centang 3 menu, lalu tandai salah satu jadi foto besar (hero)."), menu.length === 0 && /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-yellow-500"
+  }, "Belum ada menu — tambah dulu di atas."), menu.map(item => {
+    const checked = sorotSelectedIds.includes(item.id);
+    return /*#__PURE__*/React.createElement("div", {
+      key: item.id,
+      className: "flex items-center gap-3 bg-[#0D0D12] border border-[#242430] rounded-lg p-2.5"
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      className: "w-5 h-5",
+      checked: checked,
+      onChange: () => toggleSorotSelect(item.id)
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "flex-1 text-base text-gray-300"
+    }, item.name), checked && /*#__PURE__*/React.createElement("label", {
+      className: "flex items-center gap-1.5 text-sm text-gray-400"
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "radio",
+      name: "sorotHero",
+      className: "w-4 h-4",
+      checked: sorotHeroId === item.id,
+      onChange: () => setSorotHeroId(item.id)
+    }), "Jadikan Hero"));
+  }), sorotSelectedIds.length > 0 && sorotSelectedIds.length !== 3 && /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-yellow-500"
+  }, "Terpilih ", sorotSelectedIds.length, " dari 3 — centang sampai tepat 3."), sorotSelectedIds.length === 3 && !sorotHeroId && /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-yellow-500"
+  }, "Tandai salah satu jadi Hero.")), /*#__PURE__*/React.createElement("button", {
     onClick: download,
-    className: "w-full min-h-[44px] bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-3.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold text-base"
+    disabled: isSorotFavorit && !sorotReady,
+    className: `w-full min-h-[44px] text-white p-3.5 rounded-lg transition-all font-semibold text-base ${isSorotFavorit && !sorotReady ? 'bg-gray-700 cursor-not-allowed opacity-60' : 'bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30'}`
   }, "Unduh Halaman Menu"), isTruncated && /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-yellow-500 bg-[#0A0A0D] border border-yellow-700 rounded p-2"
-  }, "⚠ Menampilkan ", displayedMenu.length, " dari ", filteredMenu.length, " menu — gaya ", MENU_STYLE_PRESETS[selectedStyle].label, " maksimal ", ITEM_CAP, " menu per halaman supaya tetap terbaca jelas. Saring kategori atau ganti gaya untuk menu lebih banyak."), /*#__PURE__*/React.createElement(MenuPageCanvas, {
+  }, "⚠ Menampilkan ", displayedMenu.length, " dari ", filteredMenu.length, " menu — gaya ", MENU_STYLE_PRESETS[selectedStyle].label, " maksimal ", ITEM_CAP, " menu per halaman supaya tetap terbaca jelas. Saring kategori atau ganti gaya untuk menu lebih banyak."), (!isSorotFavorit || sorotReady) && /*#__PURE__*/React.createElement(MenuPageCanvas, {
     ref: canvasRef,
-    backgroundImage: "",
+    backgroundImage: photoUrl,
     items: displayedMenu,
-    styleConfig: MENU_STYLE_PRESETS[selectedStyle],
+    styleConfig: effectiveStyleConfig,
     renderScale: quality === 'print' ? PRINT_SCALE : SCREEN_SCALE,
     footerToggles: footerToggles
   }));
@@ -2185,8 +2343,16 @@ const CoverGenerator = memo(() => {
   const canvasRef = useRef(null);
   const [bgUrl, setBgUrl] = useState('');
   const [diamondPhotos, setDiamondPhotos] = useState(['', '', '', '']);
+  // BARU: opsi resolusi (sama pola dengan halaman menu) — sebelumnya
+  // Cover selalu 1 resolusi tetap, tidak ada pilihan cetak resolusi tinggi.
+  const [quality, setQuality] = useState('screen');
   const loadImgLocal = src => new Promise(resolve => {
     const im = new Image();
+    // crossOrigin wajib supaya gambar dari GitHub (CDN eksternal) tidak
+    // "mencemari" kanvas — server GitHub sudah mengizinkan
+    // (Access-Control-Allow-Origin: *), tapi browser tidak memakainya
+    // otomatis kecuali diminta di sini.
+    im.crossOrigin = 'anonymous';
     im.onload = () => resolve(im);
     im.src = src;
   });
@@ -2219,16 +2385,21 @@ const CoverGenerator = memo(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
-      canvas.width = COVER_WIDTH;
-      canvas.height = COVER_HEIGHT;
+      const renderScale = quality === 'print' ? PRINT_SCALE : SCREEN_SCALE;
+      canvas.width = COVER_WIDTH * renderScale;
+      canvas.height = COVER_HEIGHT * renderScale;
+      ctx.scale(renderScale, renderScale);
       ctx.fillStyle = '#111114';
       ctx.fillRect(0, 0, COVER_WIDTH, COVER_HEIGHT);
-      if (bgUrl) {
+      // Poin A: fallback ke gambar bambu bawaan kalau user belum
+      // upload/generate sendiri.
+      const effectiveBgUrl = bgUrl || DEFAULT_MENU_BACKGROUNDS.cover;
+      if (effectiveBgUrl) {
         try {
-          const bgImg = await loadImgLocal(bgUrl);
+          const bgImg = await loadImgLocal(effectiveBgUrl);
           if (cancelled) return;
           drawCoverImage(ctx, bgImg, 0, 0, COVER_WIDTH, COVER_HEIGHT);
-          ctx.fillStyle = 'rgba(0,0,0,0.25)';
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
           ctx.fillRect(0, 0, COVER_WIDTH, COVER_HEIGHT);
         } catch (e) {}
       }
@@ -2353,7 +2524,7 @@ const CoverGenerator = memo(() => {
     return () => {
       cancelled = true;
     };
-  }, [brand, bgUrl, diamondPhotos]);
+  }, [brand, bgUrl, diamondPhotos, quality]);
   const handleDownload = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -2368,7 +2539,7 @@ const CoverGenerator = memo(() => {
     className: "text-sm text-gray-400 font-bold uppercase"
   }, "Cover Buku Menu"), /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-gray-500"
-  }, "Halaman sampul depan — untuk dijadikan cover buku menu cetak, sebelum halaman-halaman isi dari gaya di atas."), /*#__PURE__*/React.createElement("button", {
+  }, "Halaman sampul depan — untuk dijadikan cover buku menu cetak, sebelum halaman-halaman isi dari gaya di atas. Sudah ada gambar latar bawaan — tombol di bawah ini kalau mau ganti."), /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerateBgAI,
     className: "w-full min-h-[44px] bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white p-3.5 rounded-lg transition-all font-medium text-base"
   }, "Buat Gambar Latar"), /*#__PURE__*/React.createElement("label", {
@@ -2394,7 +2565,17 @@ const CoverGenerator = memo(() => {
     accept: "image/*",
     onChange: handleDiamondUpload(idx),
     className: "text-gray-400 text-sm"
-  })))), /*#__PURE__*/React.createElement("div", {
+  })))), /*#__PURE__*/React.createElement("label", {
+    className: "text-sm font-semibold tracking-wide uppercase text-gray-500 block mb-1 pt-2"
+  }, "Kualitas File"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setQuality('screen'),
+    className: `p-3.5 min-h-[44px] rounded text-base font-bold ${quality === 'screen' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, "Untuk Layar"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setQuality('print'),
+    className: `p-3.5 min-h-[44px] rounded text-base font-bold ${quality === 'print' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, "Untuk Cetak")), /*#__PURE__*/React.createElement("div", {
     className: "flex justify-center pt-2"
   }, /*#__PURE__*/React.createElement("canvas", {
     ref: canvasRef,
@@ -2420,7 +2601,7 @@ const roundRectPath = (ctx, x, y, w, h, r) => {
   ctx.closePath();
 };
 const MenuPageCanvas = forwardRef(({
-  backgroundImage,
+  backgroundImage: backgroundImageProp,
   items,
   styleConfig,
   renderScale = SCREEN_SCALE,
@@ -2430,6 +2611,11 @@ const MenuPageCanvas = forwardRef(({
     showBarcode: false
   }
 }, ref) => {
+  // Poin A: background EFEKTIF = upload/generate user kalau diisi,
+  // fallback ke gambar default bawaan per gaya kalau kosong. Semua
+  // fungsi render di bawah cukup baca `backgroundImage` seperti biasa
+  // (lewat closure) — tidak perlu diubah satu-satu.
+  const backgroundImage = backgroundImageProp || DEFAULT_MENU_BACKGROUNDS[styleConfig.layoutKey] || '';
   const canvasRef = useRef(null);
   const brand = useContext(BrandContext);
   useImperativeHandle(ref, () => canvasRef.current);
@@ -2675,6 +2861,12 @@ const MenuPageCanvas = forwardRef(({
     // pengulangan pola new Image()+onload di 3 fungsi render baru).
     const loadImg = src => new Promise(resolve => {
       const im = new Image();
+      // crossOrigin wajib supaya gambar dari GitHub (CDN eksternal) tidak
+      // "mencemari" kanvas — server GitHub sudah mengizinkan
+      // (Access-Control-Allow-Origin: *), tapi browser tidak memakainya
+      // otomatis kecuali diminta di sini. Tanpa ini, tombol Download bisa
+      // gagal begitu background dari GitHub dipakai.
+      im.crossOrigin = 'anonymous';
       im.onload = () => resolve(im);
       im.src = src;
     });
@@ -3029,15 +3221,38 @@ const MenuPageCanvas = forwardRef(({
     // (footer sekarang universal lewat drawFooter + toggle).
     // ============================================================
     const renderButcherStyleLayout = async (canvas, ctx, width, grouped, cfg) => {
+      // Helper word-wrap (poin C) — memenggal teks ke banyak baris
+      // berdasar lebar sebenarnya, supaya TIDAK terkompres/gepeng
+      // seperti risiko ctx.fillText+maxWidth bawaan canvas.
+      const wrapWords = (words, maxWidth) => {
+        const lines = [];
+        let current = '';
+        for (const w of words) {
+          const test = current ? current + ' ' + w : w;
+          if (ctx.measureText(test).width > maxWidth && current) {
+            lines.push(current);
+            current = w;
+          } else {
+            current = test;
+          }
+        }
+        if (current) lines.push(current);
+        return lines;
+      };
       const items = grouped.reduce((acc, g) => acc.concat(g.list), []).slice(0, 4);
       const headerH = await computeCompactHeaderHeight(brand);
       const bottomPad = 100;
       const availableBody = A4_HEIGHT - headerH - bottomPad;
-      const rowGap = 24;
+      // REVISI (poin B3): jarak antar 4 item diperlebar (24 → 40)
+      const rowGap = 40;
       const rowH = (availableBody - rowGap * (items.length - 1 || 0)) / Math.max(items.length, 1);
       const marginX = 50;
       const colGap = 30;
-      const colW = (width - marginX * 2 - colGap) / 2;
+      // REVISI (poin B2): kotak teks dipersempit, area foto dibuat
+      // lebih dominan — sebelumnya 50:50 kaku, sekarang 40:60.
+      const dualWidth = width - marginX * 2 - colGap;
+      const textColW = dualWidth * 0.4;
+      const photoColW = dualWidth * 0.6;
       const nameFontSize = 30,
         descFontSize = 19,
         priceFontSize = 26;
@@ -3047,8 +3262,17 @@ const MenuPageCanvas = forwardRef(({
       ctx.scale(renderScale, renderScale);
       ctx.fillStyle = cfg.pageBg;
       ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
-      // TIDAK pakai backgroundImage upload sama sekali (keputusan poin E) —
-      // halaman ini sengaja pakai warna solid cfg.pageBg saja.
+      // Poin A: background efektif (upload user atau default bawaan),
+      // overlay 60% gelap supaya teks & foto tetap jelas terbaca.
+      if (backgroundImage) {
+        try {
+          const bgImg = await loadImg(backgroundImage);
+          if (cancelled) return;
+          drawCoverImage(ctx, bgImg, 0, 0, A4_WIDTH, A4_HEIGHT);
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
+        } catch (e) {}
+      }
       await renderCompactHeader(ctx, brand);
       await document.fonts.load(`bold ${nameFontSize}px "${brand.fontBody}"`);
       await document.fonts.load(`italic bold ${nameFontSize}px "${brand.fontBody}"`);
@@ -3057,38 +3281,66 @@ const MenuPageCanvas = forwardRef(({
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const photoOnRight = i % 2 === 0; // ganjil(index genap)=teks kiri/foto kanan, gantian
-        const textX = photoOnRight ? marginX : marginX + colW + colGap;
-        const photoX = photoOnRight ? marginX + colW + colGap : marginX;
+        const textX = photoOnRight ? marginX : marginX + photoColW + colGap;
+        const photoX = photoOnRight ? marginX + textColW + colGap : marginX;
         const boxY = y,
           boxH = rowH;
 
         // Kotak teks — border tipis putih semi-transparan, sudut sangat rounded
         ctx.save();
-        roundRectPath(ctx, textX, boxY, colW, boxH, 28);
+        roundRectPath(ctx, textX, boxY, textColW, boxH, 28);
         ctx.strokeStyle = 'rgba(255,255,255,0.35)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
         ctx.restore();
-        const padIn = 34;
+        const padIn = 30;
+        const textMaxW = textColW - padIn * 2;
         let ty = boxY + padIn + nameFontSize * 0.8;
-        // Nama: kata pertama bold tegak + sisanya bold italic, 1 baris
+        // Nama: kata pertama bold tegak + sisanya bold italic — DIBUNGKUS
+        // ke banyak baris (poin C) kalau kepanjangan untuk kotak sempit ini.
         const words = item.name.split(' ');
         const firstWord = words[0] || '';
-        const restWords = words.slice(1).join(' ');
+        const restWords = words.slice(1);
+        ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
+        const firstW = ctx.measureText(firstWord).width;
+        ctx.font = `italic bold ${nameFontSize}px "${brand.fontBody}"`;
+        // Baris pertama: sisa lebar setelah kata pertama; baris berikut: lebar penuh
+        const restLine0Width = textMaxW - firstW - 8;
+        let restLines = [];
+        if (restWords.length) {
+          // Coba muat sebanyak mungkin kata di baris pertama (sisa lebar),
+          // sisanya lanjut ke baris berikut (lebar penuh).
+          let idx = 0;
+          let line0 = '';
+          while (idx < restWords.length) {
+            const test = line0 ? line0 + ' ' + restWords[idx] : restWords[idx];
+            if (ctx.measureText(test).width > restLine0Width && line0) break;
+            line0 = test;
+            idx++;
+          }
+          if (line0) restLines.push(line0);
+          if (idx < restWords.length) {
+            restLines = restLines.concat(wrapWords(restWords.slice(idx), textMaxW));
+          }
+        }
         ctx.fillStyle = cfg.textMain;
         ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
         ctx.fillText(firstWord, textX + padIn, ty);
-        const firstW = ctx.measureText(firstWord).width;
-        if (restWords) {
-          ctx.font = `italic bold ${nameFontSize}px "${brand.fontBody}"`;
-          ctx.fillText(' ' + restWords, textX + padIn + firstW, ty, colW - padIn * 2 - firstW);
+        ctx.font = `italic bold ${nameFontSize}px "${brand.fontBody}"`;
+        if (restLines[0]) ctx.fillText(' ' + restLines[0], textX + padIn + firstW, ty);
+        for (let li = 1; li < restLines.length; li++) {
+          ty += nameFontSize + 6;
+          ctx.fillText(restLines[li], textX + padIn, ty);
         }
-        ty += 14;
+        ty += 16;
         if (item.description) {
-          ty += descFontSize + 6;
-          ctx.fillStyle = cfg.textSub;
           ctx.font = `${descFontSize}px "${brand.fontBody}"`;
-          ctx.fillText(item.description, textX + padIn, ty, colW - padIn * 2);
+          const descLines = wrapWords(item.description.split(' '), textMaxW).slice(0, 2);
+          ctx.fillStyle = cfg.textSub;
+          for (const line of descLines) {
+            ty += descFontSize + 6;
+            ctx.fillText(line, textX + padIn, ty);
+          }
         }
         ty += priceFontSize + 20;
         ctx.fillStyle = brand.primaryColor;
@@ -3099,24 +3351,11 @@ const MenuPageCanvas = forwardRef(({
           drawFeaturedBadge(ctx, textX + padIn + priceW + 16, ty - priceFontSize / 2 + 2, 0.5, 'left-middle');
         }
 
-        // Kotak foto — mode CONTAIN (tidak crop), sudut rounded, ruang
-        // sisa (kalau rasio foto beda dari kotak) diisi warna pageBg.
-        // REVISI (poin 2): TANPA border/garis (border cuma di kotak
-        // teks, sesuai spek awal) — diganti shadow lembut supaya foto
-        // terasa "diletakkan", bukan "dikurung kotak".
-        ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.35)';
-        ctx.shadowBlur = 22;
-        ctx.shadowOffsetY = 8;
-        roundRectPath(ctx, photoX, boxY, colW, boxH, 28);
-        ctx.fillStyle = cfg.pageBg;
-        ctx.fill();
-        ctx.restore();
-        ctx.save();
-        roundRectPath(ctx, photoX, boxY, colW, boxH, 28);
-        ctx.clip();
-        ctx.fillStyle = cfg.pageBg;
-        ctx.fillRect(photoX, boxY, colW, boxH);
+        // Kotak foto — mode CONTAIN (tidak crop). REVISI (poin B1):
+        // shadow & sudut rounded sekarang mengikuti UKURAN FOTO YANG
+        // BENAR-BENAR TAMPIL (hasil hitung contain), bukan kotak
+        // pembungkus penuh — ruang sisa dibiarkan KOSONG menyatu ke
+        // latar halaman, tidak ada kotak/isian apa pun di situ.
         if (item.photoUrl) {
           try {
             const img = await loadImg(item.photoUrl);
@@ -3124,13 +3363,24 @@ const MenuPageCanvas = forwardRef(({
             const {
               w: iw,
               h: ih
-            } = computeContainSize(img, colW, boxH);
-            const ix = photoX + (colW - iw) / 2,
+            } = computeContainSize(img, photoColW, boxH);
+            const ix = photoX + (photoColW - iw) / 2,
               iy = boxY + (boxH - ih) / 2;
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            ctx.shadowBlur = 28;
+            ctx.shadowOffsetY = 3;
+            roundRectPath(ctx, ix, iy, iw, ih, 24);
+            ctx.fillStyle = cfg.pageBg;
+            ctx.fill();
+            ctx.restore();
+            ctx.save();
+            roundRectPath(ctx, ix, iy, iw, ih, 24);
+            ctx.clip();
             ctx.drawImage(img, ix, iy, iw, ih);
+            ctx.restore();
           } catch (e) {}
         }
-        ctx.restore();
         y += boxH + rowGap;
       }
       await drawFooter(ctx, width, brand, footerToggles);
@@ -3175,6 +3425,17 @@ const MenuPageCanvas = forwardRef(({
       ctx.scale(renderScale, renderScale);
       ctx.fillStyle = cfg.pageBg;
       ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
+      // Poin A: background efektif (upload user atau default bawaan) —
+      // overlay TERANG 55% karena pageBg gaya ini krem/terang.
+      if (backgroundImage) {
+        try {
+          const bgImg = await loadImg(backgroundImage);
+          if (cancelled) return;
+          drawCoverImage(ctx, bgImg, 0, 0, A4_WIDTH, A4_HEIGHT);
+          ctx.fillStyle = 'rgba(255,255,255,0.55)';
+          ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
+        } catch (e) {}
+      }
       await renderCompactHeader(ctx, brand);
       await document.fonts.load(`bold 26px "${brand.fontHeading}"`);
       await document.fonts.load(`bold ${nameFontSize}px "${brand.fontBody}"`);
@@ -3282,6 +3543,17 @@ const MenuPageCanvas = forwardRef(({
       ctx.scale(renderScale, renderScale);
       ctx.fillStyle = cfg.pageBg;
       ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
+      // Poin A: background efektif (upload user atau default bawaan),
+      // overlay 60% gelap.
+      if (backgroundImage) {
+        try {
+          const bgImg = await loadImg(backgroundImage);
+          if (cancelled) return;
+          drawCoverImage(ctx, bgImg, 0, 0, A4_WIDTH, A4_HEIGHT);
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
+        } catch (e) {}
+      }
       await renderCompactHeader(ctx, brand);
       await document.fonts.load(`bold 22px "${brand.fontBody}"`);
       await document.fonts.load(`19px "${brand.fontBody}"`);
@@ -3342,12 +3614,131 @@ const MenuPageCanvas = forwardRef(({
       await drawFooter(ctx, width, brand, footerToggles);
     };
 
+    // ============================================================
+    // SOROT FAVORIT (BARU, poin D) — HANYA 3 foto: 1 hero besar
+    // (dipilih user, cfg.heroId) + 2 foto kecil persegi di bawahnya.
+    // Ukuran area hero MENYESUAIKAN rasio asli foto (dihitung dari
+    // foto itu sendiri, tidak dipaksa asumsi landscape/potrait) —
+    // supaya foto apa pun orientasinya tampil maksimal, tidak
+    // terpotong, tanpa ruang kosong terbuang. Pemisah antar foto:
+    // jarak bersih + shadow (BUKAN gradien). Gradien cuma dipakai
+    // sebagai overlay di bagian bawah foto hero, alas supaya tag nama
+    // tetap terbaca.
+    // ============================================================
+    const renderSorotFavoritLayout = async (canvas, ctx, width, grouped, cfg) => {
+      const allItems = grouped.reduce((acc, g) => acc.concat(g.list), []);
+      const heroItem = allItems.find(i => i.id === cfg.heroId) || allItems[0];
+      const smallItems = allItems.filter(i => i !== heroItem).slice(0, 2);
+      const headerH = await computeCompactHeaderHeight(brand);
+      const marginX = 60;
+      const gap = 24;
+      const maxHeroW = width - marginX * 2;
+      const maxHeroH = 620;
+      const nameFontSize = 22,
+        priceFontSize = 20;
+      if (cancelled) return;
+      canvas.width = A4_WIDTH * renderScale;
+      canvas.height = A4_HEIGHT * renderScale;
+      ctx.scale(renderScale, renderScale);
+      ctx.fillStyle = cfg.pageBg;
+      ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
+      if (backgroundImage) {
+        try {
+          const bgImg = await loadImg(backgroundImage);
+          if (cancelled) return;
+          drawCoverImage(ctx, bgImg, 0, 0, A4_WIDTH, A4_HEIGHT);
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
+        } catch (e) {}
+      }
+      await renderCompactHeader(ctx, brand);
+      await document.fonts.load(`bold ${nameFontSize}px "${brand.fontBody}"`);
+      let y = headerH + 20;
+
+      // Helper: tag nama pojok kiri-bawah + badge harga pojok kanan-atas,
+      // dipakai sama untuk hero maupun 2 foto kecil.
+      const drawLabelAndPrice = (x, boxY, w, h, item) => {
+        // Gradien gelap tipis di BAWAH foto — alas supaya tag nama tetap
+        // terbaca (ini satu-satunya pemakaian gradien, BUKAN sebagai
+        // pemisah antar foto).
+        const grad = ctx.createLinearGradient(x, boxY + h * 0.6, x, boxY + h);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.65)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, boxY + h * 0.6, w, h * 0.4);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = `bold ${nameFontSize}px "${brand.fontBody}"`;
+        ctx.fillText(item.name, x + 16, boxY + h - 18, w - 32);
+        drawPriceBadge(ctx, `Rp ${item.price.toLocaleString('id-ID')}`, x + w - 60, boxY + 34, {
+          scale: 0.85,
+          shape: 'pill',
+          bg: '#FFFFFF',
+          textColor: cfg.pageBg,
+          fontSize: priceFontSize
+        });
+      };
+      const drawPhotoBox = async (x, boxY, w, h, item, radius) => {
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.35)';
+        ctx.shadowBlur = 26;
+        ctx.shadowOffsetY = 4;
+        roundRectPath(ctx, x, boxY, w, h, radius);
+        ctx.fillStyle = '#1E1E22';
+        ctx.fill();
+        ctx.restore();
+        ctx.save();
+        roundRectPath(ctx, x, boxY, w, h, radius);
+        ctx.clip();
+        if (item && item.photoUrl) {
+          try {
+            const img = await loadImg(item.photoUrl);
+            if (!cancelled) {
+              const {
+                w: iw,
+                h: ih
+              } = computeContainSize(img, w, h);
+              ctx.drawImage(img, x + (w - iw) / 2, boxY + (h - ih) / 2, iw, ih);
+            }
+          } catch (e) {}
+        }
+        if (item) drawLabelAndPrice(x, boxY, w, h, item);
+        ctx.restore();
+      };
+
+      // Hero — ukuran AREA menyesuaikan rasio asli foto (dalam batas
+      // maksimum maxHeroW x maxHeroH), bukan foto dipaksa ke kotak tetap.
+      let heroW = maxHeroW,
+        heroH = 380; // fallback kalau belum ada foto sama sekali
+      if (heroItem && heroItem.photoUrl) {
+        try {
+          const img = await loadImg(heroItem.photoUrl);
+          if (cancelled) return;
+          const size = computeContainSize(img, maxHeroW, maxHeroH);
+          heroW = size.w;
+          heroH = size.h;
+        } catch (e) {}
+      }
+      const heroX = marginX + (maxHeroW - heroW) / 2;
+      if (heroItem) await drawPhotoBox(heroX, y, heroW, heroH, heroItem, 28);
+      y += heroH + gap;
+
+      // 2 foto kecil PERSEGI berjajar di bawah hero
+      const smallSize = (maxHeroW - gap) / 2;
+      for (let i = 0; i < 2; i++) {
+        const sx = marginX + i * (smallSize + gap);
+        await drawPhotoBox(sx, y, smallSize, smallSize, smallItems[i], 22);
+      }
+      y += smallSize;
+      await drawFooter(ctx, width, brand, footerToggles);
+    };
+
     const LAYOUT_RENDERERS = {
       colorBlock: renderColorBlockLayout,
       heroGlow: renderHeroGlowLayout,
       butcherStyle: renderButcherStyleLayout,
       gridNomor: renderGridNomorLayout,
-      kolomKategori: renderKolomKategoriLayout
+      kolomKategori: renderKolomKategoriLayout,
+      sorotFavorit: renderSorotFavoritLayout
     };
     const render = async () => {
       const canvas = canvasRef.current;
