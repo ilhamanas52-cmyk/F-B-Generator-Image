@@ -5603,6 +5603,8 @@ const BannerGenerator = memo(() => {
   const brand = useContext(BrandContext);
   const settings = useContext(SettingsContext);
   const [size, setSize] = useState('3x1');
+  const [customW, setCustomW] = useState(2);
+  const [customH, setCustomH] = useState(1);
   const [purpose, setPurpose] = useState('promo');
   const [designPattern, setDesignPattern] = useState('gridRapi');
   const [fields, setFields] = useState({
@@ -5730,9 +5732,28 @@ const BannerGenerator = memo(() => {
     setVisionError('');
     if (styleRefInputRef.current) styleRefInputRef.current.value = '';
   };
+  // Ukuran Custom: hitung konfigurasi ukuran secara dinamis dari input
+  // Lebar/Tinggi (meter) — preset di BANNER_SIZES tetap tidak diubah.
+  const getEffectiveSizeCfg = (sizeKey, cw, ch) => {
+    if (sizeKey === 'custom') {
+      const w = Number(cw) > 0 ? Number(cw) : 1;
+      const h = Number(ch) > 0 ? Number(ch) : 1;
+      const maxCanvas = 1800;
+      const canvasW = w >= h ? maxCanvas : Math.round(maxCanvas * (w / h));
+      const canvasH = w >= h ? Math.round(maxCanvas * (h / w)) : maxCanvas;
+      return {
+        label: `${w} x ${h} meter (Custom)`,
+        desc: 'Ukuran custom sesuai kebutuhan Anda.',
+        ratio: `${w}:${h}`,
+        canvasW,
+        canvasH
+      };
+    }
+    return BANNER_SIZES[sizeKey];
+  };
   const buildBannerPromptData = () => {
     if (!fields.productName || !fields.productName.trim()) return null;
-    const sizeCfg = BANNER_SIZES[size];
+    const sizeCfg = getEffectiveSizeCfg(size, customW, customH);
     const purposeCfg = BANNER_PURPOSES[purpose];
     const patternCfg = BANNER_DESIGN_PATTERNS[designPattern];
     const posKey = brand.logoPosition || 'bottom-right';
@@ -5794,7 +5815,7 @@ const BannerGenerator = memo(() => {
     a.download = 'banner.png';
     a.click();
   };
-  const sizeCfg = BANNER_SIZES[size];
+  const sizeCfg = getEffectiveSizeCfg(size, customW, customH);
   const formContent = /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Ukuran Banner"), /*#__PURE__*/React.createElement("div", {
@@ -5807,7 +5828,32 @@ const BannerGenerator = memo(() => {
     className: "font-bold block"
   }, val.label), /*#__PURE__*/React.createElement("span", {
     className: "block opacity-80"
-  }, val.desc)))), /*#__PURE__*/React.createElement("label", {
+  }, val.desc)))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setSize('custom'),
+    className: `p-2.5 rounded text-left text-xs ${size === 'custom' ? 'bg-[#E8102B] text-white' : 'bg-[#222226] text-gray-400'}`
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-bold block"
+  }, "Custom"), /*#__PURE__*/React.createElement("span", {
+    className: "block opacity-80"
+  }, "Tentukan sendiri lebar & tinggi banner.")), size === 'custom' && /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] text-gray-500 block mb-1"
+  }, "Lebar (meter)"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    step: "0.1",
+    value: customW,
+    onChange: e => setCustomW(e.target.value),
+    className: "w-full p-2.5 bg-[#0D0D12] border border-[#242430] text-white rounded-lg text-sm"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] text-gray-500 block mb-1"
+  }, "Tinggi (meter)"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    step: "0.1",
+    value: customH,
+    onChange: e => setCustomH(e.target.value),
+    className: "w-full p-2.5 bg-[#0D0D12] border border-[#242430] text-white rounded-lg text-sm"
+  }))), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Tujuan Banner"), /*#__PURE__*/React.createElement("select", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
