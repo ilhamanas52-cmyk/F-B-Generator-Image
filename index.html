@@ -5957,7 +5957,7 @@ const BannerGenerator = memo(() => {
     value: key
   }, val.label))), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
-  }, "Pola Desain"), /*#__PURE__*/React.createElement("div", {
+  }, "Pola Desain (Pilih desain Anda)"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2"
   }, Object.entries(BANNER_DESIGN_PATTERNS).map(([key, val]) => /*#__PURE__*/React.createElement("button", {
     key: key,
@@ -5967,12 +5967,21 @@ const BannerGenerator = memo(() => {
   }, /*#__PURE__*/React.createElement("img", {
     src: BANNER_PATTERN_THUMBS[key],
     alt: val.label,
-    className: "w-full h-14 object-cover block"
+    style: {
+      aspectRatio: '3 / 1'
+    },
+    className: "w-full object-cover block"
   }), /*#__PURE__*/React.createElement("span", {
     className: `block text-center text-[11px] font-semibold py-1 ${designPattern === key ? 'text-[#E8102B]' : 'text-gray-400'}`
-  }, val.label)))), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-gray-400 font-bold uppercase pt-2 border-t border-[#222226]"
-  }, "2. Info Utama"), /*#__PURE__*/React.createElement("label", {
+  }, val.label)))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between pt-2 border-t border-[#222226]"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400 font-bold uppercase"
+  }, "2. Info Utama"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: fillExample,
+    className: "text-[11px] text-blue-400 hover:text-blue-300 underline"
+  }, "Isi Contoh")), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Nama Produk / Judul Utama ", /*#__PURE__*/React.createElement("span", {
     className: "text-red-500"
@@ -6188,11 +6197,7 @@ const BannerGenerator = memo(() => {
     className: "flex items-center justify-between"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-400 font-bold uppercase"
-  }, "Banner Cetak"), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: fillExample,
-    className: "text-[11px] text-blue-400 hover:text-blue-300 underline"
-  }, "Isi Contoh")), formContent), pasteNotice && /*#__PURE__*/React.createElement("div", {
+  }, "Banner Cetak")), formContent), pasteNotice && /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4",
     onClick: () => setPasteNotice('')
   }, /*#__PURE__*/React.createElement("div", {
