@@ -632,7 +632,7 @@ const BANNER_DESIGN_PATTERNS = {
   },
   minimalis: {
     label: 'Minimalis',
-    styleHint: 'kerangka MINIMALIS EKSTREM — latar belakang WAJIB polos satu warna solid tanpa tekstur/gradasi/efek diagonal/pola apa pun, DILARANG KERAS memakai ribbon, pita sobekan, badge, garis aksen, atau bentuk dekoratif apa pun, HANYA gunakan 1 foto produk berukuran sedang tanpa bingkai/efek/rotasi, teks dibatasi maksimal headline + 1 baris info kontak saja dengan tipografi bersih tanpa hiasan, WAJIB sisakan minimal 40% dari total bidang gambar sebagai ruang kosong bersih, ikon (kalau ada) HARUS garis tipis satu warna saja — bukan ikon berwarna-warni'
+    styleHint: 'kerangka MINIMALIS EKSTREM dengan TATA LETAK BERZONA — bagi bidang gambar jadi 2 zona utama sejajar: (1) satu zona berisi foto produk ukuran SEDANG saja (bukan besar), tanpa bingkai/efek/rotasi; (2) zona satunya berisi blok teks (nama usaha, headline, sub-headline, CTA) tersusun rapi menurun ukurannya dari atas ke bawah, TIDAK ADA satu pun yang berukuran besar/raksasa/mendominasi. SISA BIDANG (kira-kira 40% dari total luas, di luar 2 zona itu) WAJIB warna latar solid polos saja — TIDAK ADA foto/teks/dekorasi apa pun di situ, ini AREA KOSONG NYATA yang harus terlihat jelas, bukan sekadar jarak antar elemen. DILARANG KERAS ribbon, pita sobekan, badge, garis aksen, atau bentuk dekoratif apa pun. Ikon (kalau ada) HARUS garis tipis satu warna saja — bukan ikon berwarna-warni'
   },
   kolaseDinamis: {
     label: 'Kolase Dinamis',
@@ -5618,6 +5618,9 @@ const BannerGenerator = memo(() => {
     jamBuka: ''
   });
   const [negativePrompt, setNegativePrompt] = useState('');
+  const [showTextSection, setShowTextSection] = useState(true);
+  const [showContactSection, setShowContactSection] = useState(false);
+  const [hasGenerated, setHasGenerated] = useState(false);
   const [genError, setGenError] = useState('');
   const [pasteNotice, setPasteNotice] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
@@ -5759,19 +5762,22 @@ const BannerGenerator = memo(() => {
     const posKey = brand.logoPosition || 'bottom-right';
     const posPhrase = LOGO_POSITIONS[posKey].promptPhrase;
     const textParts = [];
-    if (fields.headline) textParts.push(`Headline: "${fields.headline}" (paling besar & menonjol)`);
-    if (fields.subheadline) textParts.push(`Sub-headline: "${fields.subheadline}"`);
-    if (fields.cta) textParts.push(`CTA: "${fields.cta}"`);
-    if (fields.badge) textParts.push(`Badge: "${fields.badge}"`);
+    textParts.push(`Nama usaha "${fields.productName.trim()}" WAJIB ditampilkan sebagai teks di banner (pastikan ejaan persis, jangan sampai tidak muncul sama sekali)`);
+    if (fields.headline) textParts.push(`Kalimat Promosi Utama: "${fields.headline}" (paling besar & menonjol)`);
+    if (fields.subheadline) textParts.push(`Kalimat Promosi Detil: "${fields.subheadline}"`);
+    if (fields.cta) textParts.push(`Ajakan Bertindak: "${fields.cta}"`);
+    if (fields.badge) textParts.push(`Label/Stiker: "${fields.badge}"`);
     if (fields.alamat) textParts.push(`Alamat: "${fields.alamat}"`);
     if (fields.telepon) textParts.push(`No. Telepon/WhatsApp: "${fields.telepon}"`);
     if (fields.jamBuka) textParts.push(`Jam Buka: "${fields.jamBuka}"`);
-    const textInstruction = textParts.length > 0 ? `. Sertakan teks berikut, pastikan ejaan persis: ${textParts.join(', ')}` : '';
+    const textInstruction = textParts.length > 0 ? `. Sertakan teks berikut, SALIN PERSIS tanpa mengarang atau mengubah datanya sedikit pun: ${textParts.join(', ')}` : '';
     const logoSpaceInstruction = `. WAJIB sisakan area kosong di ${posPhrase} gambar untuk logo brand (ditempel terpisah) — area ini TIDAK BOLEH berupa kotak, blok, atau bidang berwarna/berkontras terpisah dari latar (misal kotak putih polos); area itu HARUS tetap menyatu mengikuti warna, gradasi, atau tekstur latar belakang di sekitarnya, dan sepi dari teks/ikon/garis/dekorasi apa pun`;
     const styleRefHint = styleRefDesc ? `. Foto produk asli sebagai acuan BENTUK dan IDENTITAS PASTI produk (WAJIB dipertahankan sama persis, jangan diubah jenis/bentuknya): ${styleRefDesc}. Namun maksimalkan kualitas presentasinya seperti hasil retouch fotografi profesional — pencahayaan dibuat lebih dramatis/menggugah selera, tata letak/komposisi dirapikan sesuai kerangka Pola Desain yang dipilih, dan mood warna dipertajam` : '';
     const negativeClause = negativePrompt.trim() ? `. Hindari: ${negativePrompt.trim()}` : '';
-    const bannerColorLock = ` Palet warna WAJIB sesuai brand — ${brand.primaryColor} untuk aksen tegas, ${brand.secondaryColor} untuk kontras kuat, gunakan PERSIS kode HEX ini (bukan pendekatan warna lain), kecuali ada Foto Produk Asli yang secara eksplisit menyebutkan warna berbeda.`;
-    const full = `${SHAPE_AUTHENTICITY_GUARD} Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}, nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}${textInstruction}${logoSpaceInstruction}${styleRefHint}. ${BANNER_DESIGN_GUIDELINE}${negativeClause}${bannerColorLock} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
+    const bannerColorLock = ` WARNA BUKAN OPSIONAL — latar/aksen banner WAJIB pakai warna solid ${brand.primaryColor} dan ${brand.secondaryColor} PERSIS kode HEX ini, JANGAN diganti palet warna "estetis" pilihan AI sendiri, kecuali ada Foto Produk Asli yang secara eksplisit menyebutkan warna berbeda.`;
+    const patternPriorityClause = ` PENTING — ATURAN UTAMA: kerangka Pola Desain di atas WAJIB dimenangkan kalau bertentangan dengan gaya Tujuan Banner atau instruksi lain di prompt ini.`;
+    const minimalisOverride = designPattern === 'minimalis' ? ` Untuk banner MINIMALIS ini, ABAIKAN kaidah "tulisan harus besar dan kontras tinggi dari jarak jauh" di atas — prioritaskan tipografi tenang, proporsional, banyak ruang napas, JANGAN membuat teks jadi elemen paling dominan di gambar.` : '';
+    const full = `${SHAPE_AUTHENTICITY_GUARD} Buatkan banner promosi ukuran ${sizeCfg.label} (rasio ${sizeCfg.ratio}) untuk: ${fields.productName.trim()}, ${purposeCfg.styleHint}, ${patternCfg.styleHint}.${patternPriorityClause} nuansa warna ${brand.primaryColor} dan ${brand.secondaryColor}, gaya sesuai brand ${brand.name}${textInstruction}${logoSpaceInstruction}${styleRefHint}. ${BANNER_DESIGN_GUIDELINE}${minimalisOverride}${negativeClause}${bannerColorLock} ${NO_UNSOLICITED_TEXT_CLAUSE}`;
     return {
       productSubject: fields.productName.trim(),
       sizeLabel: sizeCfg.label,
@@ -5803,6 +5809,7 @@ const BannerGenerator = memo(() => {
       const url = 'https://chatgpt.com/';
       window.open(url, '_blank');
       setLastGenUrl(url);
+      setHasGenerated(true);
       setPasteNotice('Prompt banner sudah disalin ke clipboard. Tab ChatGPT kosong akan terbuka \u2014 tinggal paste (Ctrl+V) lalu kirim.');
     } catch (e) {
       setGenError('Gagal menyalin prompt ke clipboard. Coba lagi, atau salin manual dari kotak Preview Prompt di atas.');
@@ -5816,7 +5823,25 @@ const BannerGenerator = memo(() => {
     a.click();
   };
   const sizeCfg = getEffectiveSizeCfg(size, customW, customH);
-  const formContent = /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
+  const genStep = photoUrl ? 3 : hasGenerated ? 2 : 1;
+  const genStepText = genStep === 1 ? 'Isi data di bawah, lalu klik tombol generate.' : genStep === 2 ? 'Sedang menunggu hasil dari ChatGPT\u2026 setelah gambar jadi, download dari ChatGPT lalu upload di bawah.' : 'Hasil sudah masuk \u2014 cek preview di bawah lalu download.';
+  const formContent = /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between text-[10px] font-semibold bg-[#0A0A0D] border border-[#242430] rounded-lg p-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: genStep >= 1 ? "text-[#E8102B]" : "text-gray-600"
+  }, "\u2460 Isi Data"), /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-600"
+  }, "\u2192"), /*#__PURE__*/React.createElement("span", {
+    className: genStep >= 2 ? "text-[#E8102B]" : "text-gray-600"
+  }, "\u2461 Generate di ChatGPT"), /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-600"
+  }, "\u2192"), /*#__PURE__*/React.createElement("span", {
+    className: genStep >= 3 ? "text-[#E8102B]" : "text-gray-600"
+  }, "\u2462 Upload Hasil")), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-gray-500 italic"
+  }, genStepText), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400 font-bold uppercase"
+  }, "1. Tampilan Banner"), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Ukuran Banner"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-1 gap-2"
@@ -5871,7 +5896,9 @@ const BannerGenerator = memo(() => {
   }, Object.entries(BANNER_DESIGN_PATTERNS).map(([key, val]) => /*#__PURE__*/React.createElement("option", {
     key: key,
     value: key
-  }, val.label))), /*#__PURE__*/React.createElement("label", {
+  }, val.label))), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400 font-bold uppercase pt-2 border-t border-[#222226]"
+  }, "2. Info Utama"), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Nama Produk / Judul Utama ", /*#__PURE__*/React.createElement("span", {
     className: "text-red-500"
@@ -5880,35 +5907,45 @@ const BannerGenerator = memo(() => {
     placeholder: "Contoh: Warung Sate Pak Budi",
     value: fields.productName,
     onChange: e => updateField('productName', e.target.value)
-  }), /*#__PURE__*/React.createElement("label", {
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => setShowTextSection(v => !v),
+    className: "text-xs text-gray-400 font-bold uppercase pt-2 border-t border-[#222226] w-full text-left"
+  }, showTextSection ? '\u25BE' : '\u25B8', " 3. Teks di Banner (opsional)"), showTextSection && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
-  }, "Headline (opsional)"), /*#__PURE__*/React.createElement("input", {
+  }, "Kalimat Promosi Utama (opsional)"), /*#__PURE__*/React.createElement("input", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
     placeholder: "Contoh: Diskon 20% Hari Ini!",
     value: fields.headline,
     onChange: e => updateField('headline', e.target.value)
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
-  }, "Sub-Headline (opsional)"), /*#__PURE__*/React.createElement("input", {
+  }, "Kalimat Promosi Detil (opsional)"), /*#__PURE__*/React.createElement("input", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
     placeholder: "Contoh: Khusus akhir pekan",
     value: fields.subheadline,
     onChange: e => updateField('subheadline', e.target.value)
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
-  }, "CTA (opsional)"), /*#__PURE__*/React.createElement("input", {
+  }, "Ajakan Bertindak (opsional)"), /*#__PURE__*/React.createElement("input", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
     placeholder: "Contoh: Kunjungi Sekarang",
     value: fields.cta,
     onChange: e => updateField('cta', e.target.value)
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
-  }, "Badge (opsional)"), /*#__PURE__*/React.createElement("input", {
+  }, "Label / Stiker (opsional)"), /*#__PURE__*/React.createElement("input", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
     placeholder: "Contoh: BARU BUKA",
     value: fields.badge,
     onChange: e => updateField('badge', e.target.value)
-  }), /*#__PURE__*/React.createElement("label", {
+  }), designPattern === 'minimalis' && (fields.badge.trim() || [fields.alamat, fields.telepon, fields.jamBuka].filter(v => v.trim()).length > 1) && /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-amber-500 bg-[#0A0A0D] border border-amber-500/40 rounded p-2 leading-relaxed"
+  }, "\u26A0 Pola Minimalis membatasi elemen \u2014 Label/Stiker dan sebagian info kontak kemungkinan tidak akan muncul di hasil AI, supaya tetap sesuai konsep minimalis.")), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => setShowContactSection(v => !v),
+    className: "text-xs text-gray-400 font-bold uppercase pt-2 border-t border-[#222226] w-full text-left"
+  }, showContactSection ? '\u25BE' : '\u25B8', " 4. Kontak & Lainnya (opsional)"), showContactSection && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
   }, "Alamat (opsional)"), /*#__PURE__*/React.createElement("input", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg",
@@ -5931,7 +5968,7 @@ const BannerGenerator = memo(() => {
     onChange: e => updateField('jamBuka', e.target.value)
   }), /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block mb-1"
-  }, "Hindari (opsional)"), /*#__PURE__*/React.createElement("textarea", {
+  }, "Yang TIDAK boleh ada di banner (opsional)"), /*#__PURE__*/React.createElement("textarea", {
     className: "w-full p-3 bg-[#0D0D12] border border-[#242430] text-white rounded-lg text-sm",
     rows: 2,
     placeholder: "Contoh: jangan ada foto orang, jangan pakai warna hijau",
@@ -5941,16 +5978,16 @@ const BannerGenerator = memo(() => {
     className: "space-y-1 border border-[#242430] rounded-lg p-3 bg-[#0A0A0D]"
   }, /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block"
-  }, "Foto Produk Asli (Vision AI, opsional)"), /*#__PURE__*/React.createElement("p", {
+  }, "Foto Produk Asli (opsional)"), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-gray-500"
-  }, "Upload foto produk asli \u2014 otomatis dianalisis untuk menjaga bentuk & identitas produk tetap akurat, sambil pencahayaan/tata letak/mood warna dimaksimalkan oleh AI."), /*#__PURE__*/React.createElement("input", {
+  }, "Upload foto asli produk Anda \u2014 biar bentuknya tetap akurat saat dibuatkan banner, sekaligus tampilannya dipercantik."), /*#__PURE__*/React.createElement("input", {
     type: "file",
     ref: styleRefInputRef,
     onChange: handleStyleRefPhoto,
     className: "text-gray-400 text-sm"
   }), !settings.geminiApiKey && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500"
-  }, "Simpan API key Gemini dulu di tab Brand supaya foto ini otomatis dianalisis."), analyzingStyleRef && /*#__PURE__*/React.createElement("p", {
+  }, "Aktifkan dulu fitur AI Foto di tab Brand (gratis) supaya foto ini bisa dianalisis otomatis."), analyzingStyleRef && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-purple-400 italic"
   }, "Menganalisis foto\u2026"), visionError && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-red-500"
@@ -5962,11 +5999,11 @@ const BannerGenerator = memo(() => {
     type: "button",
     onClick: clearStyleRefPhoto,
     className: "text-[11px] text-red-400 hover:text-red-300 underline"
-  }, "Hapus Foto Acuan"))), /*#__PURE__*/React.createElement("div", {
+  }, "Hapus Foto Acuan")))), /*#__PURE__*/React.createElement("div", {
     className: "space-y-1 border border-[#242430] rounded-lg p-3 bg-[#0A0A0D]"
   }, /*#__PURE__*/React.createElement("label", {
     className: "text-[11px] font-semibold tracking-wide uppercase text-gray-500 block"
-  }, "Preview Prompt"), !promptData ? /*#__PURE__*/React.createElement("p", {
+  }, "Ringkasan Banner Anda"), !promptData ? /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-600 italic"
   }, "Isi Nama Produk / Judul Utama untuk melihat preview.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
     className: "text-sm"
@@ -5996,9 +6033,7 @@ const BannerGenerator = memo(() => {
     className: "text-gray-300"
   }, promptData.textParts.join('; '))))), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-amber-500 bg-[#0A0A0D] border border-amber-500/40 rounded p-2 leading-relaxed"
-  }, "\u26A0 Foto latar dari AI resolusinya terbatas \u2014 untuk hasil cetak terbaik, tanyakan dulu ke percetakan Anda apakah mereka sanggup memperbesar foto ini dengan baik (sebagian percetakan biasanya punya software khusus untuk memperbesar resolusi hingga layak cetak, tapi tidak semua \u2014 pastikan dulu sebelum cetak dalam jumlah banyak/ukuran besar)."), /*#__PURE__*/React.createElement("p", {
-    className: "text-[11px] text-amber-500 bg-[#0A0A0D] border border-amber-500/40 rounded p-2 leading-relaxed"
-  }, "\uD83D\uDCDE Sebelum cetak dalam jumlah banyak atau ukuran besar, WAJIB koordinasi dulu dengan pihak percetakan \u2014 tanyakan apakah mereka sanggup memproses file ini dengan hasil tajam, supaya kualitas cetak akhir aman dan tidak sia-sia biaya cetak."), /*#__PURE__*/React.createElement("div", {
+  }, "\u26A0 Foto dari AI resolusinya terbatas. Sebelum cetak (apalagi jumlah banyak/ukuran besar), tanyakan dulu ke percetakan Anda apakah mereka bisa memperbesar & mencetaknya dengan hasil tajam \u2014 supaya biaya cetak tidak sia-sia."), /*#__PURE__*/React.createElement("div", {
     className: "relative"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: handleGenerate,
@@ -6019,7 +6054,16 @@ const BannerGenerator = memo(() => {
     type: "file",
     onChange: handlePhoto,
     className: "text-gray-400 text-sm"
-  }), /*#__PURE__*/React.createElement("a", {
+  }), /*#__PURE__*/React.createElement(CompositionCanvas, {
+    ref: canvasRef,
+    productImage: photoUrl,
+    width: sizeCfg.canvasW,
+    height: sizeCfg.canvasH,
+    useGeometricScale: true
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: download,
+    className: "w-full bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold text-sm"
+  }, "Download banner+logo"), /*#__PURE__*/React.createElement("a", {
     href: "https://bigjpg.com",
     target: "_blank",
     rel: "noopener noreferrer",
@@ -6043,16 +6087,7 @@ const BannerGenerator = memo(() => {
     d: "M16 21h3a2 2 0 0 0 2-2v-3"
   })), "Perbesar Resolusi (bigjpg.com)"), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-gray-500 leading-relaxed"
-  }, "Gunakan tombol ini SEBELUM dicetak kalau foto banner terasa kurang tajam/pecah saat diperbesar \u2014 bigjpg.com memperbesar resolusi gambar dengan AI secara gratis, dan Ketentuan Layanan mereka menyatakan pengguna tetap memegang penuh hak atas gambar yang diupload, jadi aman dipakai untuk hasil cetak komersial."), /*#__PURE__*/React.createElement(CompositionCanvas, {
-    ref: canvasRef,
-    productImage: photoUrl,
-    width: sizeCfg.canvasW,
-    height: sizeCfg.canvasH,
-    useGeometricScale: true
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: download,
-    className: "w-full bg-gradient-to-r from-[#E8102B] to-[#C40E24] hover:from-[#FF3355] hover:to-[#E8102B] text-white p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-[#E8102B]/30 font-semibold text-sm"
-  }, "Download Banner Final"));
+  }, "Gunakan tombol ini SEBELUM dicetak kalau foto banner terasa kurang tajam/pecah saat diperbesar \u2014 bigjpg.com memperbesar resolusi gambar dengan AI secara gratis, dan Ketentuan Layanan mereka menyatakan pengguna tetap memegang penuh hak atas gambar yang diupload, jadi aman dipakai untuk hasil cetak komersial."));
   return /*#__PURE__*/React.createElement("div", {
     className: "hud-panel bg-gradient-to-b from-[#16161d] to-[#0e0e12] border border-[#20202a] shadow-2xl shadow-black/40 rounded-2xl p-6 shadow-xl max-w-lg mx-auto space-y-4"
   }, /*#__PURE__*/React.createElement("div", {
